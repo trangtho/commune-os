@@ -1,0 +1,35 @@
+<!--
+SPDX-FileCopyrightText: 2026 CommuneOS Contributors
+SPDX-License-Identifier: Apache-2.0
+-->
+
+# Thành phần bên thứ ba
+
+CommuneOS không đính kèm mã nguồn của dự án khác trong kho này. Mọi thành
+phần dưới đây được lấy qua ảnh container chính thức hoặc trình quản lý gói,
+có ghim phiên bản, và **không bị chỉnh sửa mã nguồn**; việc tùy biến chỉ thực
+hiện bằng tệp cấu hình.
+
+Quy tắc: thêm một dòng vào bảng trong cùng pull request đưa thành phần mới
+vào dự án. Trước khi thêm, mở tệp LICENSE của dự án đó để xác nhận giấy phép
+thuộc danh sách OSI (https://opensource.org/licenses).
+
+## Dịch vụ (ảnh container)
+
+| Thành phần | Phiên bản | Giấy phép | Nguồn | Dùng để |
+| --- | --- | --- | --- | --- |
+| PostgreSQL | 17 | PostgreSQL License | Ảnh chính thức `postgres` | Cơ sở dữ liệu |
+
+## Thư viện (trình quản lý gói)
+
+| Thư viện | Phiên bản | Giấy phép | Nơi dùng |
+| --- | --- | --- | --- |
+| | | | |
+
+## Mô hình AI
+
+Trọng số mô hình không nằm trong kho mã; chúng được tải về khi cài đặt.
+
+| Mô hình | Giấy phép | Dùng để |
+| --- | --- | --- |
+| | | |

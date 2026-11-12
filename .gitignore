@@ -147,3 +147,15 @@ vite.config.ts.timestamp-*
 
 # Turbo Repo
 .turbo
+# Chép các dòng dưới đây vào cuối tệp .gitignore mà GitHub đã tạo.
+
+# Cấu hình cục bộ, không đưa lên kho mã
+.env
+
+# Python
+__pycache__/
+.venv/
+
+# Dữ liệu và mô hình tải về khi chạy
+data/
+models/

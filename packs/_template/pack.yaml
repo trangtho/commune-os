@@ -1,0 +1,18 @@
+# SPDX-FileCopyrightText: 2026 CommuneOS Contributors
+# SPDX-License-Identifier: Apache-2.0
+#
+# Mẫu gói thủ tục. Sao cả thư mục _template thành packs/<ma-thu-tuc>/ rồi sửa.
+# Các giá trị dưới đây là ví dụ; đối chiếu quy định hiện hành trước khi dùng.
+
+code: ma-thu-tuc            # chữ thường, không dấu, nối bằng gạch ngang
+name: Tên thủ tục
+version: 1.0.0
+sla_hours: 8                # hạn xử lý tính bằng giờ làm việc
+channels: [counter]         # thêm "online" nếu nhận hồ sơ trực tuyến
+required_documents:
+  - code: to-khai
+    name: Tờ khai
+roles:
+  receive: receptionist
+  review: officer
+  sign: leader
