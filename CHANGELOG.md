@@ -19,10 +19,13 @@ Mọi thay đổi đáng chú ý của dự án được ghi tại đây.
 - Khung kho mã: giấy phép Apache-2.0, README, tài liệu đóng góp.
 - Cấu trúc thư mục `core/`, `apps/`, `packs/`, `docs/`.
 - Tệp `.env.example` và `Makefile`.
-
 - Cửa ngõ API Apache APISIX 3.20.0 chạy ở chế độ đọc cấu hình từ tệp, không cần etcd.
 - Cửa ngõ kiểm chữ ký và nơi cấp của JWT do Keycloak phát hành trên tuyến `/api/*`.
 - Biến `KEYCLOAK_PUBLIC_URL` và `GATEWAY_PORT` trong `.env`.
+
+### Sửa lỗi
+
+- Bỏ khóa ký token khỏi tệp realm; mỗi nơi cài đặt tự sinh khóa riêng khi khởi động lần đầu.
 <!--
 Mẫu cho mỗi bản phát hành:
 
