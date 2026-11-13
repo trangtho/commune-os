@@ -28,12 +28,21 @@ Giấy phép của các thành phần bên thứ ba được liệt kê trong
 
 ## Kiến trúc
 
+<<<<<<< HEAD
 | Tầng | Thư mục | Nội dung |
 | --- | --- | --- |
 | Tầng 1 - Lõi headless | `core/` | Cửa ngõ API, định danh, dữ liệu, quy trình, sổ cái, AI, bảng quản trị |
 | Tầng 2 - Ứng dụng | `apps/commune/` | Ứng dụng xã cho cán bộ, lãnh đạo, cấp trên |
 | Tầng 2 - Ứng dụng | `apps/citizen/` | Kênh nộp hồ sơ trực tuyến cho người dân |
 | Cấu hình | `packs/` | Gói thủ tục: BPMN, biểu mẫu, bảng kiểm giấy tờ, wiki |
+=======
+| Tầng                  | Thư mục         | Nội dung                                                              |
+| --------------------- | --------------- | --------------------------------------------------------------------- |
+| Tầng 1 - Lõi headless | `core/`         | Cửa ngõ API, định danh, dữ liệu, quy trình, sổ cái, AI, bảng quản trị |
+| Tầng 2 - Ứng dụng     | `apps/commune/` | Ứng dụng xã cho cán bộ, lãnh đạo, cấp trên                            |
+| Tầng 2 - Ứng dụng     | `apps/citizen/` | Kênh nộp hồ sơ trực tuyến cho người dân                               |
+| Cấu hình              | `packs/`        | Gói thủ tục: BPMN, biểu mẫu, bảng kiểm giấy tờ, wiki                  |
+>>>>>>> origin/feat/citizen-portal-responsive-realtime
 
 Lõi không cấp giao diện cho người dùng cuối; nó chỉ có bảng quản trị cho quản
 trị viên hệ thống. Ứng dụng ở Tầng 2 chỉ gọi lõi qua cửa ngõ API.
@@ -63,6 +72,20 @@ Mọi cấu hình nằm trong tệp `.env`; không cần sửa tệp mã nguồn
 
 Xem chú thích từng biến trong [.env.example](.env.example).
 
+<<<<<<< HEAD
+=======
+## Tài khoản thử
+
+Các tài khoản dưới đây là dữ liệu giả lập, chỉ dùng trên máy phát triển.
+
+| Tên đăng nhập | Mật khẩu | Xã (`tenant_id`) | Vai          |
+| ------------- | -------- | ---------------- | ------------ |
+| `canbo.xa-a`  | `12345`  | `xa-a`           | receptionist |
+| `canbo.xa-b`  | `12345`  | `xa-b`           | receptionist |
+
+Trang quản trị Keycloak: http://localhost:8080 (tài khoản quản trị lấy từ tệp `.env`).
+
+>>>>>>> origin/feat/citizen-portal-responsive-realtime
 ## Mở rộng
 
 - Thêm thủ tục mới: sao `packs/_template/`, sửa rồi nạp qua bảng quản trị.
@@ -79,6 +102,7 @@ Hướng dẫn chi tiết trong [docs/](docs/).
 ## Đội phát triển
 
 Danh sách người đóng góp: [Contributors](https://github.com/trangtho/commune-os/graphs/contributors).
+<<<<<<< HEAD
 
 ## Kênh Công dân – giao diện & PostgreSQL mô phỏng
 
@@ -137,3 +161,5 @@ Không xóa Docker volume có dữ liệu cần giữ. Chi tiết: `docs/CITIZEN
 ### Tự động cập nhật dữ liệu trên kênh Công dân
 
 Kênh Công dân hỗ trợ đồng bộ không cần tải lại trang bằng PostgreSQL `LISTEN/NOTIFY` → Nuxt SSE → Vue `refreshNuxtData`. Trên database volume cũ, chạy `make repair-db` **một lần** để cài các trigger, sau đó truy cập như bình thường. Nếu SSE bị gián đoạn, trình duyệt tự đối soát dữ liệu bằng gọi API định kỳ. Hướng dẫn kiểm tra và giới hạn demo: [docs/REALTIME_CITIZEN.md](docs/REALTIME_CITIZEN.md).
+=======
+>>>>>>> origin/feat/citizen-portal-responsive-realtime
