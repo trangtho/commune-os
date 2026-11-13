@@ -13,6 +13,9 @@ Mọi thay đổi đáng chú ý của dự án được ghi tại đây.
 
 ### Thêm mới
 
+- Dịch vụ định danh Keycloak 26.8.2, dùng database riêng trên cùng máy chủ PostgreSQL.
+- Realm `communeos` nạp tự động khi khởi động, gồm 5 vai người dùng và claim `tenant_id` trong JWT.
+- Hai tài khoản thử thuộc hai xã mẫu.
 - Khung kho mã: giấy phép Apache-2.0, README, tài liệu đóng góp.
 - Cấu trúc thư mục `core/`, `apps/`, `packs/`, `docs/`.
 - Tệp `.env.example` và `Makefile`.
