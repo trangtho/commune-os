@@ -28,12 +28,12 @@ Giấy phép của các thành phần bên thứ ba được liệt kê trong
 
 ## Kiến trúc
 
-| Tầng | Thư mục | Nội dung |
-| --- | --- | --- |
-| Tầng 1 - Lõi headless | `core/` | Cửa ngõ API, định danh, dữ liệu, quy trình, sổ cái, AI, bảng quản trị |
-| Tầng 2 - Ứng dụng | `apps/commune/` | Ứng dụng xã cho cán bộ, lãnh đạo, cấp trên |
-| Tầng 2 - Ứng dụng | `apps/citizen/` | Kênh nộp hồ sơ trực tuyến cho người dân |
-| Cấu hình | `packs/` | Gói thủ tục: BPMN, biểu mẫu, bảng kiểm giấy tờ, wiki |
+| Tầng                  | Thư mục         | Nội dung                                                              |
+| --------------------- | --------------- | --------------------------------------------------------------------- |
+| Tầng 1 - Lõi headless | `core/`         | Cửa ngõ API, định danh, dữ liệu, quy trình, sổ cái, AI, bảng quản trị |
+| Tầng 2 - Ứng dụng     | `apps/commune/` | Ứng dụng xã cho cán bộ, lãnh đạo, cấp trên                            |
+| Tầng 2 - Ứng dụng     | `apps/citizen/` | Kênh nộp hồ sơ trực tuyến cho người dân                               |
+| Cấu hình              | `packs/`        | Gói thủ tục: BPMN, biểu mẫu, bảng kiểm giấy tờ, wiki                  |
 
 Lõi không cấp giao diện cho người dùng cuối; nó chỉ có bảng quản trị cho quản
 trị viên hệ thống. Ứng dụng ở Tầng 2 chỉ gọi lõi qua cửa ngõ API.
@@ -62,6 +62,17 @@ Mọi cấu hình nằm trong tệp `.env`; không cần sửa tệp mã nguồn
 ## Cấu hình
 
 Xem chú thích từng biến trong [.env.example](.env.example).
+
+## Tài khoản thử
+
+Các tài khoản dưới đây là dữ liệu giả lập, chỉ dùng trên máy phát triển.
+
+| Tên đăng nhập | Mật khẩu | Xã (`tenant_id`) | Vai          |
+| ------------- | -------- | ---------------- | ------------ |
+| `canbo.xa-a`  | `12345`  | `xa-a`           | receptionist |
+| `canbo.xa-b`  | `12345`  | `xa-b`           | receptionist |
+
+Trang quản trị Keycloak: http://localhost:8080 (tài khoản quản trị lấy từ tệp `.env`).
 
 ## Mở rộng
 
