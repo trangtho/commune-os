@@ -13,3 +13,15 @@ __pycache__/
 backups/
 .DS_Store
 coverage/
+
+# Python virtual environment
+.venv/
+
+# Frontend build and TypeScript cache
+dist/
+*.tsbuildinfo
+.vite/
+
+# Package manager caches
+.npm/
+.pnpm-store/
