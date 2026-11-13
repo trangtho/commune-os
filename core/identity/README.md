@@ -5,9 +5,8 @@ SPDX-License-Identifier: Apache-2.0
 
 # core/identity
 
-<<<<<<< HEAD
 Realm Keycloak xuất JSON và nhà cung cấp eID mô phỏng.
-=======
+
 Dịch vụ định danh của lõi, dùng Keycloak.
 
 - Realm `communeos` nằm trong `realm/communeos-realm.json` và được nạp tự động
@@ -29,4 +28,3 @@ docker compose up -d identity
 
 Realm chỉ được nạp khi chưa tồn tại. Để nạp lại từ tệp, xóa dữ liệu bằng
 `docker compose down -v` rồi `make up`.
->>>>>>> origin/feat/citizen-portal-responsive-realtime

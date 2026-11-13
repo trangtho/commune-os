@@ -1,6 +1,5 @@
 # SPDX-FileCopyrightText: 2026 CommuneOS Contributors
 # SPDX-License-Identifier: Apache-2.0
-<<<<<<< HEAD
 COMPOSE ?= docker compose
 .DEFAULT_GOAL := help
 .PHONY: help up down logs ps seed test citizen-dev reset-demo rls-test repair-db doctor
@@ -44,34 +43,3 @@ doctor: .env ## Xem tình trạng kết nối, role, bảng và số lượng th
 	@$(COMPOSE) ps
 	@$(COMPOSE) exec -T db sh -c 'psql -v ON_ERROR_STOP=1 -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"' < core/db/tests/diagnose.sql
 	@echo 'API health: curl -i http://localhost:3000/api/health'
-=======
-
-COMPOSE ?= docker compose
-
-.DEFAULT_GOAL := help
-.PHONY: help up down logs ps seed test
-
-help: ## Liệt kê các lệnh
-	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*## "}; {printf "  make %-8s %s\n", $$1, $$2}'
-
-.env:
-	@echo "Chưa có tệp .env. Chạy: cp .env.example .env rồi sửa mật khẩu." && exit 1
-
-up: .env ## Dựng và khởi động toàn bộ dịch vụ
-	$(COMPOSE) up -d --build
-
-down: ## Dừng dịch vụ (giữ dữ liệu)
-	$(COMPOSE) down
-
-logs: ## Xem nhật ký
-	$(COMPOSE) logs -f --tail=100
-
-ps: ## Xem trạng thái dịch vụ
-	$(COMPOSE) ps
-
-seed: ## Nạp dữ liệu mẫu giả lập (bổ sung ở bản v0.1.0)
-	@echo "Chưa có dữ liệu mẫu. Thêm vào core/db/seed/."
-
-test: ## Chạy bộ kiểm thử (bổ sung từ ngày 2)
-	@echo "Chưa có kiểm thử. Thêm vào core/tests/."
->>>>>>> origin/feat/citizen-portal-responsive-realtime

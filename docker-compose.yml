@@ -1,12 +1,6 @@
 # SPDX-FileCopyrightText: 2026 CommuneOS Contributors
 # SPDX-License-Identifier: Apache-2.0
-<<<<<<< HEAD
 # Citizen prototype: Nuxt 3 + PostgreSQL 17. Other core services remain future work.
-=======
-#
-# Khung ban đầu: mới có cơ sở dữ liệu. Các dịch vụ khác thêm từ ngày 2.
-
->>>>>>> origin/feat/citizen-portal-responsive-realtime
 services:
   db:
     image: postgres:17
@@ -15,7 +9,6 @@ services:
       POSTGRES_DB: ${POSTGRES_DB}
       POSTGRES_USER: ${POSTGRES_USER}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
-<<<<<<< HEAD
       POSTGRES_APP_USER: communeos_app
       POSTGRES_APP_PASSWORD: ${POSTGRES_APP_PASSWORD}
     volumes:
@@ -84,19 +77,6 @@ services:
       - citizen-uploads:/app/storage
     ports:
       - "127.0.0.1:${CITIZEN_PORT:-3000}:3000"
-volumes:
-  db-data:
-  citizen-uploads:
-=======
-    volumes:
-      - db-data:/var/lib/postgresql/data
-      - ./core/db/init:/docker-entrypoint-initdb.d:ro
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
-      interval: 5s
-      timeout: 3s
-      retries: 10
-
   identity:
     image: quay.io/keycloak/keycloak:26.8.2
     command: start-dev --import-realm
@@ -117,4 +97,4 @@ volumes:
 
 volumes:
   db-data:
->>>>>>> origin/feat/citizen-portal-responsive-realtime
+  citizen-uploads:

@@ -13,12 +13,9 @@ Mọi thay đổi đáng chú ý của dự án được ghi tại đây.
 
 ### Thêm mới
 
-<<<<<<< HEAD
-=======
 - Dịch vụ định danh Keycloak 26.8.2, dùng database riêng trên cùng máy chủ PostgreSQL.
 - Realm `communeos` nạp tự động khi khởi động, gồm 5 vai người dùng và claim `tenant_id` trong JWT.
 - Hai tài khoản thử thuộc hai xã mẫu.
->>>>>>> origin/feat/citizen-portal-responsive-realtime
 - Khung kho mã: giấy phép Apache-2.0, README, tài liệu đóng góp.
 - Cấu trúc thư mục `core/`, `apps/`, `packs/`, `docs/`.
 - Tệp `.env.example` và `Makefile`.
@@ -32,8 +29,6 @@ Mẫu cho mỗi bản phát hành:
 ### Thay đổi
 ### Sửa lỗi
 -->
-<<<<<<< HEAD
-
 ## Unreleased — Kênh Công dân Nuxt + PostgreSQL mẫu
 
 - Bổ sung giao diện Công dân dùng chung design system theo bản mockup thống nhất.
@@ -49,5 +44,3 @@ Mẫu cho mỗi bản phát hành:
 - Đồng bộ mật khẩu role `communeos_app` khi triển khai lại; giữ nguyên dữ liệu.
 - Cải tiến `/api/health` để kiểm tra bảng, quyền và thủ tục đã được nạp.
 - Thêm `make repair-db`, `make doctor` và thông báo lỗi dễ xử lý trong UI.
-=======
->>>>>>> origin/feat/citizen-portal-responsive-realtime

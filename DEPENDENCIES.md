@@ -16,34 +16,29 @@ thuộc danh sách OSI (https://opensource.org/licenses).
 
 ## Dịch vụ (ảnh container)
 
-<<<<<<< HEAD
 | Thành phần | Phiên bản | Giấy phép | Nguồn | Dùng để |
 | --- | --- | --- | --- | --- |
 | PostgreSQL | 17 | PostgreSQL License | Ảnh chính thức `postgres` | Cơ sở dữ liệu |
-=======
+
 | Thành phần | Phiên bản | Giấy phép          | Nguồn                                      | Dùng để                                     |
 | ---------- | --------- | ------------------ | ------------------------------------------ | ------------------------------------------- |
 | PostgreSQL | 17        | PostgreSQL License | Ảnh chính thức `postgres`                  | Cơ sở dữ liệu                               |
 | Keycloak   | 26.8.2    | Apache-2.0         | Ảnh chính thức `quay.io/keycloak/keycloak` | Định danh, đăng nhập một lần (SSO), cấp JWT |
->>>>>>> origin/feat/citizen-portal-responsive-realtime
 
 ## Thư viện (trình quản lý gói)
 
 | Thư viện | Phiên bản | Giấy phép | Nơi dùng |
-<<<<<<< HEAD
 | --- | --- | --- | --- |
 | | | | |
-=======
+
 | -------- | --------- | --------- | -------- |
 |          |           |           |          |
->>>>>>> origin/feat/citizen-portal-responsive-realtime
 
 ## Mô hình AI
 
 Trọng số mô hình không nằm trong kho mã; chúng được tải về khi cài đặt.
 
 | Mô hình | Giấy phép | Dùng để |
-<<<<<<< HEAD
 | --- | --- | --- |
 | | | |
 
@@ -64,7 +59,6 @@ Trọng số mô hình không nằm trong kho mã; chúng được tải về kh
 Các số phiên bản được khóa theo semver trong `apps/citizen/package.json`.
 Trước khi phát hành cần thực hiện `npm install` để tạo / commit
 `package-lock.json` và chạy `reuse lint`/kiểm toán giấy phép trong CI.
-=======
+
 | ------- | --------- | ------- |
 |         |           |         |
->>>>>>> origin/feat/citizen-portal-responsive-realtime
