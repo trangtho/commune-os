@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<definitions xmlns="https://www.omg.org/spec/DMN/20191111/MODEL/" namespace="http://communeos.example/dmn" name="checklist">
+ <decision id="check" name="Đủ tài liệu tối thiểu">
+  <decisionTable id="dt" hitPolicy="FIRST">
+   <input id="input1"><inputExpression typeRef="boolean"><text>complete</text></inputExpression></input>
+   <output id="output1" name="accepted" typeRef="boolean"/>
+   <rule id="r1"><inputEntry id="i1"><text>true</text></inputEntry><outputEntry id="o1"><text>true</text></outputEntry></rule>
+   <rule id="r2"><inputEntry id="i2"><text>-</text></inputEntry><outputEntry id="o2"><text>false</text></outputEntry></rule>
+  </decisionTable>
+ </decision>
+</definitions>

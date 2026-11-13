@@ -1,0 +1,14 @@
+code: xac-nhan-cu-tru
+name: Xác nhận cư trú
+version: 1.0.0
+sla_hours: 24
+channels:
+- counter
+- online-demo
+required_documents:
+- code: to-khai
+  name: Tờ khai xác nhận cư trú (mẫu)
+roles:
+  receive: receptionist
+  review: officer
+  sign: leader

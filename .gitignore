@@ -1,0 +1,15 @@
+.env
+.env.*
+!.env.example
+node_modules/
+.nuxt/
+.output/
+.pytest_cache/
+__pycache__/
+*.pyc
+*.db
+*.sqlite3
+*.log
+backups/
+.DS_Store
+coverage/

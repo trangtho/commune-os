@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "ho_ten": {
+      "type": "string",
+      "minLength": 2,
+      "title": "Tên người đăng ký (mẫu)"
+    },
+    "ten_ho": {
+      "type": "string",
+      "minLength": 2,
+      "title": "Tên hộ kinh doanh"
+    },
+    "dia_chi": {
+      "type": "string",
+      "minLength": 2,
+      "title": "Địa chỉ kinh doanh (mẫu)"
+    }
+  },
+  "required": [
+    "ho_ten"
+  ],
+  "additionalProperties": false
+}

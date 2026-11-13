@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" targetNamespace="http://communeos.example/bpmn">
+ <process id="khai_sinh" name="Đăng ký khai sinh" isExecutable="true">
+  <startEvent id="start"/>
+  <sequenceFlow id="f1" sourceRef="start" targetRef="review"/>
+  <userTask id="review" name="Thẩm tra hồ sơ"/>
+  <sequenceFlow id="f2" sourceRef="review" targetRef="approval"/>
+  <userTask id="approval" name="Lãnh đạo phê duyệt"/>
+  <sequenceFlow id="f3" sourceRef="approval" targetRef="delivery"/>
+  <userTask id="delivery" name="Trả kết quả"/>
+  <sequenceFlow id="f4" sourceRef="delivery" targetRef="end"/>
+  <endEvent id="end"/>
+ </process>
+</definitions>

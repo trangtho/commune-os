@@ -1,0 +1,16 @@
+code: ho-kinh-doanh
+name: Đăng ký hộ kinh doanh
+version: 1.0.0
+sla_hours: 72
+channels:
+- counter
+- online-demo
+required_documents:
+- code: to-khai
+  name: Giấy đề nghị đăng ký hộ kinh doanh
+- code: giay-to-chu-ho
+  name: Giấy tờ chứng minh chủ hộ (mẫu)
+roles:
+  receive: receptionist
+  review: officer
+  sign: leader

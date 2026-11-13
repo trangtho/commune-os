@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "type": "object",
+  "properties": {
+    "ho_ten": {
+      "type": "string",
+      "minLength": 2,
+      "title": "Họ tên trẻ (mẫu)"
+    },
+    "nguoi_khai": {
+      "type": "string",
+      "minLength": 2,
+      "title": "Người khai (mẫu)"
+    },
+    "noi_sinh": {
+      "type": "string",
+      "minLength": 2,
+      "title": "Nơi sinh (mẫu)"
+    }
+  },
+  "required": [
+    "ho_ten"
+  ],
+  "additionalProperties": false
+}

@@ -1,0 +1,109 @@
+# SPDX-License-Identifier: Apache-2.0
+# LOCAL DEMO, not a production-secure deployment. Do not publish ports to Internet.
+services:
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: communeos
+      POSTGRES_USER: commune_app
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?Set DB_PASSWORD in .env}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U commune_app -d communeos"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    networks: [private]
+  minio:
+    # SILO is a maintained S3-compatible MinIO fork (linux/arm64 + linux/amd64).
+    # Keep service name "minio" for S3_ENDPOINT=http://minio:9000 and volume compatibility.
+    image: docker.io/pgsty/silo:RELEASE.2026-11-09T00-00-00Z
+    command: server /data
+    environment:
+      MINIO_ROOT_USER: ${S3_ACCESS_KEY:?Set S3_ACCESS_KEY}
+      MINIO_ROOT_PASSWORD: ${S3_SECRET_KEY:?Set S3_SECRET_KEY}
+    volumes: [minio_data:/data]
+    healthcheck:
+      test: ["CMD", "silo", "healthcheck", "ready"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 15s
+    networks: [private]
+  orchestrator:
+    build:
+      context: .
+      dockerfile: core/orchestrator/Dockerfile
+    environment:
+      DATABASE_URL: postgresql+psycopg://commune_app:${DB_PASSWORD}@db:5432/communeos
+      DEMO_MODE: ${DEMO_MODE:-true}
+      DEMO_SECRET: ${DEMO_SECRET:?Set DEMO_SECRET}
+      OIDC_ISSUER: http://localhost:8081/realms/communeos
+      OIDC_JWKS_URL: http://keycloak:8080/realms/communeos/protocol/openid-connect/certs
+      OIDC_AUDIENCE: communeos-api
+      CORS_ORIGINS: http://localhost:3000
+      STORAGE_MODE: s3
+      S3_ENDPOINT: http://minio:9000
+      S3_BUCKET: commune-documents
+      S3_ACCESS_KEY: ${S3_ACCESS_KEY}
+      S3_SECRET_KEY: ${S3_SECRET_KEY}
+      ONLINE_SUBMISSION_ENABLED: ${ONLINE_SUBMISSION_ENABLED:-false}
+      FLOWABLE_ENABLED: ${FLOWABLE_ENABLED:-false}
+      FLOWABLE_URL: http://flowable:8080/flowable-rest/service
+      FLOWABLE_USER: ${FLOWABLE_USER:-rest-admin}
+      FLOWABLE_PASSWORD: ${FLOWABLE_PASSWORD:-test}
+      PACKS_DIR: /app/packs
+    depends_on:
+      db: { condition: service_healthy }
+      minio: { condition: service_healthy }
+    networks: [private]
+    restart: on-failure
+  gateway:
+    image: apache/apisix:3.17.0-debian
+    environment:
+      APISIX_STAND_ALONE: "true"
+    ports: ["127.0.0.1:8080:9080"]
+    volumes:
+      - ./core/gateway/config.yaml:/usr/local/apisix/conf/config.yaml:ro
+      - ./core/gateway/apisix.yaml:/usr/local/apisix/conf/apisix.yaml:ro
+    depends_on: [orchestrator]
+    networks: [private]
+  frontend:
+    build:
+      context: .
+      dockerfile: apps/commune/Dockerfile
+    environment:
+      NUXT_PUBLIC_API_BASE: http://localhost:8080
+      NUXT_PUBLIC_DEMO_MODE: ${DEMO_MODE:-true}
+      NUXT_PUBLIC_OIDC_URL: http://localhost:8081
+      NUXT_PUBLIC_OIDC_REALM: communeos
+      NUXT_PUBLIC_OIDC_CLIENT: communeos-web
+    ports: ["127.0.0.1:3000:3000"]
+    depends_on: [gateway]
+    networks: [private]
+  keycloak:
+    image: quay.io/keycloak/keycloak:26.0.5
+    command: start-dev --import-realm
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: admin
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD:?Set KEYCLOAK_ADMIN_PASSWORD}
+    ports: ["127.0.0.1:8081:8080"]
+    volumes:
+      - ./core/identity/realm-export.json:/opt/keycloak/data/import/realm-export.json:ro
+    networks: [private]
+    profiles: [identity]
+  flowable:
+    image: flowable/flowable-rest:6.8.0
+    ports: ["127.0.0.1:8090:8080"]
+    environment:
+      FLOWABLE_REST_APP_ADMIN_USER_ID: ${FLOWABLE_USER:-rest-admin}
+      FLOWABLE_REST_APP_ADMIN_PASSWORD: ${FLOWABLE_PASSWORD:-test}
+    networks: [private]
+    profiles: [workflow]
+volumes:
+  postgres_data:
+  minio_data:
+networks:
+  private:
+    internal: false

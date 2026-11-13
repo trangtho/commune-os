@@ -1,0 +1,16 @@
+code: khai-sinh
+name: Đăng ký khai sinh
+version: 1.0.0
+sla_hours: 8
+channels:
+- counter
+- online-demo
+required_documents:
+- code: to-khai
+  name: Tờ khai đăng ký khai sinh
+- code: giay-chung-sinh
+  name: Giấy chứng sinh
+roles:
+  receive: receptionist
+  review: officer
+  sign: leader
