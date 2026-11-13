@@ -1,0 +1,82 @@
+# SPDX-FileCopyrightText: 2026 CommuneOS Contributors
+# SPDX-License-Identifier: Apache-2.0
+# Citizen prototype: Nuxt 3 + PostgreSQL 17. Other core services remain future work.
+services:
+  db:
+    image: postgres:17
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_APP_USER: communeos_app
+      POSTGRES_APP_PASSWORD: ${POSTGRES_APP_PASSWORD}
+    volumes:
+      - db-data:/var/lib/postgresql/data
+      - ./core/db/init/00-create-app-role.sh:/docker-entrypoint-initdb.d/00-create-app-role.sh:ro
+      - ./core/db/init/01-schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
+      - ./core/db/seed/seed.sql:/docker-entrypoint-initdb.d/03-seed.sql:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      interval: 5s
+      timeout: 3s
+      retries: 15
+    ports:
+      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
+  # Runs on fresh AND existing PostgreSQL volumes. All scripts are idempotent.
+  # Do not remove db-data: the setup step updates schema and seeds missing rows.
+  db-setup:
+    image: postgres:17
+    restart: "no"
+    depends_on:
+      db:
+        condition: service_healthy
+    environment:
+      PGHOST: db
+      PGPORT: 5432
+      PGUSER: ${POSTGRES_USER}
+      PGPASSWORD: ${POSTGRES_PASSWORD}
+      PGDATABASE: ${POSTGRES_DB}
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_DB: ${POSTGRES_DB}
+      POSTGRES_APP_USER: communeos_app
+      POSTGRES_APP_PASSWORD: ${POSTGRES_APP_PASSWORD}
+    volumes:
+      - ./core/db/init:/setup/init:ro
+      - ./core/db/seed:/setup/seed:ro
+    entrypoint: ["/bin/sh", "-eu", "-c"]
+    command:
+      - |
+        echo 'Setting up PostgreSQL app role, schema and demonstration procedures...'
+        sh /setup/init/00-create-app-role.sh
+        psql -v ON_ERROR_STOP=1 -f /setup/init/01-schema.sql
+        psql -v ON_ERROR_STOP=1 -f /setup/seed/seed.sql
+        psql -v ON_ERROR_STOP=1 -c "SELECT count(*) AS published_procedures FROM procedures WHERE published = true"
+        echo 'PostgreSQL setup finished successfully.'
+  citizen:
+    build:
+      context: ./apps/citizen
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      db-setup:
+        condition: service_completed_successfully
+    environment:
+      NODE_ENV: production
+      HOST: 0.0.0.0
+      PORT: 3000
+      PGHOST: db
+      PGPORT: 5432
+      PGDATABASE: ${POSTGRES_DB}
+      PGUSER: communeos_app
+      PGPASSWORD: ${POSTGRES_APP_PASSWORD}
+      SESSION_SECRET: ${SESSION_SECRET}
+      DEMO_MODE: "true"
+      STORAGE_DIR: /app/storage
+    volumes:
+      - citizen-uploads:/app/storage
+    ports:
+      - "127.0.0.1:${CITIZEN_PORT:-3000}:3000"
+volumes:
+  db-data:
+  citizen-uploads:

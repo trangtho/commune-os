@@ -1,0 +1,11 @@
+<!-- SPDX-FileCopyrightText: 2026 CommuneOS Contributors -->
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+<script setup lang="ts">
+import {ArrowLeft,CheckCircle2,Info,Printer} from 'lucide-vue-next'
+import type {Application} from '~/types/models'
+const id=String(useRoute().params.id)
+const {data:c,error}=await useFetch<Application>(`/api/applications/${id}`, {key:`citizen-application:${id}`})
+const {date}=useFormat()
+function printDemo(){if(import.meta.client)window.print()}
+</script>
+<template><div class="space-y-4"><NuxtLink :to="`/ho-so/${id}`" class="inline-flex items-center gap-1 text-sm font-bold text-brand-700 print:hidden"><ArrowLeft :size="16"/> Chi tiết hồ sơ</NuxtLink><div v-if="error" class="panel p-6 text-rose-600">Không tải được hồ sơ.</div><div v-else-if="c" class="panel space-y-5 p-6"><div class="flex items-center justify-between"><div><h2 class="text-2xl font-black">Kết quả giải quyết</h2><p class="text-sm text-muted">{{c.procedure_title}}</p></div><CheckCircle2 v-if="c.status==='completed'" :size="40" class="text-green-600"/></div><div v-if="c.status!=='completed'" class="rounded-lg bg-amber-50 p-4 text-sm text-amber-800">Hồ sơ chưa có kết quả. Vui lòng theo dõi tiến độ.</div><template v-else><div class="rounded-lg border border-green-200 bg-green-50 p-4 text-green-800"><b>Trạng thái: Đã hoàn thành</b><p class="mt-1 text-sm">{{c.result_note||'Hồ sơ đã được xử lý (mô phỏng).'}}</p></div><div class="grid gap-3 text-sm sm:grid-cols-2"><div><small class="block text-muted">Mã hồ sơ</small><b>{{id}}</b></div><div><small class="block text-muted">Ngày dự kiến</small><b>{{date(c.due_at)}}</b></div><div><small class="block text-muted">Người nộp</small><b>{{c.applicant_name}}</b></div><div><small class="block text-muted">Thủ tục</small><b>{{c.procedure_title}}</b></div></div><div class="rounded-xl border-2 border-dashed border-blue-200 bg-blue-50 p-5 text-center"><Info class="mx-auto mb-2 text-brand-600" :size="28"/><b>PHIẾU KẾT QUẢ MẪU</b><p class="mt-2 text-sm text-muted">Không có chữ ký số, con dấu hoặc văn bản hành chính thật. Không được dùng làm giấy tờ pháp lý.</p></div><button class="btn-outline print:hidden" @click="printDemo"><Printer :size="16"/> In thông tin mô phỏng</button></template></div></div></template>

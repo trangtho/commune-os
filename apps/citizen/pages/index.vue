@@ -1,0 +1,23 @@
+<!-- SPDX-FileCopyrightText: 2026 CommuneOS Contributors -->
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+<script setup lang="ts">
+import { Search,ArrowRight,FolderOpen,Send,Download,CalendarDays,Bell,MessageCircle,FilePlus2 } from 'lucide-vue-next'
+import type { Procedure,Application } from '~/types/models'
+definePageMeta({title:'Trang chủ'})
+const {data:procedures,error:procError}=await useFetch<Procedure[]>('/api/procedures', {key:'citizen-procedures'})
+const {data:cases}=await useFetch<Application[]>('/api/applications', {key:'citizen-applications'})
+const {data:auth}=await useFetch<{authenticated:boolean;name?:string}>('/api/auth/me', {key:'citizen-auth-home'})
+const {date}=useFormat();const search=ref('')
+const total=computed(()=>cases.value?.length||0)
+const active=computed(()=>cases.value?.filter(c=>['processing','submitted'].includes(c.status)).length||0)
+const completed=computed(()=>cases.value?.filter(c=>c.status==='completed').length||0)
+const supplement=computed(()=>cases.value?.filter(c=>c.status==='supplement').length||0)
+const suggestions=computed(()=>procedures.value?.filter(p=>p.title.toLowerCase().includes(search.value.toLowerCase())).slice(0,3)||[])
+</script>
+<template><div class="space-y-4"><div class="flex flex-wrap items-center justify-between gap-2"><div><h2 class="text-xl font-extrabold">Chào mừng bạn{{auth?.authenticated?', '+auth.name:''}}! 👋</h2><p class="mt-1 text-sm text-muted">Bạn có thể nộp hồ sơ trực tuyến và theo dõi kết quả tại đây.</p></div><div class="flex items-center gap-2 text-xs text-muted"><CalendarDays :size="16"/>Thông tin mô phỏng · 2026</div></div>
+ <form class="panel flex flex-wrap gap-2 p-2" @submit.prevent="navigateTo('/thu-tuc?q='+encodeURIComponent(search))"><Search class="my-auto ml-2 shrink-0 text-brand-600" :size="20"/><input v-model="search" class="min-w-0 flex-1 bg-transparent px-2 text-sm outline-none" placeholder="Tìm kiếm thủ tục (khai sinh, hộ kinh doanh, cư trú...)"/><button class="btn-primary w-full sm:w-auto" type="submit">Tìm kiếm</button></form>
+ <div class="grid grid-cols-2 gap-3 lg:grid-cols-4"><MetricCard label="Hồ sơ đã nộp" :value="total" icon="files" tone="blue"/><MetricCard label="Đang giải quyết" :value="active" icon="clock" tone="orange"/><MetricCard label="Đã hoàn thành" :value="completed" icon="check" tone="green"/><MetricCard label="Cần bổ sung" :value="supplement" icon="alert" tone="purple"/></div>
+ <section><div class="mb-3 flex flex-wrap items-center justify-between gap-2"><h3 class="section-label !mb-0">🔥 Thủ tục hành chính phổ biến</h3><NuxtLink to="/thu-tuc" class="text-xs font-bold text-brand-600 hover:underline">Xem tất cả thủ tục <ArrowRight :size="14" class="inline"/></NuxtLink></div><div v-if="procError" class="panel p-5 text-sm text-rose-700">Không tải được thủ tục. Chạy make repair-db trên máy chủ rồi tải lại trang; mở /api/health để xem mã lỗi.</div><div v-else class="grid gap-3 md:grid-cols-2 2xl:grid-cols-3"><ProcedureCard v-for="p in suggestions" :key="p.id" :procedure="p"/></div></section>
+ <div class="grid gap-3 lg:grid-cols-2"><section class="panel p-4"><h3 class="section-label">⚡ Dịch vụ nhanh</h3><div class="grid grid-cols-3 gap-2 text-center"><NuxtLink v-for="x in [{to:'/thu-tuc',label:'Nộp hồ sơ',icon:FilePlus2},{to:'/tra-cuu',label:'Tra cứu',icon:Search},{to:'/ho-so',label:'Hồ sơ của tôi',icon:FolderOpen},{to:'/thong-bao',label:'Thông báo',icon:Bell},{to:'/ho-so',label:'Nhận kết quả',icon:Download},{to:'/tro-ly',label:'Trợ lý',icon:MessageCircle}]" :key="x.label" :to="x.to" class="flex flex-col items-center gap-2 rounded-xl bg-brand-50 p-3 text-xs font-semibold text-brand-800 transition hover:bg-brand-100"><component :is="x.icon" :size="23"/>{{x.label}}</NuxtLink></div></section>
+ <section class="panel p-4"><div class="mb-3 flex flex-wrap items-center justify-between gap-2"><h3 class="section-label !mb-0">Hồ sơ gần đây</h3><NuxtLink to="/ho-so" class="text-xs font-bold text-brand-600">Xem tất cả →</NuxtLink></div><div v-if="!auth?.authenticated" class="rounded-lg bg-brand-50 p-4 text-sm"><NuxtLink to="/dang-nhap" class="font-bold text-brand-700">Đăng nhập</NuxtLink> để xem hồ sơ của bạn.</div><div v-else-if="!cases?.length" class="p-4 text-sm text-muted">Chưa có hồ sơ.</div><NuxtLink v-for="c in cases?.slice(0,4)" :key="c.id" :to="`/ho-so/${c.id}`" class="flex flex-wrap items-center justify-between gap-2 border-b border-slate-100 py-3 last:border-0"><span class="min-w-0 break-words"><b class="block text-sm text-brand-700">{{c.id}}</b><small class="text-xs text-muted">{{c.procedure_title}} · {{date(c.submitted_at)}}</small></span><StatusPill :status="c.status"/></NuxtLink></section></div>
+ </div></template>

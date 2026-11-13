@@ -1,0 +1,12 @@
+<!-- SPDX-FileCopyrightText: 2026 CommuneOS Contributors -->
+<!-- SPDX-License-Identifier: Apache-2.0 -->
+<script setup lang="ts">
+import {Bell,CheckCheck,FolderOpen} from 'lucide-vue-next'
+import type {Notice} from '~/types/models'
+const {data:notices,refresh}=await useFetch<Notice[]>('/api/notifications', {key:'citizen-notifications'})
+const {dateTime}=useFormat();const onlyUnread=ref(false)
+const filtered=computed(()=>notices.value?.filter(n=>!onlyUnread.value||!n.is_read)||[])
+async function readOne(id:string){await $fetch(`/api/notifications/${id}/read`,{method:'POST'});await refresh()}
+async function readAll(){await $fetch('/api/notifications/read-all',{method:'POST'});await refresh()}
+</script>
+<template><div class="space-y-4"><div class="flex flex-wrap items-center justify-between gap-2"><div><h2 class="text-xl font-black">Thông báo</h2><p class="text-sm text-muted">Cập nhật tình hình hồ sơ và các yêu cầu bổ sung.</p></div><button class="btn-outline" @click="readAll"><CheckCheck :size="16"/> Đánh dấu tất cả đã đọc</button></div><div class="flex gap-2"><button :class="['rounded-lg px-3 py-2 text-sm font-bold',!onlyUnread?'bg-blue-600 text-white':'bg-white text-slate-600']" @click="onlyUnread=false">Tất cả ({{notices?.length||0}})</button><button :class="['rounded-lg px-3 py-2 text-sm font-bold',onlyUnread?'bg-blue-600 text-white':'bg-white text-slate-600']" @click="onlyUnread=true">Chưa đọc ({{notices?.filter(n=>!n.is_read).length||0}})</button></div><div v-if="!filtered.length" class="panel p-7 text-center text-muted">Chưa có thông báo phù hợp.</div><div v-for="n in filtered" :key="n.id" :class="['panel flex items-start gap-3 p-4',!n.is_read?'!bg-blue-50':'']"><span class="grid h-11 w-11 shrink-0 place-items-center rounded-xl bg-white text-brand-600"><Bell :size="22"/></span><div class="min-w-0 flex-1"><div class="flex flex-wrap items-start justify-between gap-2"><h3 class="text-sm font-extrabold">{{n.title}} <span v-if="!n.is_read" class="ml-1 rounded bg-blue-600 px-1.5 py-0.5 text-[10px] text-white">Mới</span></h3><small class="text-muted">{{dateTime(n.created_at)}}</small></div><p class="mt-1 text-sm leading-relaxed text-slate-600">{{n.body}}</p><div class="mt-3 flex flex-wrap gap-3"><NuxtLink v-if="n.application_id" :to="`/ho-so/${n.application_id}`" class="text-xs font-bold text-brand-700">Xem hồ sơ →</NuxtLink><button v-if="!n.is_read" class="text-xs font-bold text-slate-500 hover:text-brand-700" @click="readOne(n.id)">Đánh dấu đã đọc</button></div></div></div></div></template>

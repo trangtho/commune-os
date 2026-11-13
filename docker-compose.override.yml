@@ -1,0 +1,10 @@
+services:
+  citizen:
+    environment:
+      NUXT_DB_HOST: db
+      NUXT_DB_PORT: "5432"
+      NUXT_DB_NAME: ${POSTGRES_DB}
+      NUXT_DB_USER: communeos_app
+      NUXT_DB_PASSWORD: ${POSTGRES_APP_PASSWORD}
+      NUXT_SESSION_SECRET: ${SESSION_SECRET}
+      NUXT_STORAGE_DIR: /app/storage
