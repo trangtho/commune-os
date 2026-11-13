@@ -20,12 +20,18 @@ Mọi thay đổi đáng chú ý của dự án được ghi tại đây.
 - Cấu trúc thư mục `core/`, `apps/`, `packs/`, `docs/`.
 - Tệp `.env.example` và `Makefile`.
 
+- Cửa ngõ API Apache APISIX 3.20.0 chạy ở chế độ đọc cấu hình từ tệp, không cần etcd.
+- Cửa ngõ kiểm chữ ký và nơi cấp của JWT do Keycloak phát hành trên tuyến `/api/*`.
+- Biến `KEYCLOAK_PUBLIC_URL` và `GATEWAY_PORT` trong `.env`.
 <!--
 Mẫu cho mỗi bản phát hành:
 
 ## [0.1.0] - 2026-11-15
 
 ### Thêm mới
+
 ### Thay đổi
+
 ### Sửa lỗi
+
 -->

@@ -16,10 +16,11 @@ thuộc danh sách OSI (https://opensource.org/licenses).
 
 ## Dịch vụ (ảnh container)
 
-| Thành phần | Phiên bản | Giấy phép          | Nguồn                                      | Dùng để                                     |
-| ---------- | --------- | ------------------ | ------------------------------------------ | ------------------------------------------- |
-| PostgreSQL | 17        | PostgreSQL License | Ảnh chính thức `postgres`                  | Cơ sở dữ liệu                               |
-| Keycloak   | 26.8.2    | Apache-2.0         | Ảnh chính thức `quay.io/keycloak/keycloak` | Định danh, đăng nhập một lần (SSO), cấp JWT |
+| Thành phần    | Phiên bản | Giấy phép          | Nguồn                                      | Dùng để                                     |
+| ------------- | --------- | ------------------ | ------------------------------------------ | ------------------------------------------- |
+| PostgreSQL    | 17        | PostgreSQL License | Ảnh chính thức `postgres`                  | Cơ sở dữ liệu                               |
+| Keycloak      | 26.8.2    | Apache-2.0         | Ảnh chính thức `quay.io/keycloak/keycloak` | Định danh, đăng nhập một lần (SSO), cấp JWT |
+| Apache APISIX | 3.20.0    | Apache-2.0         | Ảnh chính thức `apache/apisix`             | Cửa ngõ API: định tuyến, kiểm JWT           |
 
 ## Thư viện (trình quản lý gói)
 
