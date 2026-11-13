@@ -19,6 +19,7 @@ Mọi thay đổi đáng chú ý của dự án được ghi tại đây.
 - Khung kho mã: giấy phép Apache-2.0, README, tài liệu đóng góp.
 - Cấu trúc thư mục `core/`, `apps/`, `packs/`, `docs/`.
 - Tệp `.env.example` và `Makefile`.
+- Bảng quản trị lõi (`core/admin`): khung giao diện, màn hình quản lý xã và gói thủ tục, dùng dữ liệu giả lập.
 
 <!--
 Mẫu cho mỗi bản phát hành:

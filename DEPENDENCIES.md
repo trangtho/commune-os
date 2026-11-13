@@ -23,9 +23,14 @@ thuộc danh sách OSI (https://opensource.org/licenses).
 
 ## Thư viện (trình quản lý gói)
 
-| Thư viện | Phiên bản | Giấy phép | Nơi dùng |
-| -------- | --------- | --------- | -------- |
-|          |           |           |          |
+| Thư viện              | Phiên bản | Giấy phép | Nơi dùng                                 |
+| --------------------- | --------- | --------- | ---------------------------------------- |
+| Nuxt                  | 4.6.4     | MIT       | `core/admin`                             |
+| Vue                   | 3.5.45    | MIT       | `core/admin`                             |
+| Vue Router            | 5.5.1     | MIT       | `core/admin`                             |
+| Tailwind CSS          | 6.14.0    | MIT       | `core/admin` (qua `@nuxtjs/tailwindcss`) |
+| `@nuxtjs/tailwindcss` | 6.14.0    | MIT       | `core/admin`                             |
+| `lucide-vue-next`     | 1.0.0     | ISC       | `core/admin`, bộ biểu tượng              |
 
 ## Mô hình AI
 
