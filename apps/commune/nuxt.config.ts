@@ -3,6 +3,8 @@
 export default defineNuxtConfig({
   compatibilityDate: '2025-05-01',
   devtools: { enabled: false },
+  // Không dùng app manifest; tắt để tránh lỗi "#app-manifest" khi chạy dev.
+  experimental: { appManifest: false },
   modules: ['@nuxtjs/tailwindcss'],
   tailwindcss: { cssPath: '~/assets/css/main.css' },
   app: {
@@ -20,6 +22,9 @@ export default defineNuxtConfig({
   },
   runtimeConfig: {
     sessionSecret: process.env.SESSION_SECRET || '',
+    // Đăng nhập qua Keycloak, đọc dữ liệu qua cổng APISIX (API lõi /rest).
+    keycloakUrl: process.env.KEYCLOAK_URL || 'http://localhost:8080',
+    gatewayUrl: process.env.GATEWAY_URL || 'http://localhost:9080',
     dbHost: process.env.PGHOST || '127.0.0.1',
     dbPort: process.env.PGPORT || '5432',
     dbName: process.env.PGDATABASE || 'communeos',

@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { createHmac, timingSafeEqual } from 'node:crypto'
 import { getCookie, setCookie, deleteCookie, createError, type H3Event } from 'h3'
-type Identity={ id:string; tenantId:string; name:string; role:'officer'|'admin'; exp:number }
+type Identity={ id:string; tenantId:string; name:string; role:'officer'|'admin'; token:string; exp:number }
 const cookieName = 'communeos_staff_demo'
 function secret(){
   const value=String(useRuntimeConfig().sessionSecret || 'communeos-demo-secret-key-at-least-32-chars-long')
@@ -10,7 +10,7 @@ function secret(){
   return value
 }
 function signature(body:string){return createHmac('sha256',secret()).update(body).digest('base64url')}
-export function signSession(event:H3Event, staff:{id:string;tenantId:string;name:string;role:'officer'|'admin'}) {
+export function signSession(event:H3Event, staff:{id:string;tenantId:string;name:string;role:'officer'|'admin';token:string}) {
   const body=Buffer.from(JSON.stringify({...staff,exp:Date.now()+12*60*60*1000})).toString('base64url')
   setCookie(event,cookieName,`${body}.${signature(body)}`,{httpOnly:true,sameSite:'lax',secure:process.env.NODE_ENV==='production',path:'/',maxAge:12*60*60})
 }
@@ -23,7 +23,7 @@ export function readSession(event:H3Event):Identity|null {
   if(got.length!==expected.length || !timingSafeEqual(expected,got)) return null
   try {
     const data=JSON.parse(Buffer.from(body,'base64url').toString()) as Identity
-    if(!data.id||!data.tenantId||data.exp<Date.now()) return null
+    if(!data.id||!data.tenantId||!data.token||data.exp<Date.now()) return null
     return data
   } catch {return null}
 }
