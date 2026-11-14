@@ -114,7 +114,7 @@ services:
     restart: "no"
     command: ["node", "/script/fetch-jwks.mjs"]
     volumes:
-      - ./core/rest/fetch-jwks.mjs:/script/fetch-jwks.mjs:ro
+      - ./core/rest:/script:ro
       - rest-keys:/keys
     depends_on:
       - identity
