@@ -11,6 +11,14 @@ Mọi thay đổi đáng chú ý của dự án được ghi tại đây.
 
 ## [Chưa phát hành]
 
+### Thêm mới (xử lý hồ sơ, 2026-11-15)
+
+- Hàm `api.set_dossier_status`: cán bộ xã chuyển xử lý, yêu cầu bổ sung, hoàn thành, từ chối hồ sơ của xã mình; kiểm tra vai trò, bước chuyển hợp lệ và lý do bắt buộc ngay trong cơ sở dữ liệu.
+- Mỗi lần đổi trạng thái tự ghi lịch sử và gửi thông báo cho người dân.
+- View `api.dossier_transitions` liệt kê các bước chuyển được phép.
+- `apps/commune`: nút Cập nhật trạng thái và Yêu cầu bổ sung gọi API lõi.
+- `make test` tăng lên 12 kiểm tra.
+
 ### Thêm mới (màn hình cán bộ xã, 2026-11-15)
 
 - `apps/commune` đăng nhập bằng Keycloak và đọc hồ sơ qua API lõi `/rest`; bỏ tài khoản cứng `canbo.demo`.
