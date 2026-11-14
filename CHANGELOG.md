@@ -11,6 +11,15 @@ Mọi thay đổi đáng chú ý của dự án được ghi tại đây.
 
 ## [Chưa phát hành]
 
+### Cải thiện cổng Công dân (2026-11-14)
+
+- Sửa quyền UPDATE PostgreSQL cho luồng tạo/sửa bản nháp và nộp hồ sơ, không nới lỏng RLS.
+- Phân biệt bản nháp chưa nộp với hồ sơ có thời hạn; chặn bỏ qua bước và khôi phục bản nháp qua SSR.
+- Cải thiện kiểm tra upload, bổ sung hồ sơ, tìm kiếm tiếng Việt không dấu và xử lý lỗi API.
+- Hiển thị bộ đếm thông báo chưa đọc theo SSE, làm gọn khối hỗ trợ và menu responsive.
+- Cho phép in phiếu kết quả không cắt viewport; tăng bộ test tĩnh lên 20.
+- Tài liệu triển khai, phạm vi/chức năng chưa hoàn thiện tại `docs/UPDATE_2026-11-14.md`.
+
 ### Thêm mới
 
 - Dịch vụ định danh Keycloak 26.8.2, dùng database riêng trên cùng máy chủ PostgreSQL.

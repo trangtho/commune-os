@@ -21,12 +21,12 @@ export default defineNuxtPlugin(() => {
       return keys
     }
     if (resource === 'applications') {
-      const keys = ['citizen-applications']
+      const keys = ['citizen-applications', 'citizen-applications-home']
       if (route.path.startsWith('/ho-so/') && typeof route.params.id === 'string')
         keys.push(`citizen-application:${route.params.id}`)
       return keys
     }
-    if (resource === 'notifications') return ['citizen-notifications']
+    if (resource === 'notifications') return ['citizen-notifications', 'citizen-notifications-badge']
     if (resource === 'profile') return ['citizen-profile', 'citizen-auth', 'citizen-auth-home']
     return []
   }

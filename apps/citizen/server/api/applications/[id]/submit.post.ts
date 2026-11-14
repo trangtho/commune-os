@@ -7,6 +7,11 @@ export default defineEventHandler(async(event)=>citizenTx(event,async(client,act
   if(body?.confirmed!==true)throw createError({statusCode:400,statusMessage:'Bạn phải xác nhận thông tin trước khi nộp'})
   const row=(await client.query('SELECT * FROM applications WHERE id=$1 FOR UPDATE',[id])).rows[0]
   if(!row||row.status!=='draft')throw createError({statusCode:409,statusMessage:'Hồ sơ không ở trạng thái bản nháp'})
+  // A published procedure might have been withdrawn while the user edited the draft.
+  const active=(await client.query('SELECT 1 FROM procedures WHERE id=$1 AND published',[row.procedure_id])).rowCount
+  if(!active)throw createError({statusCode:409,statusMessage:'Thủ tục không còn được công bố; vui lòng chọn thủ tục khác'})
+  if(row.procedure_id==='khai-sinh' && (!String(row.form_data?.childName||'').trim() || !String(row.form_data?.birthDate||'').trim()))
+    throw createError({statusCode:422,statusMessage:'Thiếu thông tin khai sinh bắt buộc'})
   const missing=(await client.query(`SELECT d.document_name FROM procedure_documents d
     WHERE d.procedure_id=$1 AND d.is_required AND NOT EXISTS
       (SELECT 1 FROM application_documents f WHERE f.application_id=$2 AND f.document_code=d.document_code)`,[row.procedure_id,id])).rows

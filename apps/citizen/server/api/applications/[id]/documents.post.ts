@@ -26,10 +26,12 @@ export default defineEventHandler(async(event)=>{
   try {
     return await citizenTx(event,async(client)=>{
       const id=getRouterParam(event,'id')
-      const application=(await client.query('SELECT id,procedure_id,status FROM applications WHERE id=$1',[id])).rows[0]
+      const application=(await client.query('SELECT id,procedure_id,status FROM applications WHERE id=$1 FOR UPDATE',[id])).rows[0]
       if(!application||!['draft','supplement'].includes(application.status))throw createError({statusCode:403,statusMessage:'Hồ sơ không cho phép tải tài liệu'})
       const allowed=code==='other'||(await client.query('SELECT 1 FROM procedure_documents WHERE procedure_id=$1 AND document_code=$2',[application.procedure_id,code])).rowCount
       if(!allowed)throw createError({statusCode:400,statusMessage:'Loại giấy tờ không hợp lệ'})
+      const count=(await client.query('SELECT count(*)::int AS count FROM application_documents WHERE application_id=$1',[id])).rows[0].count
+      if(count>=30)throw createError({statusCode:422,statusMessage:'Hồ sơ tối đa 30 tệp; vui lòng liên hệ hỗ trợ nếu cần bổ sung'})
       const originalName=(file.filename||'tai-lieu').replace(/[\\/\r\n\x00-\x1f]/g,'').slice(0,180)
       const result=(await client.query(`INSERT INTO application_documents(application_id,document_code,original_name,storage_key,mime_type,size_bytes)
         VALUES($1,$2,$3,$4,$5,$6) RETURNING id,document_code,original_name,size_bytes,uploaded_at`,

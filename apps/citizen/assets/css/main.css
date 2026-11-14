@@ -21,6 +21,13 @@ body { margin: 0; max-width: 100%; }
 .scrollbar-hide { scrollbar-width: none; -ms-overflow-style: none; }
 .citizen-inner-scroll::-webkit-scrollbar, .scrollbar-hide::-webkit-scrollbar, html::-webkit-scrollbar, body::-webkit-scrollbar { display: none; width: 0; height: 0; }
 img, svg, video { max-width: 100%; }
+/* Two institutional marks replace the demo star; both stay visible on narrow screens. */
+.citizen-brand-logo {
+  width: clamp(34px, 3.2vw, 48px);
+  height: clamp(34px, 3.2vw, 48px);
+  flex: none;
+  object-fit: contain;
+}
 input, textarea, select { min-width: 0; }
 body { @apply bg-[#f7faff] text-ink antialiased; font-family: Inter, ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Arial, sans-serif; }
 @layer components {
@@ -76,4 +83,18 @@ body { @apply bg-[#f7faff] text-ink antialiased; font-family: Inter, ui-sans-ser
   .citizen-app-shell > section p { margin-top: .2rem; }
   .citizen-app-shell > section .snap-start { padding-top: .35rem; padding-bottom: .35rem; }
   .citizen-app-shell > section .snap-start > span { height: 2.25rem; width: 2.25rem; }
+}
+
+/* Result-slip printing: the app's fixed viewport must never clip printed pages. */
+@media print {
+ html, body, #__nuxt { height: auto !important; min-height: 0 !important; overflow: visible !important; }
+ .citizen-app-shell { display: block !important; height: auto !important; overflow: visible !important; }
+ .citizen-app-shell > header, .citizen-app-shell > section,
+ .citizen-app-shell > footer, .citizen-workspace > aside { display: none !important; }
+ .citizen-workspace { display: block !important; height: auto !important; min-height: 0 !important;
+    overflow: visible !important; padding: 0 !important; max-width: none !important; }
+ .citizen-workspace > main { overflow: visible !important; height: auto !important;
+    min-height: 0 !important; padding: 0 !important; }
+ .panel { box-shadow: none !important; break-inside: avoid; }
+ body { background: white !important; print-color-adjust: exact; -webkit-print-color-adjust: exact; }
 }

@@ -12,6 +12,9 @@ export default defineNuxtConfig({
       meta: [
         { name: 'description', content: 'Kênh công dân CommuneOS - nộp và theo dõi hồ sơ hành chính số (bản mô phỏng)' },
         { name: 'viewport', content: 'width=device-width, initial-scale=1' }
+      ],
+      link: [
+        { rel: 'icon', type: 'image/png', href: '/images/logo-hoc-vien-ky-thuat-cong-nghe-an-ninh.png' }
       ]
     }
   },
