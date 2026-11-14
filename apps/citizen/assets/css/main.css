@@ -1,0 +1,100 @@
+/* SPDX-FileCopyrightText: 2026 CommuneOS Contributors
+ * SPDX-License-Identifier: Apache-2.0 */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+:root { color-scheme: light; }
+/* Fixed viewport: no document/window scrolling, only dedicated inner regions scroll.
+   dvh tracks mobile browser chrome better than vh. Keep a vh fallback. */
+html, body, #__nuxt {
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+  overscroll-behavior: none;
+}
+body { margin: 0; max-width: 100%; }
+#__nuxt { min-width: 0; max-width: 100%; }
+.citizen-app-shell { height: 100vh; height: 100dvh; min-height: 0; }
+/* Wheel, keyboard, trackpad and touch continue to scroll these regions. */
+.citizen-inner-scroll { min-height: 0; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; scrollbar-width: none; -ms-overflow-style: none; }
+.scrollbar-hide { scrollbar-width: none; -ms-overflow-style: none; }
+.citizen-inner-scroll::-webkit-scrollbar, .scrollbar-hide::-webkit-scrollbar, html::-webkit-scrollbar, body::-webkit-scrollbar { display: none; width: 0; height: 0; }
+img, svg, video { max-width: 100%; }
+/* Two institutional marks replace the demo star; both stay visible on narrow screens. */
+.citizen-brand-logo {
+  width: clamp(34px, 3.2vw, 48px);
+  height: clamp(34px, 3.2vw, 48px);
+  flex: none;
+  object-fit: contain;
+}
+input, textarea, select { min-width: 0; }
+body { @apply bg-[#f7faff] text-ink antialiased; font-family: Inter, ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Arial, sans-serif; }
+@layer components {
+ .panel { @apply min-w-0 rounded-panel border border-[#dbe6f4] bg-white shadow-panel; }
+ .panel-title { @apply text-lg font-extrabold text-ink; }
+ .btn-primary { @apply max-w-full min-w-0 inline-flex items-center justify-center gap-2 rounded-lg bg-gradient-to-b from-brand-500 to-brand-700 px-4 py-2.5 text-sm font-bold text-white shadow-sm transition hover:brightness-105 focus:outline-none focus:ring-2 focus:ring-brand-300 disabled:cursor-not-allowed disabled:opacity-50; }
+ .btn-outline { @apply max-w-full min-w-0 inline-flex items-center justify-center gap-2 rounded-lg border border-brand-200 bg-white px-4 py-2.5 text-sm font-semibold text-brand-700 transition hover:bg-brand-50 focus:outline-none focus:ring-2 focus:ring-brand-200 disabled:cursor-not-allowed disabled:opacity-50; }
+ .field { @apply w-full rounded-lg border border-slate-300 bg-white px-3 py-2.5 text-sm text-ink outline-none transition focus:border-brand-500 focus:ring-2 focus:ring-brand-100; }
+ .field-label { @apply mb-1.5 block text-sm font-semibold text-slate-700; }
+ .nav-link { @apply inline-flex items-center gap-2 whitespace-nowrap rounded-lg px-3 py-2.5 text-sm font-bold text-[#21426b] transition hover:bg-brand-50; }
+ .nav-link-active { @apply bg-brand-600 text-white hover:bg-brand-700; }
+ .side-link { @apply flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-semibold text-[#3a5274] transition hover:bg-brand-50; }
+ .side-link-active { @apply bg-[#e1efff] text-brand-700; }
+ .stat-tile { @apply rounded-xl border border-[#dae7f7] bg-white px-4 py-3 shadow-sm; }
+ .status-blue { @apply bg-blue-100 text-blue-700; }
+ .status-green { @apply bg-green-100 text-green-800; }
+ .status-orange { @apply bg-amber-100 text-amber-800; }
+ .status-red { @apply bg-rose-100 text-rose-700; }
+ .section-label { @apply mb-3 flex items-center gap-2 text-lg font-extrabold; }
+ .divider { @apply border-b border-[#e3edf6]; }
+}
+/* Keep the brand-blue gradient AND the decorative pattern at the same time.
+   Previously .hero-pattern overrode .hero-gradient's background-image,
+   making the white hero heading illegible on a pale background. */
+.hero-gradient { background-color: #0759bd; background-image: linear-gradient(105deg,#0746a4 0%,#086bcd 58%,#47a6eb 100%); }
+.hero-gradient.hero-pattern {
+  background-image:
+    radial-gradient(circle at 28% 32%,rgba(255,255,255,.10) 0,transparent 2px),
+    repeating-radial-gradient(circle at 46% 25%,transparent 0 37px,rgba(255,255,255,.065) 39px 40px),
+    linear-gradient(105deg,#0746a4 0%,#086bcd 58%,#47a6eb 100%);
+}
+/* Fade the building in on the right so the hero heading keeps its contrast. */
+.hero-building { -webkit-mask-image:linear-gradient(to right,transparent 0%,black 42%); mask-image:linear-gradient(to right,transparent 0%,black 42%); }
+/* Make the process ribbon fully opaque: content below must never show through it. */
+.citizen-steps { background-color: #fff; isolation: isolate; }
+@media (max-width: 639px) { .citizen-hero-title { text-wrap: balance; } }
+
+.loading-sheen { animation: shimmer 1.5s infinite linear; background:linear-gradient(90deg,#eff5fb 25%,#fff 50%,#eff5fb 75%); background-size:200% 100%; }
+@keyframes shimmer { to { background-position-x:-200%; } }
+
+/* Narrow-phone readability; layout content can still scroll vertically. */
+@media (max-width: 639px) {
+ .section-label { font-size: 1rem; line-height: 1.5rem; }
+ .panel { border-radius: 12px; }
+ .btn-primary, .btn-outline { white-space: normal; text-align: center; }
+}
+
+/* Reduce the non-scrollable banner on short devices so the content remains reachable. */
+@media (max-height: 680px) {
+  .citizen-app-shell > section > div { padding-top: .65rem; padding-bottom: .65rem; }
+  .citizen-app-shell > section > div > div:first-child { min-height: 0; margin-bottom: .3rem; }
+  .citizen-app-shell > section h1 { font-size: clamp(1.1rem, 3vw, 1.7rem); }
+  .citizen-app-shell > section p { margin-top: .2rem; }
+  .citizen-app-shell > section .snap-start { padding-top: .35rem; padding-bottom: .35rem; }
+  .citizen-app-shell > section .snap-start > span { height: 2.25rem; width: 2.25rem; }
+}
+
+/* Result-slip printing: the app's fixed viewport must never clip printed pages. */
+@media print {
+ html, body, #__nuxt { height: auto !important; min-height: 0 !important; overflow: visible !important; }
+ .citizen-app-shell { display: block !important; height: auto !important; overflow: visible !important; }
+ .citizen-app-shell > header, .citizen-app-shell > section,
+ .citizen-app-shell > footer, .citizen-workspace > aside { display: none !important; }
+ .citizen-workspace { display: block !important; height: auto !important; min-height: 0 !important;
+    overflow: visible !important; padding: 0 !important; max-width: none !important; }
+ .citizen-workspace > main { overflow: visible !important; height: auto !important;
+    min-height: 0 !important; padding: 0 !important; }
+ .panel { box-shadow: none !important; break-inside: avoid; }
+ body { background: white !important; print-color-adjust: exact; -webkit-print-color-adjust: exact; }
+}

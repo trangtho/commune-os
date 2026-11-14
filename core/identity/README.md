@@ -5,6 +5,8 @@ SPDX-License-Identifier: Apache-2.0
 
 # core/identity
 
+Realm Keycloak xuất JSON và nhà cung cấp eID mô phỏng.
+
 Dịch vụ định danh của lõi, dùng Keycloak.
 
 - Realm `communeos` nằm trong `realm/communeos-realm.json` và được nạp tự động
