@@ -105,3 +105,26 @@ body { @apply bg-[#f7faff] text-ink antialiased; font-family: Inter, ui-sans-ser
 :where(.citizen-app-shell) :is(button,a,input,select,textarea,summary):focus-visible {outline:3px solid #2563eb;outline-offset:3px}
 :where(.citizen-app-shell) :is(button,[role="button"]):disabled {cursor:not-allowed;opacity:.6}
 @media (prefers-reduced-motion:reduce){:where(.citizen-app-shell) *, :where(.citizen-app-shell) *::before, :where(.citizen-app-shell) *::after{animation-duration:.01ms!important;transition-duration:.01ms!important;scroll-behavior:auto!important}}
+
+/* Citizen opt-in accessibility mode: never remounts forms or resets input. */
+html.citizen-access-large { font-size: 119%; }
+html.citizen-access-large input, html.citizen-access-large textarea,
+html.citizen-access-large select, html.citizen-access-large button { line-height: 1.55; }
+html.citizen-access-contrast body { background: #fff !important; color: #07152d !important; }
+html.citizen-access-contrast .panel, html.citizen-access-contrast .citizen-workspace aside {
+  border-color: #102e55 !important; box-shadow: none !important;
+}
+html.citizen-access-contrast .text-muted, html.citizen-access-contrast .text-slate-500,
+html.citizen-access-contrast .text-slate-600 { color: #172c4a !important; }
+html.citizen-access-contrast .field { border: 2px solid #102e55; }
+html.citizen-access-contrast .btn-outline { border: 2px solid #0b458a; }
+html.citizen-access-contrast .btn-primary { background: #093b85 !important; color: white !important; }
+html.citizen-access-contrast .hero-gradient { background: #05336f !important; }
+.citizen-app-shell :is(a,button,input,textarea,select,[tabindex]):focus-visible {
+  outline: 3px solid #dc7c08 !important; outline-offset: 3px !important;
+}
+@media (prefers-reduced-motion: reduce) {
+  .citizen-app-shell *, .citizen-app-shell *::before, .citizen-app-shell *::after {
+    transition-duration: 0.01ms !important; animation-duration: 0.01ms !important;
+  }
+}

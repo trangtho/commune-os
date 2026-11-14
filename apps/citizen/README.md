@@ -335,3 +335,14 @@ npm --prefix apps/citizen test
 ```
 
 `repair-db` chạy thêm `core/db/init/03-citizen-chat-history.sql`, không xóa dữ liệu cũ. `chat-history-test` kiểm tra phân quyền giữa hai tài khoản và cascade khi xóa; mọi thay đổi thử nghiệm đều được `ROLLBACK`. Có thể chạy kiểm thử trình duyệt `npm --prefix apps/citizen run test:e2e -- chat-history.spec.ts` khi đã có Playwright và Docker.
+
+
+## Cá nhân hóa thủ tục và gợi ý địa phương tiếp nhận
+
+Đã bổ sung lựa chọn bật/tắt cá nhân hóa theo tài khoản, phân quyền PostgreSQL RLS, gợi ý có lý do từ lịch sử/lĩnh vực quan tâm, tuyến tiếp nhận có phê duyệt, và bộ kết nối OIDC sẵn có phục vụ VNeID khi có thỏa thuận chính thức. Xem [docs/PERSONALIZATION_VNEID.md](docs/PERSONALIZATION_VNEID.md) để biết migration, API, cấu hình Identity và giới hạn nghiệp vụ.
+
+### Đại diện người thân và hỗ trợ tại quầy (bản bổ sung)
+
+Xem [docs/REPRESENTATION_COUNTER.md](docs/REPRESENTATION_COUNTER.md) để biết chi tiết migration `05-citizen-representation-counter.sql`, phạm vi quyền đại diện, phiên quầy 15 phút, cách kiểm thử và các bước cần phối hợp với backend cán bộ để xác minh.
+
+Chạy `make COMPOSE="docker compose -f docker-compose.yml" repair-db` để nạp migration không phá dữ liệu; chạy `make COMPOSE="docker compose -f docker-compose.yml" representation-test` để kiểm tra RLS, quyền xác minh và thu hồi (rollback).

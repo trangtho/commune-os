@@ -15,7 +15,7 @@ export default defineEventHandler(async(event)=>{
   return citizenTx(event,async(client,actor)=>{
     await client.query('UPDATE citizens SET display_name=$1,email=$2,phone=$3,address=$4 WHERE id=$5',[b.display_name,b.email,b.phone,b.address,actor.id])
     // Refresh the signed display name so header/home update without a new login.
-    signSession(event, { id:actor.id, tenantId:actor.tenantId, name:b.display_name })
+    signSession(event, { id:actor.id, tenantId:actor.tenantId, name:b.display_name,authMethod:actor.authMethod })
     return {ok:true}
   })
 })

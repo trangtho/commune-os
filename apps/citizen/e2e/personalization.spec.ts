@@ -1,0 +1,31 @@
+// SPDX-FileCopyrightText: 2026 CommuneOS Contributors
+// SPDX-License-Identifier: Apache-2.0
+import { test, expect } from '@playwright/test'
+test('Citizen opts in to personalized procedure suggestions and can remove the data',async({page})=>{
+  await page.goto('/dang-nhap')
+  const methods=await (await page.request.get('/api/auth/methods')).json()
+  test.skip(!methods.demo,'Requires demo sign-in or a test OIDC account')
+  await page.getByLabel('Tên đăng nhập').fill('congdan.demo')
+  await page.getByLabel('Mật khẩu').fill('Demo@2026!')
+  await page.getByRole('button',{name:'Đăng nhập',exact:true}).click()
+  await page.goto('/ho-so-ca-nhan')
+  await expect(page.getByText('Gợi ý thủ tục dành cho bạn')).toBeVisible()
+  await page.locator('#personalization-enabled').check()
+  await page.locator('#audience-group').selectOption('parent')
+  await page.getByRole('button',{name:'Lưu tùy chọn'}).click()
+  await expect(page.getByText(/Đã lưu tùy chọn/)).toBeVisible()
+  await page.goto('/thu-tuc')
+  await expect(page.getByRole('button',{name:'Gợi ý cho tôi'})).toHaveAttribute('aria-pressed','true')
+  await page.locator('#procedure-search').fill('khai sinh')
+  await expect(page.getByRole('button',{name:'Tất cả thủ tục'})).toHaveAttribute('aria-pressed','true')
+  await page.goto('/ho-so-ca-nhan')
+  page.once('dialog',dialog=>dialog.accept())
+  await page.getByRole('button',{name:'Xóa dữ liệu tự khai'}).click()
+  await expect(page.getByText(/Đã xóa tùy chọn/)).toBeVisible()
+})
+test('No fake VNeID login when official integration is not configured',async({page})=>{
+  const methods=await (await page.request.get('/api/auth/methods')).json()
+  test.skip(methods.vneid,'Approved VNeID identity integration is configured')
+  await page.goto('/dang-nhap')
+  await expect(page.getByText('Đăng nhập bằng VNeID',{exact:true})).toHaveCount(0)
+})

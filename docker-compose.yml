@@ -93,6 +93,9 @@ services:
         psql -v ON_ERROR_STOP=1 -f /setup/seed/seed.sql
         psql -v ON_ERROR_STOP=1 -f /setup/init/02-ai-knowledge.sql
         psql -v ON_ERROR_STOP=1 -f /setup/init/03-citizen-chat-history.sql
+        psql -v ON_ERROR_STOP=1 -f /setup/init/04-citizen-personalization.sql
+        psql -v ON_ERROR_STOP=1 -f /setup/init/05-citizen-representation-counter.sql
+        psql -v ON_ERROR_STOP=1 -f /setup/init/06-citizen-assistance-family-consultation.sql
         psql -v ON_ERROR_STOP=1 -c "SELECT count(*) AS published_procedures FROM procedures WHERE published = true"
         echo 'PostgreSQL setup finished successfully.'
 
@@ -114,7 +117,7 @@ services:
       PGUSER: communeos_app
       PGPASSWORD: ${POSTGRES_APP_PASSWORD}
       SESSION_SECRET: ${SESSION_SECRET}
-      DEMO_MODE: "true"
+      DEMO_MODE: ${DEMO_MODE:-true}
       STORAGE_DIR: /app/storage
       # Nuxt runtimeConfig: ghi đè giá trị mặc định lúc chạy container.
       # Chuyển từ docker-compose.override.yml vào cấu hình chính.
@@ -124,6 +127,25 @@ services:
       NUXT_DB_USER: communeos_app
       NUXT_DB_PASSWORD: ${POSTGRES_APP_PASSWORD}
       NUXT_SESSION_SECRET: ${SESSION_SECRET}
+      CITIZEN_OIDC_PROVIDER: ${CITIZEN_OIDC_PROVIDER:-identity}
+      CITIZEN_OIDC_RESIDENCE_TENANT_CLAIM: ${CITIZEN_OIDC_RESIDENCE_TENANT_CLAIM:-}
+      CITIZEN_OIDC_TEMPORARY_TENANT_CLAIM: ${CITIZEN_OIDC_TEMPORARY_TENANT_CLAIM:-}
+      CITIZEN_OIDC_LOCALITY_SCOPE: ${CITIZEN_OIDC_LOCALITY_SCOPE:-}
+      CITIZEN_VNEID_INTEGRATION_APPROVED: ${CITIZEN_VNEID_INTEGRATION_APPROVED:-false}
+      CITIZEN_OIDC_ISSUER: ${CITIZEN_OIDC_ISSUER:-}
+      CITIZEN_OIDC_AUTHORIZE_URL: ${CITIZEN_OIDC_AUTHORIZE_URL:-}
+      CITIZEN_OIDC_TOKEN_URL: ${CITIZEN_OIDC_TOKEN_URL:-}
+      CITIZEN_OIDC_JWKS_URL: ${CITIZEN_OIDC_JWKS_URL:-}
+      CITIZEN_OIDC_CLIENT_ID: ${CITIZEN_OIDC_CLIENT_ID:-}
+      CITIZEN_OIDC_CLIENT_SECRET: ${CITIZEN_OIDC_CLIENT_SECRET:-}
+      CITIZEN_OIDC_REDIRECT_URI: ${CITIZEN_OIDC_REDIRECT_URI:-}
+      NUXT_OIDC_ISSUER: ${CITIZEN_OIDC_ISSUER:-}
+      NUXT_OIDC_AUTHORIZE_URL: ${CITIZEN_OIDC_AUTHORIZE_URL:-}
+      NUXT_OIDC_TOKEN_URL: ${CITIZEN_OIDC_TOKEN_URL:-}
+      NUXT_OIDC_JWKS_URL: ${CITIZEN_OIDC_JWKS_URL:-}
+      NUXT_OIDC_CLIENT_ID: ${CITIZEN_OIDC_CLIENT_ID:-}
+      NUXT_OIDC_CLIENT_SECRET: ${CITIZEN_OIDC_CLIENT_SECRET:-}
+      NUXT_OIDC_REDIRECT_URI: ${CITIZEN_OIDC_REDIRECT_URI:-}
       NUXT_STORAGE_DIR: /app/storage
       # Optional server-side, OpenAI-compatible answer model and legacy classifier.
       # Do not expose tokens via Nuxt public runtimeConfig.

@@ -17,19 +17,19 @@ export default defineNuxtPlugin(() => {
   function selectKeys(resource: string): string[] {
     const route = router.currentRoute.value
     if (resource === 'procedures') {
-      const keys = ['citizen-procedures']
+      const keys = ['citizen-procedures', 'citizen-procedure-recommendations']
       if (route.path.startsWith('/thu-tuc/') || route.path.startsWith('/nop-ho-so/'))
         keys.push(`citizen-procedure:${String(route.params.slug)}`)
       return keys
     }
     if (resource === 'applications') {
-      const keys = ['citizen-applications', 'citizen-applications-home', 'citizen-applications-page', 'citizen-applications-lookup']
+      const keys = ['citizen-applications', 'citizen-applications-home', 'citizen-applications-page', 'citizen-applications-lookup', 'citizen-procedure-recommendations']
       if (route.path.startsWith('/ho-so/') && typeof route.params.id === 'string')
         keys.push(`citizen-application:${route.params.id}`)
       return keys
     }
     if (resource === 'notifications') return ['citizen-notifications', 'citizen-notifications-badge', 'citizen-notifications-page']
-    if (resource === 'profile') return ['citizen-profile', 'citizen-auth', 'citizen-auth-home']
+    if (resource === 'profile') return ['citizen-profile', 'citizen-auth', 'citizen-auth-home', 'citizen-procedure-recommendations', 'citizen-service-preferences']
     return []
   }
   function scheduleRefresh(resource: string) {

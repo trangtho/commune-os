@@ -18,6 +18,6 @@ export default defineEventHandler(async(event)=>{
     'SELECT * FROM citizen_login_lookup($1)',[credentials.username])
   const user=rows[0]
   if(!user||!validPassword(credentials.password,user.password_hash)) throw createError({statusCode:401,statusMessage:'Tên đăng nhập hoặc mật khẩu không đúng'})
-  signSession(event,{id:user.id,tenantId:user.tenant_id,name:user.display_name})
+  signSession(event,{id:user.id,tenantId:user.tenant_id,name:user.display_name,authMethod:'demo'})
   return {authenticated:true,role:'citizen',name:user.display_name}
 })

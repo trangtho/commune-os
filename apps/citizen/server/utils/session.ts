@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { createHmac, timingSafeEqual } from 'node:crypto'
 import { getCookie, setCookie, deleteCookie, createError, type H3Event } from 'h3'
-type Identity={ id:string; tenantId:string; name:string; role:'citizen'; exp:number }
+type Identity={ id:string; tenantId:string; name:string; role:'citizen'; exp:number; authMethod?:'demo'|'oidc' }
 const cookieName = 'communeos_citizen_demo'
 function secret(){
   const value=String(useRuntimeConfig().sessionSecret)
@@ -10,7 +10,7 @@ function secret(){
   return value
 }
 function signature(body:string){return createHmac('sha256',secret()).update(body).digest('base64url')}
-export function signSession(event:H3Event, citizen:{id:string;tenantId:string;name:string}) {
+export function signSession(event:H3Event, citizen:{id:string;tenantId:string;name:string;authMethod?:'demo'|'oidc'}) {
   const body=Buffer.from(JSON.stringify({...citizen,role:'citizen',exp:Date.now()+12*60*60*1000})).toString('base64url')
   setCookie(event,cookieName,`${body}.${signature(body)}`,{httpOnly:true,sameSite:'lax',secure:process.env.NODE_ENV==='production',path:'/',maxAge:12*60*60})
 }

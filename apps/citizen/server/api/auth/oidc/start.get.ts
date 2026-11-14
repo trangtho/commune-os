@@ -3,5 +3,5 @@
 import { startOidc } from '../../../utils/oidc'
 export default defineEventHandler(event => {
   const next=typeof getQuery(event).next==='string'?getQuery(event).next as string:'/'
-  return sendRedirect(event,startOidc(event,next),302)
+  return sendRedirect(event,startOidc(event,next,getQuery(event).useResidence==='1'),302)
 })
