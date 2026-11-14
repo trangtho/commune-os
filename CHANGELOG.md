@@ -32,6 +32,11 @@ Mọi thay đổi đáng chú ý của dự án được ghi tại đây.
 - Cửa ngõ kiểm chữ ký và nơi cấp của JWT do Keycloak phát hành trên tuyến `/api/*`.
 - Biến `KEYCLOAK_PUBLIC_URL` và `GATEWAY_PORT` trong `.env`.
 - Bảng quản trị lõi (`core/admin`): khung giao diện, màn hình quản lý xã và gói thủ tục, dùng dữ liệu giả lập.
+- PostgREST sau cổng /rest/\*.
+- Thêm schema api + RLS cách ly xã.
+- Bảng quản trị dùng dữ liệu thật.
+- make test
+- Biến mới POSTGRES_REST_PASSWORD
 
 ### Sửa lỗi
 
@@ -48,6 +53,7 @@ Mẫu cho mỗi bản phát hành:
 ### Sửa lỗi
 
 -->
+
 ## Unreleased — Kênh Công dân Nuxt + PostgreSQL mẫu
 
 - Bổ sung giao diện Công dân dùng chung design system theo bản mockup thống nhất.

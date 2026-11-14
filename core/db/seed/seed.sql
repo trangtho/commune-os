@@ -2,9 +2,12 @@
 -- SPDX-License-Identifier: Apache-2.0
 -- Tất cả thông tin dưới đây là GIẢ LẬP cho mục đích demo, không có hồ sơ thật.
 INSERT INTO tenants (id, code, name) VALUES
- ('10000000-0000-4000-8000-000000000001','XA-DEMO','Xã Tân Lập (mô phỏng)'),
- ('10000000-0000-4000-8000-000000000002','XA-TEST-2','Xã Minh Hòa (mô phỏng)')
+ ('10000000-0000-4000-8000-000000000001','xa-a','Xã Tân Lập (mô phỏng)'),
+ ('10000000-0000-4000-8000-000000000002','xa-b','Xã Minh Hòa (mô phỏng)')
 ON CONFLICT (id) DO NOTHING;
+-- Mã xã phải trùng thuộc tính tenant_id của tài khoản Keycloak (xa-a, xa-b).
+UPDATE tenants SET code = 'xa-a' WHERE id = '10000000-0000-4000-8000-000000000001' AND code <> 'xa-a';
+UPDATE tenants SET code = 'xa-b' WHERE id = '10000000-0000-4000-8000-000000000002' AND code <> 'xa-b';
 INSERT INTO citizens (id,tenant_id,login_name,display_name,email,phone,address,password_hash) VALUES
  ('20000000-0000-4000-8000-000000000001','10000000-0000-4000-8000-000000000001',
  'congdan.demo','Nguyễn Văn An (mẫu)','demo@communeos.local','0900000000',

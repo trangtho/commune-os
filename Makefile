@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 COMPOSE ?= docker compose
 .DEFAULT_GOAL := help
-.PHONY: help up down logs ps seed test citizen-dev reset-demo rls-test rag-test chat-history-test personalization-test representation-test citizen-experience-test repair-db doctor
+.PHONY: help up down logs ps seed test citizen-dev reset-demo rls-test rag-test chat-history-test personalization-test representation-test citizen-experience-test repair-db doctor test-citizen
 help: ## Liệt kê lệnh
 	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*## "}; {printf "  make %-14s %s\n", $$1, $$2}'
 .env:
@@ -22,7 +22,10 @@ ps: ## Xem tình trạng dịch vụ
 seed: .env ## Nạp lại dữ liệu mẫu (idempotent)
 	$(COMPOSE) exec -T db sh -c 'psql -v ON_ERROR_STOP=1 -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"' < core/db/seed/seed.sql
 
-test: ## Kiểm tra cấu trúc dự án; không thay thế kiểm thử tích hợp
+test: .env ## Kiểm thử cách ly xã qua gateway (cần docker compose up)
+	sh core/tests/tenant-isolation.sh
+
+test-citizen: ## Kiểm thử đơn vị Kênh người dân
 	cd apps/citizen && npm test
 
 citizen-dev: ## Chạy Nuxt dev; cần export PG*, SESSION_SECRET theo tài liệu
