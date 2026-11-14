@@ -20,7 +20,7 @@ async function onFileChosen(event: Event) {
   notice.value = null;
   const text = await file.text();
   error.value = loadPack(text);
-  if (!error.value) notice.value = `Đã nạp gói từ tệp ${file.name}.`;
+  if (!error.value) notice.value = `Đã thêm thủ tục từ tệp ${file.name}.`;
   input.value = "";
 }
 
@@ -33,9 +33,10 @@ function toggle(code: string) {
   <section>
     <div class="flex flex-wrap items-center justify-between gap-3">
       <div>
-        <h1 class="text-2xl font-bold">Gói thủ tục</h1>
+        <h1 class="text-2xl font-bold">Thủ tục</h1>
         <p class="mt-1 text-slate-600">
-          Mỗi thủ tục là một gói cấu hình. Nạp gói mới không cần sửa mã.
+          Thêm thủ tục mới bằng cách tải lên tệp mô tả của thủ tục đó, không cần
+          lập trình.
         </p>
       </div>
       <div>
@@ -44,7 +45,7 @@ function toggle(code: string) {
           type="file"
           accept=".yaml,.yml"
           class="sr-only"
-          aria-label="Chọn tệp pack.yaml"
+          aria-label="Chọn tệp mô tả thủ tục (pack.yaml)"
           @change="onFileChosen"
         />
         <button
@@ -53,7 +54,7 @@ function toggle(code: string) {
           @click="fileInput?.click()"
         >
           <Upload class="h-4 w-4" aria-hidden="true" />
-          Nạp gói
+          Thêm thủ tục
         </button>
       </div>
     </div>
@@ -82,11 +83,11 @@ function toggle(code: string) {
             <th scope="col" class="w-10 px-4 py-3">
               <span class="sr-only">Mở rộng</span>
             </th>
-            <th scope="col" class="px-4 py-3 font-semibold">Mã gói</th>
+            <th scope="col" class="px-4 py-3 font-semibold">Mã thủ tục</th>
             <th scope="col" class="px-4 py-3 font-semibold">Tên thủ tục</th>
             <th scope="col" class="px-4 py-3 font-semibold">Phiên bản</th>
-            <th scope="col" class="px-4 py-3 font-semibold">Kênh nhận</th>
-            <th scope="col" class="px-4 py-3 font-semibold">Ngày nạp</th>
+            <th scope="col" class="px-4 py-3 font-semibold">Cách nộp</th>
+            <th scope="col" class="px-4 py-3 font-semibold">Ngày thêm</th>
           </tr>
         </thead>
         <tbody>
@@ -97,7 +98,7 @@ function toggle(code: string) {
                   type="button"
                   class="rounded p-1 hover:bg-slate-100"
                   :aria-expanded="expanded === pack.code"
-                  :aria-label="`Xem chi tiết gói ${pack.name}`"
+                  :aria-label="`Xem chi tiết thủ tục ${pack.name}`"
                   @click="toggle(pack.code)"
                 >
                   <component
@@ -146,7 +147,7 @@ function toggle(code: string) {
                         v-if="pack.required_documents.length === 0"
                         class="list-none text-slate-500"
                       >
-                        Gói không khai báo giấy tờ bắt buộc.
+                        Thủ tục này không yêu cầu giấy tờ bắt buộc.
                       </li>
                     </ul>
                   </div>
@@ -180,7 +181,7 @@ function toggle(code: string) {
           </template>
           <tr v-if="packs.length === 0">
             <td colspan="6" class="px-4 py-8 text-center text-slate-500">
-              Chưa có gói thủ tục nào. Bấm "Nạp gói" và chọn tệp pack.yaml.
+              Chưa có thủ tục nào. Bấm "Thêm thủ tục" và chọn tệp pack.yaml.
             </td>
           </tr>
         </tbody>
@@ -188,7 +189,7 @@ function toggle(code: string) {
     </div>
 
     <p class="mt-4 text-sm text-slate-500">
-      Đang dùng dữ liệu giả lập. Để thử, chọn tệp
+      Đây là dữ liệu mẫu để xem thử. Để thử thêm thủ tục, chọn tệp
       <span class="font-mono">packs/_template/pack.yaml</span> trong repo.
     </p>
   </section>

@@ -6,10 +6,10 @@ SPDX-License-Identifier: Apache-2.0
 import { Activity, Building2, Package, ScrollText } from "lucide-vue-next";
 
 const menu = [
-  { to: "/xa", label: "Xã", icon: Building2 },
-  { to: "/goi-thu-tuc", label: "Gói thủ tục", icon: Package },
-  { to: "/so-cai", label: "Sổ cái", icon: ScrollText },
-  { to: "/tinh-trang", label: "Tình trạng dịch vụ", icon: Activity },
+  { to: "/xa", label: "Danh sách xã", icon: Building2 },
+  { to: "/goi-thu-tuc", label: "Thủ tục", icon: Package },
+  { to: "/so-cai", label: "Kiểm tra hồ sơ đã ký", icon: ScrollText },
+  { to: "/tinh-trang", label: "Tình trạng hệ thống", icon: Activity },
 ];
 </script>
 
@@ -18,7 +18,7 @@ const menu = [
     <aside class="bg-slate-900 text-slate-100 md:w-60 md:shrink-0">
       <div class="px-5 py-4">
         <p class="text-lg font-bold">CommuneOS</p>
-        <p class="text-sm text-slate-400">Quản trị lõi</p>
+        <p class="text-sm text-slate-400">Quản trị hệ thống</p>
       </div>
       <nav class="flex gap-1 overflow-x-auto px-3 pb-3 md:block md:space-y-1">
         <NuxtLink

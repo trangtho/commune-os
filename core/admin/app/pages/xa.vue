@@ -39,9 +39,9 @@ function confirmToggle(tenant: Tenant) {
   <section>
     <div class="flex flex-wrap items-center justify-between gap-3">
       <div>
-        <h1 class="text-2xl font-bold">Xã</h1>
+        <h1 class="text-2xl font-bold">Danh sách xã</h1>
         <p class="mt-1 text-slate-600">
-          Mỗi xã là một tenant, dữ liệu được cách ly với các xã khác.
+          Mỗi xã có dữ liệu riêng. Xã này không xem được dữ liệu của xã khác.
         </p>
       </div>
       <button
@@ -196,7 +196,7 @@ function confirmToggle(tenant: Tenant) {
     </div>
 
     <p class="mt-4 text-sm text-slate-500">
-      Đang dùng dữ liệu giả lập. Thay đổi sẽ mất khi tải lại trang.
+      Đây là dữ liệu mẫu để xem thử. Thay đổi sẽ mất khi tải lại trang.
     </p>
   </section>
 </template>
