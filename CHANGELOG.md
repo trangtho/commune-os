@@ -11,6 +11,20 @@ Mọi thay đổi đáng chú ý của dự án được ghi tại đây.
 
 ## [Chưa phát hành]
 
+### Thêm mới (lõi, 2026-11-14)
+
+- API dữ liệu PostgREST 16.5 sau cổng APISIX tại `/rest/*`; PostgREST tự kiểm tra lại chữ ký token Keycloak (JWKS).
+- Schema `api`: `dossiers`, `dossier_events`, `procedures`, `tenants` (chỉ đọc, số điện thoại được che) và hàm `add_tenant`, `set_tenant_status` (chỉ vai trò `sys_admin`).
+- Cách ly xã bằng RLS theo claim `tenant_id` của token; xã bị khóa thì cán bộ xã đó không đọc được hồ sơ nào.
+- Bảng quản trị: đăng nhập Keycloak (chỉ `sys_admin`), màn hình Danh sách xã dùng dữ liệu thật (thêm, khóa/mở xã), nút đăng xuất.
+- Kiểm thử `make test`: 9 kiểm tra cách ly xã và phân quyền qua gateway.
+
+### Thay đổi
+
+- Mã xã mẫu đổi `XA-DEMO`/`XA-TEST-2` thành `xa-a`/`xa-b` cho khớp tài khoản Keycloak; tự cập nhật trên dữ liệu cũ.
+- Kiểm thử Kênh người dân chuyển sang `make test-citizen`.
+- Biến mới bắt buộc trong `.env`: `POSTGRES_REST_PASSWORD`.
+
 ### Cải thiện cổng Công dân (2026-11-14)
 
 - Sửa quyền UPDATE PostgreSQL cho luồng tạo/sửa bản nháp và nộp hồ sơ, không nới lỏng RLS.

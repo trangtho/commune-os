@@ -28,12 +28,12 @@ Giấy phép của các thành phần bên thứ ba được liệt kê trong
 
 ## Kiến trúc
 
-| Tầng | Thư mục | Nội dung |
-| --- | --- | --- |
-| Tầng 1 - Lõi headless | `core/` | Cửa ngõ API, định danh, dữ liệu, quy trình, sổ cái, AI, bảng quản trị |
-| Tầng 2 - Ứng dụng | `apps/commune/` | Ứng dụng xã cho cán bộ, lãnh đạo, cấp trên |
-| Tầng 2 - Ứng dụng | `apps/citizen/` | Kênh nộp hồ sơ trực tuyến cho người dân |
-| Cấu hình | `packs/` | Gói thủ tục: BPMN, biểu mẫu, bảng kiểm giấy tờ, wiki |
+| Tầng                  | Thư mục         | Nội dung                                                              |
+| --------------------- | --------------- | --------------------------------------------------------------------- |
+| Tầng 1 - Lõi headless | `core/`         | Cửa ngõ API, định danh, dữ liệu, quy trình, sổ cái, AI, bảng quản trị |
+| Tầng 2 - Ứng dụng     | `apps/commune/` | Ứng dụng xã cho cán bộ, lãnh đạo, cấp trên                            |
+| Tầng 2 - Ứng dụng     | `apps/citizen/` | Kênh nộp hồ sơ trực tuyến cho người dân                               |
+| Cấu hình              | `packs/`        | Gói thủ tục: BPMN, biểu mẫu, bảng kiểm giấy tờ, wiki                  |
 
 | Tầng                  | Thư mục         | Nội dung                                                              |
 | --------------------- | --------------- | --------------------------------------------------------------------- |
@@ -61,7 +61,7 @@ cd commune-os
 cp .env.example .env      # sửa mật khẩu trong .env
 make up                   # dựng và khởi động toàn bộ dịch vụ
 make seed                 # nạp dữ liệu mẫu giả lập
-make test                 # chạy bộ kiểm thử
+make test                 # kiểm thử cách ly xã qua gateway (cần DEMO_PASSWORD, xem core/tests)
 ```
 
 Mọi cấu hình nằm trong tệp `.env`; không cần sửa tệp mã nguồn nào.
@@ -74,12 +74,23 @@ Xem chú thích từng biến trong [.env.example](.env.example).
 
 Các tài khoản dưới đây là dữ liệu giả lập, chỉ dùng trên máy phát triển.
 
-| Tên đăng nhập | Mật khẩu | Xã (`tenant_id`) | Vai          |
-| ------------- | -------- | ---------------- | ------------ |
-| `canbo.xa-a`  | `12345`  | `xa-a`           | receptionist |
-| `canbo.xa-b`  | `12345`  | `xa-b`           | receptionist |
+| Tên đăng nhập | Mật khẩu | Xã (`tenant_id`) | Vai          | Dùng ở đâu                         |
+| ------------- | -------- | ---------------- | ------------ | ---------------------------------- |
+| `canbo.xa-a`  | `12345`  | `xa-a`           | receptionist | API `/rest`, màn hình cán bộ xã    |
+| `canbo.xa-b`  | `12345`  | `xa-b`           | receptionist | API `/rest`, màn hình cán bộ xã    |
+| `quantri`     | tự đặt   | (để trống)       | sys_admin    | Bảng quản trị hệ thống (cổng 3001) |
+
+Hai tài khoản `canbo.*` có sẵn trong tệp realm và được nạp tự động.
+Tài khoản `quantri` **chưa có trong tệp realm**, phải tạo tay một lần:
+
+1. Mở http://localhost:8080/admin, đăng nhập bằng tài khoản quản trị Keycloak trong `.env`.
+2. Chọn realm **communeos** ở góc trên bên trái (không dùng realm `master`).
+3. Users → Create new user: Username `quantri`, điền Email, First name, Last name, bật Email verified → Create.
+4. Tab Credentials → Set password, **tắt Temporary** → Save.
+5. Tab Role mapping → Assign role → lọc theo realm roles → chọn `sys_admin` → Assign.
 
 Trang quản trị Keycloak: http://localhost:8080 (tài khoản quản trị lấy từ tệp `.env`).
+
 ## Mở rộng
 
 - Thêm thủ tục mới: sao `packs/_template/`, sửa rồi nạp qua bảng quản trị.
@@ -96,6 +107,7 @@ Hướng dẫn chi tiết trong [docs/](docs/).
 ## Đội phát triển
 
 Danh sách người đóng góp: [Contributors](https://github.com/trangtho/commune-os/graphs/contributors).
+
 ## Kênh Công dân – giao diện & PostgreSQL mô phỏng
 
 Từ bản cập nhật này, `apps/citizen/` chứa ứng dụng Nuxt 3, Vue 3, TypeScript,
@@ -141,7 +153,6 @@ cấp quyền và nạp dữ liệu mẫu cho volume đã tồn tại. Nếu tra
 "Không tải được thủ tục từ PostgreSQL", chạy `make repair-db`, `make doctor`,
 rồi kiểm tra `http://localhost:3000/api/health` và `/api/procedures`.
 Không xóa Docker volume có dữ liệu cần giữ. Chi tiết: `docs/CITIZEN_SETUP.md`.
-
 
 **Kết nối PostgreSQL cho ứng dụng Nuxt trong Docker:** Các giá trị runtime
 `NUXT_DB_HOST=db`, `NUXT_DB_NAME`, `NUXT_DB_USER`, `NUXT_DB_PASSWORD` và
