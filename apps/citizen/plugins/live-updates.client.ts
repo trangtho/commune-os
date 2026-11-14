@@ -28,7 +28,11 @@ export default defineNuxtPlugin(() => {
         keys.push(`citizen-application:${route.params.id}`)
       return keys
     }
-    if (resource === 'notifications') return ['citizen-notifications', 'citizen-notifications-badge', 'citizen-notifications-page']
+    if (resource === 'notifications') {
+      const keys = ['citizen-notifications', 'citizen-notifications-badge', 'citizen-notifications-page', 'citizen-tickets-list']
+      if (route.path.startsWith('/yeu-cau-ho-tro/') && typeof route.params.id === 'string') keys.push(`citizen-ticket:${route.params.id}`)
+      return keys
+    }
     if (resource === 'profile') return ['citizen-profile', 'citizen-auth', 'citizen-auth-home', 'citizen-procedure-recommendations', 'citizen-service-preferences']
     return []
   }

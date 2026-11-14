@@ -33,6 +33,7 @@ async function send() {
 </script>
 <template>
   <div class="space-y-4">
+    <NuxtLink to="/yeu-cau-ho-tro" class="btn-primary">Theo dõi mã yêu cầu, trạng thái và phản hồi cán bộ</NuxtLink>
     <div><h2 class="text-xl font-black">Liên hệ và phản hồi</h2><p class="text-sm text-muted">Gửi góp ý, xem lại nội dung đã gửi và tìm kênh hướng dẫn sử dụng.</p></div>
     <div class="grid gap-4 lg:grid-cols-[minmax(0,.85fr)_minmax(0,1.15fr)]">
       <section class="panel space-y-4 p-5">
