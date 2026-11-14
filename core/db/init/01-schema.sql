@@ -202,7 +202,7 @@ DECLARE
   v_tenant uuid;
   v_application text;
 BEGIN
-  IF TG_TABLE_NAME IN ('procedures', 'procedure_documents') THEN
+  IF TG_TABLE_NAME IN ('procedures', 'procedure_documents', 'citizen_faq') THEN
     v_resource := 'procedures';
   ELSIF TG_TABLE_NAME = 'citizens' THEN
     v_resource := 'profile';
@@ -264,7 +264,7 @@ DO $$
 DECLARE t text;
 BEGIN
   FOREACH t IN ARRAY ARRAY[
-    'procedures', 'procedure_documents', 'applications',
+    'procedures', 'procedure_documents', 'citizen_faq', 'applications',
     'application_events', 'application_documents',
     'citizen_notifications', 'citizens'
   ] LOOP

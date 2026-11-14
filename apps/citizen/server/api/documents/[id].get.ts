@@ -15,7 +15,10 @@ export default defineEventHandler(async(event)=>{
   let buffer:Buffer
   try {buffer=await readFile(join(base,doc.storage_key))}catch{throw createError({statusCode:404,statusMessage:'Tệp không còn tồn tại'})}
   setResponseHeader(event,'content-type',doc.mime_type)
-  setResponseHeader(event,'content-disposition',`attachment; filename*=UTF-8''${encodeURIComponent(doc.original_name)}`)
+  const inline = getQuery(event).view === '1'
+  setResponseHeader(event,'content-disposition',`${inline ? 'inline' : 'attachment'}; filename*=UTF-8''${encodeURIComponent(doc.original_name)}`)
+  setResponseHeader(event,'cache-control','private, no-store')
+  setResponseHeader(event,'content-security-policy',"sandbox; default-src 'none'")
   setResponseHeader(event,'x-content-type-options','nosniff')
   return buffer
 })
