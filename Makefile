@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 COMPOSE ?= docker compose
 .DEFAULT_GOAL := help
-.PHONY: help up down logs ps seed test citizen-dev reset-demo rls-test rag-test chat-history-test personalization-test representation-test citizen-experience-test repair-db doctor test-citizen
+.PHONY: help up down logs ps seed test test-citizen citizen-dev reset-demo rls-test rag-test chat-history-test personalization-test representation-test citizen-experience-test handoff-support-test repair-db doctor
 help: ## Liệt kê lệnh
 	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*## "}; {printf "  make %-14s %s\n", $$1, $$2}'
 .env:
@@ -51,6 +51,9 @@ representation-test: .env ## Kiểm thử phân quyền đại diện và phiên
 
 citizen-experience-test: .env ## Kiểm thử quyền truy cập lịch tư vấn và đánh giá (ROLLBACK)
 	$(COMPOSE) exec -T db sh -c 'psql -v ON_ERROR_STOP=1 -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"' < core/db/tests/citizen-access-family-consultation.sql
+
+handoff-support-test: .env ## Kiểm tra mã chuyển tiếp dùng một lần và bảo vệ dữ liệu hỗ trợ (ROLLBACK)
+	$(COMPOSE) exec -T db sh -c 'psql -v ON_ERROR_STOP=1 -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"' < core/db/tests/citizen-handoff-support.sql
 
 repair-db: .env ## Khởi tạo/sửa schema và seed trên volume hiện tại; không xóa dữ liệu
 	$(COMPOSE) up -d db

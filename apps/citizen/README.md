@@ -346,3 +346,10 @@ npm --prefix apps/citizen test
 Xem [docs/REPRESENTATION_COUNTER.md](docs/REPRESENTATION_COUNTER.md) để biết chi tiết migration `05-citizen-representation-counter.sql`, phạm vi quyền đại diện, phiên quầy 15 phút, cách kiểm thử và các bước cần phối hợp với backend cán bộ để xác minh.
 
 Chạy `make COMPOSE="docker compose -f docker-compose.yml" repair-db` để nạp migration không phá dữ liệu; chạy `make COMPOSE="docker compose -f docker-compose.yml" representation-test` để kiểm tra RLS, quyền xác minh và thu hồi (rollback).
+
+
+## Chuyển tiếp hồ sơ và trung tâm hỗ trợ
+
+Giao diện `/chuyen-tiep` và `/yeu-cau-ho-tro` dùng migration `07-citizen-handoff-support.sql`.
+Xem [docs/HANDOFF_SUPPORT.md](docs/HANDOFF_SUPPORT.md) để biết hợp đồng API cán bộ,
+phân quyền và kiểm thử; không dùng mã chuyển tiếp thay cho xác minh danh tính.
