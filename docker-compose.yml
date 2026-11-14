@@ -15,11 +15,16 @@ services:
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
       POSTGRES_APP_USER: communeos_app
       POSTGRES_APP_PASSWORD: ${POSTGRES_APP_PASSWORD}
+      POSTGRES_REST_PASSWORD: ${POSTGRES_REST_PASSWORD}
     volumes:
       - db-data:/var/lib/postgresql/data
       - ./core/db/init:/docker-entrypoint-initdb.d:ro
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
+      test:
+        [
+          "CMD-SHELL",
+          "pg_isready -h 127.0.0.1 -U ${POSTGRES_USER} -d ${POSTGRES_DB}",
+        ]
       interval: 5s
       timeout: 3s
       retries: 10
@@ -55,6 +60,7 @@ services:
       - ./core/gateway/apisix.yaml:/usr/local/apisix/conf/apisix.yaml
     depends_on:
       - identity
+      - rest
     ports:
       - "${GATEWAY_PORT}:9080"
 
@@ -77,6 +83,7 @@ services:
       POSTGRES_DB: ${POSTGRES_DB}
       POSTGRES_APP_USER: communeos_app
       POSTGRES_APP_PASSWORD: ${POSTGRES_APP_PASSWORD}
+      POSTGRES_REST_PASSWORD: ${POSTGRES_REST_PASSWORD}
     volumes:
       - ./core/db/init:/setup/init:ro
       - ./core/db/seed:/setup/seed:ro
@@ -90,6 +97,8 @@ services:
         fi
         sh /setup/init/00-create-app-role.sh
         psql -v ON_ERROR_STOP=1 -f /setup/init/01-schema.sql
+        sh /setup/init/02-create-api-roles.sh
+        psql -v ON_ERROR_STOP=1 -f /setup/init/03-api.sql
         psql -v ON_ERROR_STOP=1 -f /setup/seed/seed.sql
         psql -v ON_ERROR_STOP=1 -f /setup/init/02-ai-knowledge.sql
         psql -v ON_ERROR_STOP=1 -f /setup/init/03-citizen-chat-history.sql
@@ -99,6 +108,36 @@ services:
         psql -v ON_ERROR_STOP=1 -f /setup/init/07-citizen-handoff-support.sql
         psql -v ON_ERROR_STOP=1 -c "SELECT count(*) AS published_procedures FROM procedures WHERE published = true"
         echo 'PostgreSQL setup finished successfully.'
+
+    # Lấy khóa công khai của Keycloak cho PostgREST (chạy 1 lần rồi dừng).
+  rest-keys:
+    image: node:22-alpine
+    restart: "no"
+    command: ["node", "/script/fetch-jwks.mjs"]
+    volumes:
+      - ./core/rest:/script:ro
+      - rest-keys:/keys
+    depends_on:
+      - identity
+
+  # API dữ liệu. Không mở cổng ra ngoài: chỉ đi qua gateway /rest/.
+  rest:
+    image: postgrest/postgrest:v16.5
+    restart: unless-stopped
+    environment:
+      PGRST_DB_URI: postgres://authenticator:${POSTGRES_REST_PASSWORD}@db:5432/${POSTGRES_DB}
+      PGRST_DB_SCHEMAS: api
+      PGRST_DB_ANON_ROLE: ""
+      PGRST_JWT_SECRET: "@/keys/jwks.json"
+      PGRST_JWT_ROLE_CLAIM_KEY: ".azp"
+      PGRST_SERVER_PORT: "3000"
+    volumes:
+      - rest-keys:/keys:ro
+    depends_on:
+      db-setup:
+        condition: service_completed_successfully
+      rest-keys:
+        condition: service_completed_successfully
 
   citizen:
     build:
@@ -169,4 +208,5 @@ services:
 
 volumes:
   db-data:
+  rest-keys:
   citizen-uploads:
