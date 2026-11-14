@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 COMPOSE ?= docker compose
 .DEFAULT_GOAL := help
-.PHONY: help up down logs ps seed test citizen-dev reset-demo rls-test rag-test chat-history-test repair-db doctor
+.PHONY: help up down logs ps seed test citizen-dev reset-demo rls-test rag-test chat-history-test personalization-test representation-test citizen-experience-test repair-db doctor
 help: ## Liệt kê lệnh
 	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*## "}; {printf "  make %-14s %s\n", $$1, $$2}'
 .env:
@@ -39,6 +39,15 @@ rag-test: .env ## Kiểm thử tự động cập nhật kho AI RAG (ROLLBACK; g
 
 chat-history-test: .env ## Kiểm thử RLS và xóa lịch sử 2 tài khoản (ROLLBACK)
 	$(COMPOSE) exec -T db sh -c 'psql -v ON_ERROR_STOP=1 -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"' < core/db/tests/citizen-chat-history.sql
+
+personalization-test: .env ## Kiểm thử phân quyền và tuyến tiếp nhận công dân (ROLLBACK)
+	$(COMPOSE) exec -T db sh -c 'psql -v ON_ERROR_STOP=1 -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"' < core/db/tests/citizen-personalization.sql
+
+representation-test: .env ## Kiểm thử phân quyền đại diện và phiên tại quầy (ROLLBACK)
+	$(COMPOSE) exec -T db sh -c 'psql -v ON_ERROR_STOP=1 -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"' < core/db/tests/citizen-representation-counter.sql
+
+citizen-experience-test: .env ## Kiểm thử quyền truy cập lịch tư vấn và đánh giá (ROLLBACK)
+	$(COMPOSE) exec -T db sh -c 'psql -v ON_ERROR_STOP=1 -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"' < core/db/tests/citizen-access-family-consultation.sql
 
 repair-db: .env ## Khởi tạo/sửa schema và seed trên volume hiện tại; không xóa dữ liệu
 	$(COMPOSE) up -d db

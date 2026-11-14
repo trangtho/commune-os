@@ -13,7 +13,8 @@ async function signIn(page:Page){
 test('Công dân đăng nhập → nộp → tra cứu được hồ sơ thật',async({page})=>{
   await signIn(page)
   await page.goto('/nop-ho-so/khai-sinh')
-  await page.locator('#applicant-name').fill('Nguyễn Văn Kiểm Thử')
+  await expect(page.locator('#applicant-name')).toHaveAttribute('readonly', '')
+  await expect(page.locator('#applicant-name')).not.toBeEmpty()
   await page.locator('#applicant-phone').fill('0912345678')
   await page.locator('#citizen-field-childName').fill('Nguyễn Văn Minh')
   await page.locator('#citizen-field-birthDate').fill('2025-01-01')

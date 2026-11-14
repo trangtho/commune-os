@@ -6,13 +6,34 @@ import type { Procedure, Application, CaseDocument } from '~/types/models'
 import { getProcedureFormFields, validateProcedureForm, sanitizeProcedureForm } from '~/shared/procedure-forms'
 import { phoneIssue } from '~/shared/identity-validation'
 
+type Representation = { id:string;represented_name:string;procedure_id:string;status:string;valid_until:string }
 const route = useRoute()
+const {data:auth} = await useFetch<{authenticated:boolean;name?:string}>('/api/auth/me',{key:'citizen-auth-filing'})
+const {data:representations} = await useFetch<{items:Representation[]}>('/api/representations',{key:'citizen-representations',default:()=>({items:[]})})
+const availableRepresentations = computed(() => (representations.value?.items || []).filter(r => r.procedure_id===slug && r.status==='verified' && r.valid_until>=new Date().toISOString().slice(0,10)))
+const actingFor = ref<'self'|'representative'>('self')
+const representationId = ref('')
+function chooseActingFor(mode:'self'|'representative') {
+  actingFor.value=mode
+  representationId.value=''
+  form.applicantName=mode==='self'?(profile.value?.display_name||auth.value?.name||''):''
+  confirmed.value=false
+}
+function chooseRepresentation(id:string) {
+  representationId.value=id
+  const selected=availableRepresentations.value.find(r=>r.id===id)
+  form.applicantName=selected?.represented_name||''
+  confirmed.value=false
+}
 const slug = String(route.params.slug)
 const initialDraftId = typeof route.query.draft === 'string' ? route.query.draft : ''
 const { data: procedure, error: procedureError, refresh: retryProcedure } = await useFetch<Procedure>(
   `/api/procedures/${encodeURIComponent(slug)}`, { key: `citizen-procedure:${slug}` }
 )
-const { data: localities } = await useFetch<{id:string;code:string;name:string;canReceive:boolean}[]>('/api/localities', {key:'citizen-localities'})
+const { data: localities } = await useFetch<{id:string;code:string;name:string;canReceive:boolean}[]>('/api/localities', {key:`citizen-localities:${slug}`,query:{procedureId:slug}})
+const { data: localitySuggestion } = await useFetch<{selectedTenantId:string;suggestedTenantId:string;suggestedTenantName:string;basis:string;canReceive:boolean;notice:string}>(
+  '/api/localities/recommendation',{key:`citizen-locality-recommendation:${slug}`,query:{procedureId:slug}})
+const localityManuallyChosen=ref(false)
 const selectedLocality = ref('')
 const { data: profile } = await useFetch<{tenant_id:string;display_name:string; phone:string; email:string; address:string}>(
   '/api/profile', { key: 'citizen-profile' }
@@ -48,15 +69,27 @@ const uploaded = ref<CaseDocument[]>([])
 
 if (existingDraft.value?.status === 'draft' && existingDraft.value.procedure_id === slug) {
   const data = existingDraft.value
+  if (data.representation_id) { actingFor.value='representative'; representationId.value=data.representation_id }
   form.applicantName = data.applicant_name
   form.phone = data.applicant_phone || ''
   form.description = data.description || ''
   Object.assign(formData, sanitizeProcedureForm(slug, data.form_data || {}))
   uploaded.value = data.documents || []
+  if (data.receiving_tenant_id)selectedLocality.value=data.receiving_tenant_id
 }
+watch(localitySuggestion, value=>{
+  if(value&&!initialDraftId&&!localityManuallyChosen.value)selectedLocality.value=value.selectedTenantId
+},{immediate:true})
+watch(representations, () => {
+  const requested = typeof route.query.representation === 'string' ? route.query.representation : ''
+  if (!initialDraftId && requested && availableRepresentations.value.some(r => r.id === requested)) {
+    actingFor.value = 'representative'
+    chooseRepresentation(requested)
+  }
+}, { immediate: true })
 watch(profile, (value) => {
   if(value && !selectedLocality.value)selectedLocality.value=value.tenant_id||''
-  if (value && !form.applicantName && !initialDraftId) {
+  if (value && !form.applicantName && !initialDraftId && actingFor.value==='self') {
     form.applicantName = value.display_name
     form.phone = value.phone || ''
   }
@@ -72,7 +105,7 @@ watch(uploaded, () => { confirmed.value = false }, { deep: true })
 const missing = computed(() => procedure.value?.documents?.filter(
   doc => doc.is_required && !uploaded.value.some(upload => upload.document_code === doc.document_code)
 ) || [])
-const canNext = computed(() => form.applicantName.trim().length >= 2 && !phoneIssue(form.phone) && formIssues.value.length === 0)
+const canNext = computed(() => form.applicantName.trim().length >= 2 && !phoneIssue(form.phone) && formIssues.value.length === 0 && (actingFor.value==='self' ? form.applicantName.trim().normalize('NFC').toLocaleLowerCase('vi') === (profile.value?.display_name||auth.value?.name||'').trim().normalize('NFC').toLocaleLowerCase('vi') : Boolean(availableRepresentations.value.find(r=>r.id===representationId.value))))
 
 async function goStep(next: number) {
   if (next < 1 || next > 3 || busy.value || isInvalidDraft.value) return
@@ -97,7 +130,7 @@ async function saveDraft() {
   errorText.value = ''
   try {
     const payload = {
-      procedureId: procedure.value.id, applicantName: form.applicantName.trim(),
+      procedureId: procedure.value.id, applicantName: form.applicantName.trim(), representationId: actingFor.value==='representative'?representationId.value:null,
       phone: form.phone.trim(), description: form.description.trim(), receivingTenantId: selectedLocality.value || undefined,
       formData: sanitizeProcedureForm(procedure.value.id, formData)
     }
@@ -172,17 +205,24 @@ async function submit() {
 
       <form v-if="step === 1" class="panel space-y-5 p-4 sm:p-5" @submit.prevent="saveDraft">
         <h3 class="section-label">Thông tin người nộp hồ sơ</h3>
+        <fieldset class="rounded-xl border border-slate-200 p-3"><legend class="px-1 text-sm font-extrabold text-brand-900">Bạn thực hiện thủ tục cho ai?</legend>
+          <div class="flex flex-wrap gap-4 text-sm"><label class="inline-flex items-center gap-2"><input type="radio" name="representative-mode" :checked="actingFor==='self'" @change="chooseActingFor('self')"/>Cho bản thân</label><label class="inline-flex items-center gap-2"><input type="radio" name="representative-mode" :checked="actingFor==='representative'" @change="chooseActingFor('representative')"/>Đại diện người thân</label></div>
+          <div v-if="actingFor==='representative'" class="mt-3 space-y-2"><label class="field-label" for="filing-representation">Quyền đại diện đã được xác minh *</label><select id="filing-representation" class="field" :value="representationId" required @change="chooseRepresentation(($event.target as HTMLSelectElement).value)"><option value="">Chọn người được đại diện</option><option v-for="item in availableRepresentations" :key="item.id" :value="item.id">{{item.represented_name}} (hạn {{item.valid_until}})</option></select><p class="text-xs text-amber-800">Chỉ hiện quyền đã được xác minh, còn hạn và đúng thủ tục. <NuxtLink to="/dai-dien" class="font-bold underline">Đăng ký/kiểm tra quyền đại diện</NuxtLink></p></div>
+          <p v-else class="mt-2 text-xs text-muted">Tên người kê khai phải khớp tài khoản đăng nhập. Nếu làm thay người khác, hãy chọn Đại diện người thân.</p>
+        </fieldset>
         <div class="rounded-xl border border-blue-200 bg-blue-50 p-3">
           <label for="receiving-locality" class="field-label">Địa phương tiếp nhận hồ sơ</label>
-          <select id="receiving-locality" v-model="selectedLocality" class="field" required aria-describedby="locality-hint">
+          <select id="receiving-locality" v-model="selectedLocality" class="field" required aria-describedby="locality-hint" @change="localityManuallyChosen=true">
             <option value="">Chọn địa phương</option>
-            <option v-for="loc in localities || []" :key="loc.id" :value="loc.id" :disabled="!loc.canReceive">{{loc.name}}{{loc.canReceive?'':' (chưa hỗ trợ chuyển tuyến)'}}</option>
+            <option v-for="loc in localities || []" :key="loc.id" :value="loc.id" :disabled="!loc.canReceive">{{loc.name}}{{loc.canReceive?'':' (chưa có tuyến tiếp nhận được duyệt)'}}</option>
           </select>
-          <p id="locality-hint" class="mt-2 text-xs text-blue-800">Hiện hệ thống chỉ tiếp nhận tại địa phương gắn với tài khoản. Chuyển hồ sơ sang xã khác cần hệ thống định tuyến và phân quyền của nhóm.</p>
+          <p v-if="localitySuggestion" class="mt-2 text-xs font-semibold text-brand-700">Gợi ý: {{localitySuggestion.suggestedTenantName}} · {{localitySuggestion.basis}}</p>
+          <p id="locality-hint" class="mt-2 text-xs text-blue-800">{{localitySuggestion?.notice||'Chỉ được gửi hồ sơ đến địa phương đã được hệ thống cấp quyền tiếp nhận.'}}</p>
+          <NuxtLink to="/ho-so-ca-nhan" class="mt-1 inline-block text-xs font-bold text-brand-700 underline">Cập nhật địa phương tự khai trong hồ sơ cá nhân</NuxtLink>
         </div>
         <div class="grid gap-4 sm:grid-cols-2">
           <div><label for="applicant-name" class="field-label">Họ và tên <span class="text-rose-500">*</span></label>
-            <input id="applicant-name" v-model="form.applicantName" class="field" required minlength="2" maxlength="100" autocomplete="name" />
+            <input id="applicant-name" v-model="form.applicantName" class="field" required minlength="2" maxlength="100" autocomplete="name" readonly :aria-readonly="true" />
           </div>
           <div><label for="applicant-phone" class="field-label">Số điện thoại</label>
             <input id="applicant-phone" v-model="form.phone" class="field" type="tel" maxlength="20" inputmode="tel" autocomplete="tel" :aria-invalid="attempted && Boolean(phoneIssue(form.phone))" aria-describedby="phone-issue" />
@@ -240,7 +280,7 @@ async function submit() {
         <h3 class="section-label"><ShieldCheck class="text-brand-600" :size="21" />Rà soát và xác nhận</h3>
         <div class="grid gap-3 sm:grid-cols-2">
           <p class="rounded-lg bg-brand-50 p-3 text-sm"><b class="block">Thủ tục</b>{{ procedure.title }}</p>
-          <p class="rounded-lg bg-brand-50 p-3 text-sm"><b class="block">Người nộp</b>{{ form.applicantName }}</p>
+<p class="rounded-lg bg-brand-50 p-3 text-sm"><b class="block">{{actingFor==='representative'?'Người được đại diện':'Người làm thủ tục'}}</b>{{ form.applicantName }}</p><p v-if="actingFor==='representative'" class="rounded-lg bg-brand-50 p-3 text-sm"><b class="block">Người thực hiện</b>{{ auth?.name || profile?.display_name }}</p>
           <p class="break-all rounded-lg bg-brand-50 p-3 text-sm"><b class="block">Mã bản nháp</b>{{ draftId }}</p>
           <p class="rounded-lg bg-brand-50 p-3 text-sm"><b class="block">Giấy tờ</b>{{ uploaded.length }} tệp đã tải lên</p>
         </div>
@@ -258,7 +298,7 @@ async function submit() {
         </p>
         <label class="flex cursor-pointer items-start gap-3 rounded-lg border p-3 text-sm">
           <input v-model="confirmed" type="checkbox" class="mt-1 h-4 w-4 accent-brand-600" />
-          <span>Tôi xác nhận thông tin đã kê khai và giấy tờ đã đính kèm là chính xác; hiểu đây là hệ thống thử nghiệm với dữ liệu giả.</span>
+          <span>Tôi xác nhận thông tin đã kê khai và giấy tờ đã đính kèm là chính xác; nếu nộp thay người thân, quyền đại diện đã được kiểm tra; hiểu đây là hệ thống thử nghiệm với dữ liệu giả.</span>
         </label>
         <div class="flex flex-col gap-2 border-t pt-4 sm:flex-row sm:justify-between">
           <button type="button" class="btn-outline w-full sm:w-auto" @click="goStep(2)"><ArrowLeft :size="15" /> Quay lại</button>
