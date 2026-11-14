@@ -21,8 +21,12 @@ npm install
 npm run dev
 ```
 
-Tài khoản demo: `canbo.demo` / `Demo@2026!`
+Tài khoản thử (Keycloak): `canbo.xa-a` / `canbo.xa-b`, mật khẩu `12345`.
 
-## Kết nối với cổng Công dân
+Chạy: `SESSION_SECRET=$(openssl rand -hex 32) npm run dev -- --port 3002`
+(cần `docker compose up -d` ở thư mục gốc).
 
-Hai cổng chia sẻ cùng cơ sở dữ liệu PostgreSQL (`communeos`). Cán bộ đăng nhập qua bảng `staff`, công dân qua bảng `citizens`.
+## Kết nối với lõi
+
+Cán bộ đăng nhập qua Keycloak; danh sách và chi tiết hồ sơ lấy từ API lõi
+(`GATEWAY_URL`, mặc định `http://localhost:9080`). Lõi tự lọc theo xã trong token.
