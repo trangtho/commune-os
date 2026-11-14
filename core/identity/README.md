@@ -45,3 +45,18 @@ grep -c "privateKey" core/identity/realm/communeos-realm.json   # phải ra 0
 
 Realm chỉ được nạp khi chưa tồn tại. Để nạp lại từ tệp, xóa dữ liệu bằng
 `docker compose down -v` rồi `make up`.
+
+## Tài khoản demo cho kiểm thử cách ly xã (Issues #11, #23)
+
+Sau `make up`, chạy `make seed` để thêm idempotent hai tài khoản demo còn thiếu
+trong Keycloak **kể cả khi realm đã tồn tại**:
+
+- `supervisor.xa-a`: vai `supervisor`, `tenant_id = xa-a` (không đọc hồ sơ).
+- `quantri`: vai `sys_admin` (quản trị xã, không đọc hồ sơ cá nhân).
+
+Hai tài khoản mẫu ban đầu `canbo.xa-a` và `canbo.xa-b` đã nằm trong realm import.
+Mật khẩu mặc định của tài khoản **mới tạo** bởi script là `12345`, hoặc
+`DEMO_PASSWORD` khi nạp. Script không đổi mật khẩu các tài khoản đã tồn tại.
+Tất cả chỉ dành cho môi trường thử nghiệm; phải thay/khóa tài khoản demo khi
+chuyển sang môi trường thật. Không dùng `docker compose down -v` để cập nhật
+người dùng vì thao tác này xóa dữ liệu.

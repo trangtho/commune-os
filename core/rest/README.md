@@ -1,52 +1,54 @@
-<!--
-SPDX-FileCopyrightText: 2026 CommuneOS Contributors
-SPDX-License-Identifier: Apache-2.0
--->
+<!-- SPDX-FileCopyrightText: 2026 CommuneOS Contributors -->
+<!-- SPDX-License-Identifier: Apache-2.0 -->
 
-# core/rest — API dữ liệu (PostgREST)
+# core/rest — API PostgREST sau Gateway (Issues #5, #6, #23)
 
-Mọi giao diện (bảng quản trị, màn hình cán bộ xã) đọc dữ liệu qua API này.
+Đường đi: `Keycloak JWT` → `APISIX /rest/*` → `PostgREST` (xác minh JWT qua
+khóa JWKS của Keycloak, chuyển vai theo `azp = commune-app`) → PostgreSQL.
+Dịch vụ `rest` **không có `ports:`** trong Docker Compose, nên không thể gọi
+PostgREST trực tiếp từ máy ngoài. Khi không cấu hình anonymous role, PostgREST
+cũng từ chối yêu cầu không mang JWT.
 
+Vai trò được tách ở PostgreSQL:
+
+- `receptionist`/`officer`/`leader` mang claim `tenant_id` hợp lệ (mã xã `xa-a`,
+  `xa-b`) chỉ đọc hồ sơ thuộc xã đang hoạt động. Số điện thoại được che.
+- `supervisor` và `sys_admin` **không** được đọc hồ sơ (403 nhờ pre-request,
+  RLS cũng không cấp quyền xem các dòng). `sys_admin` chỉ được quản trị danh sách xã.
+- Những API khác tiếp tục dùng quyền cơ sở dữ liệu riêng của Kênh Công dân.
+
+Các API đang có:
+
+| API | Chức năng |
+| --- | --- |
+| `GET /rest/dossiers` | Danh sách hồ sơ của xã đã lọc, ẩn số điện thoại |
+| `GET /rest/dossier_events` | Lịch sử của hồ sơ được phép xem |
+| `GET /rest/dossier_documents` | Metadata giấy tờ thuộc hồ sơ, **không lộ** `storage_key` |
+| `GET /rest/procedure_documents` | Giấy tờ cần nộp theo thủ tục |
+| `GET /rest/procedures` | Thủ tục đã công bố |
+| `GET /rest/tenants` | Danh sách xã: `sys_admin` thấy tất cả; cán bộ thấy xã của mình |
+| `POST /rest/rpc/add_tenant` | Thêm xã, chỉ `sys_admin` |
+| `POST /rest/rpc/set_tenant_status` | Khóa / mở xã, chỉ `sys_admin` |
+
+Giao diện quản trị gọi API ở `core/admin/app/composables/useApi.ts` và
+`useTenants.ts`; trang Nuxt chuyển tiếp `/rest/**` tới APISIX tránh lỗi CORS.
+
+## Chạy thử
+
+```bash
+make up
+make seed
+make test
+# Bảng quản trị trong quá trình phát triển:
+cd core/admin && npm install && npm run dev -- --port 3001
 ```
-Đăng nhập Keycloak → token (tenant_id = mã xã, realm_access.roles = vai trò)
-  → APISIX /rest/* kiểm tra token
-  → PostgREST kiểm tra lại chữ ký, chuyển sang vai trò "commune-app"
-  → PostgreSQL áp RLS: chỉ trả dữ liệu của đúng xã trong token
+
+`core/rest/fetch-jwks.mjs` lấy public keys khi khởi động; nếu Keycloak luân
+chuyển khóa, chạy lại các dịch vụ sau để lấy khóa mới:
+
+```bash
+docker compose up -d --force-recreate rest-keys rest
 ```
 
-Mọi lời gọi cần header `Authorization: Bearer <token>`. Không có token → 401.
-
-## Danh sách API
-
-| Muốn                                 | Gọi                                                                        |
-| ------------------------------------ | -------------------------------------------------------------------------- |
-| Hồ sơ của xã (số điện thoại đã che)  | `GET /rest/dossiers`                                                       |
-| Hồ sơ đang xử lý, hạn gần nhất trước | `GET /rest/dossiers?status=eq.processing&order=due_at`                     |
-| Hồ sơ quá hạn                        | `GET /rest/dossiers?overdue=is.true`                                       |
-| Một hồ sơ                            | `GET /rest/dossiers?id=eq.HS-2026-001248`                                  |
-| Lịch sử xử lý một hồ sơ              | `GET /rest/dossier_events?dossier_id=eq.HS-2026-001248&order=created_at`   |
-| Giấy tờ đã nộp của một hồ sơ         | `GET /rest/dossier_documents?dossier_id=eq.HS-2026-001248`                 |
-| Giấy tờ cần nộp theo thủ tục         | `GET /rest/procedure_documents?procedure_id=eq.khai-sinh`                  |
-| Danh mục thủ tục đang công bố        | `GET /rest/procedures`                                                     |
-| Danh sách xã (sys_admin thấy tất cả) | `GET /rest/tenants`                                                        |
-| Thêm xã (chỉ sys_admin)              | `POST /rest/rpc/add_tenant` với `{"code":"xa-c","name":"Xã C"}`            |
-| Khóa / mở xã (chỉ sys_admin)         | `POST /rest/rpc/set_tenant_status` với `{"code":"xa-a","status":"locked"}` |
-
-Cú pháp lọc, sắp xếp, chọn cột theo tài liệu PostgREST:
-`?cot=eq.giatri`, `?order=cot.desc`, `?select=cot1,cot2`, `?limit=20`.
-
-## Mã lỗi
-
-| HTTP | Nghĩa                                                  |
-| ---- | ------------------------------------------------------ |
-| 401  | Không có token, token hết hạn hoặc bị sửa              |
-| 403  | Đúng token nhưng không đủ quyền (vd cán bộ xã thêm xã) |
-| 400  | Dữ liệu gửi lên sai (vd mã xã có chữ hoa)              |
-| 409  | Dữ liệu đã tồn tại (vd trùng mã xã)                    |
-
-## Tệp liên quan
-
-- `core/db/init/02-create-api-roles.sh`: vai trò `authenticator` và `commune-app`.
-- `core/db/init/03-api.sql`: schema `api`, chính sách RLS, hàm ghi.
-- `core/rest/fetch-jwks.mjs`: lấy khóa công khai của Keycloak khi khởi động (dịch vụ `rest-keys`).
-  Nếu đổi khóa trong Keycloak: `docker compose up -d --force-recreate rest-keys rest`.
+Để nạp lại các thay đổi SQL cho một volume **đang tồn tại**, chạy `make up`
+(mặc định chạy lại `db-setup`) hoặc `make repair-db` mà không xóa volume.

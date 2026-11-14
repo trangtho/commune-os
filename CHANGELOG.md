@@ -11,6 +11,17 @@ Mọi thay đổi đáng chú ý của dự án được ghi tại đây.
 
 ## [Chưa phát hành]
 
+### Hoàn thiện bảo mật và API lõi (Issues #3, #6, #11, #5, #23)
+
+- APISIX kiểm JWT cho `/api/ping`, `/api/*`, `/rest/*`; chuyển nguyên Bearer token đã xác minh tới PostgREST.
+- PostgREST không mở cổng ngoài, không có anonymous role, xác minh lại JWKS Keycloak.
+- Bổ sung `api.dossier_documents` và `api.procedure_documents` (metadata, không lộ storage_key).
+- Bổ sung RLS cho cán bộ theo claim xã + vai trò; `supervisor` và `sys_admin` bị chặn đọc hồ sơ (403).
+- Thêm tài khoản thử `supervisor.xa-a` và `quantri` qua Keycloak Admin API bằng `make seed` trên cả realm đã tồn tại.
+- `make test` có 6 kiểm thử tĩnh, kiểm thử HTTP với JWT thật và kiểm thử SQL RLS trong transaction.
+- `make up` áp lại migration có tính lặp trên volume cũ mà không xóa dữ liệu.
+
+
 ### Thêm mới (lõi, 2026-11-14)
 
 - API dữ liệu PostgREST 16.5 sau cổng APISIX tại `/rest/*`; PostgREST tự kiểm tra lại chữ ký token Keycloak (JWKS).

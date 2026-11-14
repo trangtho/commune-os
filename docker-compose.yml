@@ -61,6 +61,7 @@ services:
     depends_on:
       - identity
       - rest
+      - citizen
     ports:
       - "${GATEWAY_PORT}:9080"
 
@@ -127,9 +128,9 @@ services:
     environment:
       PGRST_DB_URI: postgres://authenticator:${POSTGRES_REST_PASSWORD}@db:5432/${POSTGRES_DB}
       PGRST_DB_SCHEMAS: api
-      PGRST_DB_ANON_ROLE: ""
       PGRST_JWT_SECRET: "@/keys/jwks.json"
       PGRST_JWT_ROLE_CLAIM_KEY: ".azp"
+      PGRST_DB_PRE_REQUEST: "public.communeos_pre_request"
       PGRST_SERVER_PORT: "3000"
     volumes:
       - rest-keys:/keys:ro
