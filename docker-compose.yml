@@ -1,7 +1,8 @@
 # SPDX-FileCopyrightText: 2026 CommuneOS Contributors
 # SPDX-License-Identifier: Apache-2.0
 #
-# Khung ban đầu: mới có cơ sở dữ liệu. Các dịch vụ khác thêm từ ngày 2.
+# Các dịch vụ của lõi CommuneOS. Chỉ dịch vụ gateway mở cổng cho bên ngoài
+# (cổng của identity tạm mở trong giai đoạn phát triển).
 
 services:
   db:
@@ -30,6 +31,8 @@ services:
       KC_DB_URL: jdbc:postgresql://db:5432/keycloak
       KC_DB_USERNAME: ${POSTGRES_USER}
       KC_DB_PASSWORD: ${POSTGRES_PASSWORD}
+      KC_HOSTNAME: ${KEYCLOAK_PUBLIC_URL}
+      KC_HOSTNAME_BACKCHANNEL_DYNAMIC: "true"
     volumes:
       - ./core/identity/realm:/opt/keycloak/data/import:ro
     depends_on:
@@ -37,6 +40,18 @@ services:
         condition: service_healthy
     ports:
       - "8080:8080"
+
+  gateway:
+    image: apache/apisix:3.20.0-debian
+    environment:
+      APISIX_STAND_ALONE: "true"
+    volumes:
+      - ./core/gateway/config.yaml:/usr/local/apisix/conf/config.yaml
+      - ./core/gateway/apisix.yaml:/usr/local/apisix/conf/apisix.yaml
+    depends_on:
+      - identity
+    ports:
+      - "${GATEWAY_PORT}:9080"
 
 volumes:
   db-data:
