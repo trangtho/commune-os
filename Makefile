@@ -7,8 +7,13 @@ help: ## Liệt kê lệnh
 	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*## "}; {printf "  make %-14s %s\n", $$1, $$2}'
 .env:
 	@echo "Thiếu .env. Chạy cp .env.example .env và đổi các mật khẩu trước." && exit 1
-up: .env ## Khởi động PostgreSQL, tự nạp schema/seed, rồi chạy Công dân
+up: .env ## Khởi động lõi, luôn áp schema an toàn trên cả volume cũ
+	$(COMPOSE) up -d db
+	$(COMPOSE) up -d --force-recreate db-setup
 	$(COMPOSE) up -d --build
+	# Cấu hình APISIX có thể được thay bằng git apply trên Docker Desktop (bind mount file cũ).
+	# Khởi tạo lại riêng gateway để bảo đảm đọc đúng các tuyến /api/* và /rest/*.
+	$(COMPOSE) up -d --force-recreate --no-deps gateway
 
 down: ## Dừng dịch vụ nhưng không xóa dữ liệu
 	$(COMPOSE) down
@@ -19,11 +24,14 @@ logs: ## Xem nhật ký dịch vụ
 ps: ## Xem tình trạng dịch vụ
 	$(COMPOSE) ps
 
-seed: .env ## Nạp lại dữ liệu mẫu (idempotent)
+seed: .env ## Nạp dữ liệu SQL và tạo tài khoản kiểm thử Keycloak (idempotent)
 	$(COMPOSE) exec -T db sh -c 'psql -v ON_ERROR_STOP=1 -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"' < core/db/seed/seed.sql
+	python3 core/identity/seed-demo-users.py
 
-test: .env ## Kiểm thử cách ly xã qua gateway (cần docker compose up)
+test: .env ## Kiểm thử JWT, RLS, API và quyền supervisor (sau make up, make seed)
+	python3 -m unittest discover -s core/tests -p "test_*.py" -v
 	sh core/tests/tenant-isolation.sh
+	$(COMPOSE) exec -T db sh -c 'psql -v ON_ERROR_STOP=1 -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"' < core/db/tests/api-rls.sql
 
 test-citizen: ## Kiểm thử đơn vị Kênh người dân
 	cd apps/citizen && npm test
@@ -58,7 +66,7 @@ handoff-support-test: .env ## Kiểm tra mã chuyển tiếp dùng một lần v
 repair-db: .env ## Khởi tạo/sửa schema và seed trên volume hiện tại; không xóa dữ liệu
 	$(COMPOSE) up -d db
 	$(COMPOSE) run --rm db-setup
-	$(COMPOSE) up -d --build citizen
+	$(COMPOSE) up -d --build citizen rest gateway
 
 doctor: .env ## Xem tình trạng kết nối, role, bảng và số lượng thủ tục
 	@$(COMPOSE) ps

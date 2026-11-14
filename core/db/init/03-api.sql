@@ -36,17 +36,51 @@ LANGUAGE sql IMMUTABLE AS $$
     ELSE left(p, 2) || repeat('*', length(p) - 4) || right(p, 2) END
 $$;
 
+-- Quyền đọc hồ sơ chỉ thuộc cán bộ tiếp nhận, xử lý và lãnh đạo.
+-- supervisor (giám sát) hoặc sys_admin không mặc nhiên được xem PII hồ sơ.
+CREATE OR REPLACE FUNCTION public.is_staff_reader() RETURNS boolean
+LANGUAGE sql STABLE AS $$
+  SELECT coalesce(
+    (nullif(current_setting('request.jwt.claims', true), '')::jsonb
+      -> 'realm_access' -> 'roles') ?| ARRAY['receptionist', 'officer', 'leader'], false)
+    AND NOT coalesce(
+      (nullif(current_setting('request.jwt.claims', true), '')::jsonb
+        -> 'realm_access' -> 'roles') ?| ARRAY['supervisor', 'sys_admin'], false)
+    AND public.current_tenant_code() IS NOT NULL
+$$;
+
+-- PostgREST gọi trước mỗi truy vấn. Chặn hẳn quyền đọc hồ sơ (403),
+-- kể cả khi bảng không có dòng nào để chính sách RLS kiểm tra.
+CREATE OR REPLACE FUNCTION public.communeos_pre_request() RETURNS void
+LANGUAGE plpgsql AS $$
+DECLARE req_path text := coalesce(current_setting('request.path', true), '');
+BEGIN
+  IF req_path ~ '^/(dossiers|dossier_events|dossier_documents)(/|$)'
+      AND NOT public.is_staff_reader() THEN
+    RAISE EXCEPTION 'Vai trò hiện tại không được đọc hồ sơ'
+      USING ERRCODE = '42501';
+  END IF;
+END $$;
+REVOKE ALL ON FUNCTION public.communeos_pre_request() FROM PUBLIC;
+
 -- ===== 3. Chính sách RLS cho cán bộ (vai trò "commune-app") =====
 -- Chỉ thấy hồ sơ của xã mình, và xã phải đang hoạt động (xã bị khóa → không thấy gì).
 -- Chính sách của Kênh người dân (app.citizen_id) giữ nguyên.
 DROP POLICY IF EXISTS staff_tenant_policy ON applications;
 CREATE POLICY staff_tenant_policy ON applications FOR SELECT TO "commune-app"
-  USING (tenant_id = (SELECT t.id FROM tenants t
-                      WHERE t.code = public.current_tenant_code() AND t.status = 'active'));
+  USING (public.is_staff_reader()
+    AND tenant_id = (SELECT t.id FROM tenants t
+                     WHERE t.code = public.current_tenant_code() AND t.status = 'active'));
 
 DROP POLICY IF EXISTS staff_tenant_policy ON application_events;
 CREATE POLICY staff_tenant_policy ON application_events FOR SELECT TO "commune-app"
-  USING (EXISTS (SELECT 1 FROM applications a WHERE a.id = application_id));
+  USING (public.is_staff_reader()
+    AND EXISTS (SELECT 1 FROM applications a WHERE a.id = application_id));
+
+DROP POLICY IF EXISTS staff_tenant_policy ON application_documents;
+CREATE POLICY staff_tenant_policy ON application_documents FOR SELECT TO "commune-app"
+  USING (public.is_staff_reader()
+    AND EXISTS (SELECT 1 FROM applications a WHERE a.id = application_id));
 
 -- ===== 4. Schema api: những gì giao diện được thấy =====
 CREATE SCHEMA IF NOT EXISTS api;
@@ -69,6 +103,18 @@ DROP VIEW IF EXISTS api.dossier_events;
 CREATE VIEW api.dossier_events WITH (security_invoker = true) AS
 SELECT e.application_id AS dossier_id, e.event_type, e.note, e.actor_name, e.created_at
 FROM application_events e;
+
+-- Metadata tệp: tuyệt đối không trả storage_key hoặc đường dẫn nội bộ.
+DROP VIEW IF EXISTS api.dossier_documents;
+CREATE VIEW api.dossier_documents WITH (security_invoker = true) AS
+SELECT d.application_id AS dossier_id, d.document_code, d.original_name,
+       d.mime_type, d.size_bytes, d.uploaded_at
+FROM application_documents d;
+
+DROP VIEW IF EXISTS api.procedure_documents;
+CREATE VIEW api.procedure_documents WITH (security_invoker = true) AS
+SELECT procedure_id, document_code, document_name, is_required
+FROM procedure_documents;
 
 DROP VIEW IF EXISTS api.procedures;
 CREATE VIEW api.procedures WITH (security_invoker = true) AS
@@ -112,6 +158,9 @@ BEGIN
   IF NOT public.is_sys_admin() THEN
     RAISE EXCEPTION 'Chỉ quản trị hệ thống được khóa/mở xã' USING ERRCODE = '42501';
   END IF;
+  IF status NOT IN ('active', 'locked') OR status IS NULL THEN
+    RAISE EXCEPTION 'Trạng thái xã chỉ có thể active hoặc locked' USING ERRCODE = '22023';
+  END IF;
   UPDATE tenants t SET status = set_tenant_status.status
    WHERE t.code = set_tenant_status.code RETURNING * INTO r;
   IF r.id IS NULL THEN
@@ -127,10 +176,13 @@ REVOKE ALL ON FUNCTION api.add_tenant(text, text), api.set_tenant_status(text, t
 DO $$ BEGIN
   IF EXISTS (SELECT FROM pg_roles WHERE rolname = 'commune-app') THEN
     GRANT USAGE ON SCHEMA api, public TO "commune-app";
-    GRANT SELECT ON api.dossiers, api.dossier_events, api.procedures, api.tenants TO "commune-app";
+    GRANT SELECT ON api.dossiers, api.dossier_events, api.dossier_documents,
+      api.procedure_documents, api.procedures, api.tenants TO "commune-app";
     -- Bảng gốc cần SELECT vì view chạy bằng quyền người gọi; RLS vẫn lọc theo xã.
-    GRANT SELECT ON applications, application_events, tenants, procedures TO "commune-app";
+    GRANT SELECT ON applications, application_events, application_documents,
+      tenants, procedures, procedure_documents TO "commune-app";
     GRANT EXECUTE ON FUNCTION public.current_tenant_code(), public.is_sys_admin(),
+      public.is_staff_reader(), public.communeos_pre_request(),
       public.mask_phone(text), api.add_tenant(text, text),
       api.set_tenant_status(text, text) TO "commune-app";
   END IF;

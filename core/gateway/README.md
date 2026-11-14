@@ -1,31 +1,26 @@
-<!--
-SPDX-FileCopyrightText: 2026 CommuneOS Contributors
-SPDX-License-Identifier: Apache-2.0
--->
+<!-- SPDX-FileCopyrightText: 2026 CommuneOS Contributors -->
+<!-- SPDX-License-Identifier: Apache-2.0 -->
 
-# core/gateway
+# core/gateway — APISIX (Issues #3 và #6)
 
-Cửa ngõ API của lõi, dùng Apache APISIX ở chế độ đọc cấu hình từ tệp.
+Cửa ngõ bảo vệ cả `/api/*` lẫn `/rest/*` bằng Keycloak JWT, xác minh chữ ký
+RS256 qua JWKS và thời hạn token bằng plugin `openid-connect` (`bearer_only`,
+`use_jwks`). Không token hoặc token sai → HTTP 401.
 
-- `config.yaml`: chế độ chạy (không dùng etcd).
-- `apisix.yaml`: các tuyến đường. APISIX tự nạp lại khi tệp thay đổi; tệp phải
-  kết thúc bằng dòng `#END`.
+- `/api/ping`: tuyến kiểm tra riêng, proxy đến Keycloak.
+- `/api/*`: proxy đến Kênh Công dân (`citizen:3000`), nhưng **không bỏ qua**
+  xác thực và quyền riêng của các API Nuxt (session, citizen_id, tenant_id).
+- `/rest/*`: bỏ tiền tố `/rest/`, chuyển đến `rest:3000` trong mạng Compose.
+  Header Authorization giữ JWT đã được APISIX xác minh để PostgREST xác minh
+  chữ ký một lần nữa và áp Row Level Security.
 
-Mọi tuyến `/api/*` yêu cầu JWT do Keycloak cấp (plugin `openid-connect`,
-kiểm chữ ký bằng JWKS và kiểm nơi cấp).
-
-## Thử nhanh
+`config.yaml` bật standalone mode; `apisix.yaml` phải kết thúc bằng `#END`.
+Lệnh kiểm chứng tích hợp sau khi chạy `make up`, `make seed`:
 
 ```bash
-# không có token: 401
-curl -s -o /dev/null -w "%{http_code}\n" http://localhost:9080/api/ping
-
-# có token: 200
-TOKEN=$(curl -s -X POST "http://localhost:8080/realms/communeos/protocol/openid-connect/token" \
-  -d "grant_type=password" -d "client_id=commune-app" \
-  -d "username=canbo.xa-a" -d "password=12345" \
-  | python3 -c "import sys,json; print(json.load(sys.stdin)['access_token'])")
-curl -s -o /dev/null -w "%{http_code}\n" -H "Authorization: Bearer $TOKEN" http://localhost:9080/api/ping
+make test
+curl -i http://localhost:9080/rest/dossiers   # 401
+curl -i http://localhost:9080/api/health      # 401
 ```
 
-Tuyến `/api/ping` là tuyến thử, tạm chuyển tiếp tới Keycloak.
+Việc API trả 404 (không có route) **không phải** là bằng chứng JWT bị từ chối.

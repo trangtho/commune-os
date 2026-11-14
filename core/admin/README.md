@@ -17,7 +17,7 @@ bắt buộc của lõi; không dành cho cán bộ xã hay người dân.
 ## Chạy thử
 
 Cần các dịch vụ lõi đang chạy (`docker compose up -d` ở thư mục gốc) và tài
-khoản `quantri` đã tạo trong Keycloak (xem mục "Tài khoản thử" ở README gốc).
+khoản demo `quantri` được nạp bằng `make seed` vào Keycloak (xem mục "Tài khoản thử" ở README gốc).
 
 ```bash
 cd core/admin

@@ -3,6 +3,7 @@
 
 routes:
   - id: ping
+    priority: 10
     uri: /api/ping
     plugins:
       openid-connect:
@@ -17,6 +18,22 @@ routes:
       type: roundrobin
       nodes:
         "identity:8080": 1
+  # Mọi API của Kênh Công dân đi qua gateway đều phải có JWT hợp lệ.
+  # Tuyến này không thay thế cơ chế xác thực phiên và phân quyền trong Nuxt.
+  - id: citizen-api
+    priority: 0
+    uri: /api/*
+    plugins:
+      openid-connect:
+        client_id: commune-app
+        client_secret: khong-dung
+        discovery: http://identity:8080/realms/communeos/.well-known/openid-configuration
+        bearer_only: true
+        use_jwks: true
+    upstream:
+      type: roundrobin
+      nodes:
+        "citizen:3000": 1
   # API dữ liệu: APISIX kiểm tra token, PostgREST kiểm tra lại và áp RLS theo xã.
   - id: rest
     uri: /rest/*
@@ -27,6 +44,8 @@ routes:
         discovery: http://identity:8080/realms/communeos/.well-known/openid-configuration
         bearer_only: true
         use_jwks: true
+        # PostgREST xác minh lại chính Bearer JWT, không tin header do client tự gắn.
+        access_token_in_authorization_header: true
       proxy-rewrite:
         regex_uri: ["^/rest/(.*)", "/$1"]
     upstream:

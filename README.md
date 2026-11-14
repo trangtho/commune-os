@@ -70,26 +70,47 @@ Mọi cấu hình nằm trong tệp `.env`; không cần sửa tệp mã nguồn
 
 Xem chú thích từng biến trong [.env.example](.env.example).
 
-## Tài khoản thử
+## Tài khoản thử (chỉ dùng cho máy phát triển)
 
-Các tài khoản dưới đây là dữ liệu giả lập, chỉ dùng trên máy phát triển.
+Sau `make up && make seed`, tài khoản thử gồm:
 
-| Tên đăng nhập | Mật khẩu | Xã (`tenant_id`) | Vai          | Dùng ở đâu                         |
-| ------------- | -------- | ---------------- | ------------ | ---------------------------------- |
-| `canbo.xa-a`  | `12345`  | `xa-a`           | receptionist | API `/rest`, màn hình cán bộ xã    |
-| `canbo.xa-b`  | `12345`  | `xa-b`           | receptionist | API `/rest`, màn hình cán bộ xã    |
-| `quantri`     | tự đặt   | (để trống)       | sys_admin    | Bảng quản trị hệ thống (cổng 3001) |
+| Tài khoản | Mật khẩu demo mặc định | Xã | Vai trò |
+| --- | --- | --- | --- |
+| `canbo.xa-a` | `12345` | `xa-a` | `receptionist` |
+| `canbo.xa-b` | `12345` | `xa-b` | `receptionist` |
+| `supervisor.xa-a` | `12345` | `xa-a` | `supervisor` (không đọc hồ sơ) |
+| `quantri` | `12345` | Không áp dụng | `sys_admin` (quản trị xã) |
 
-Hai tài khoản `canbo.*` có sẵn trong tệp realm và được nạp tự động.
-Tài khoản `quantri` **chưa có trong tệp realm**, phải tạo tay một lần:
+Hai tài khoản cán bộ được nạp khi tạo realm Keycloak. `make seed` tạo
+`supervisor.xa-a` và `quantri` qua API quản trị Keycloak **kể cả trên volume cũ**;
+không thay đổi mật khẩu tài khoản đã tồn tại. Tài khoản demo không dùng trong
+môi trường thật và phải đổi/khóa trước khi triển khai. Mật khẩu tạo mới có thể
+đổi qua biến `DEMO_PASSWORD` lúc seed; tài khoản cán bộ có sẵn vẫn dùng mật khẩu
+đã cấu hình trong Keycloak.
 
-1. Mở http://localhost:8080/admin, đăng nhập bằng tài khoản quản trị Keycloak trong `.env`.
-2. Chọn realm **communeos** ở góc trên bên trái (không dùng realm `master`).
-3. Users → Create new user: Username `quantri`, điền Email, First name, Last name, bật Email verified → Create.
-4. Tab Credentials → Set password, **tắt Temporary** → Save.
-5. Tab Role mapping → Assign role → lọc theo realm roles → chọn `sys_admin` → Assign.
+## Nghiệm thu API lõi — Issues #3, #6, #11, #5, #23
 
-Trang quản trị Keycloak: http://localhost:8080 (tài khoản quản trị lấy từ tệp `.env`).
+```bash
+make up                   # áp schema/seed an toàn lên cả volume cũ
+make seed                 # thêm tài khoản thử Keycloak nếu chưa có
+make test                 # HTTP thật + RLS PostgreSQL + test cấu hình
+```
+
+`make test` kiểm thử đi qua Keycloak → APISIX → PostgREST, kiểm tra JWT và
+cách ly xã, chặn `supervisor` đọc hồ sơ, các endpoint giấy tờ, bảng quản trị
+và RLS. Chi tiết và phương án thử token hết hạn nằm trong
+[core/tests/README.md](core/tests/README.md); ghi chú triển khai xem
+[docs/ISSUES_3_6_11_5_23.md](docs/ISSUES_3_6_11_5_23.md).
+
+Bảng quản trị khởi chạy riêng:
+
+```bash
+cd core/admin
+npm install
+npm run dev -- --port 3001
+```
+
+Mở `http://localhost:3001` với tài khoản `quantri`.
 
 ## Mở rộng
 
