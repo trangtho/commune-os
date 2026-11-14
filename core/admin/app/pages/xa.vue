@@ -6,7 +6,11 @@ SPDX-License-Identifier: Apache-2.0
 import { Lock, Plus, Unlock, X } from "lucide-vue-next";
 import type { Tenant } from "~/types";
 
-const { tenants, addTenant, toggleLock } = useTenants();
+const { tenants, loading, loadError, load, addTenant, toggleLock } =
+  useTenants();
+
+// Mở trang là lấy danh sách xã từ API.
+onMounted(load);
 
 const showForm = ref(false);
 const code = ref("");
@@ -20,17 +24,20 @@ function openForm() {
   showForm.value = true;
 }
 
-function submit() {
-  error.value = addTenant(code.value, name.value);
+async function submit() {
+  error.value = await addTenant(code.value, name.value);
   if (!error.value) showForm.value = false;
 }
 
-function confirmToggle(tenant: Tenant) {
+async function confirmToggle(tenant: Tenant) {
   const action = tenant.status === "active" ? "khóa" : "mở khóa";
   const note =
-    tenant.status === "active" ? " Cán bộ của xã sẽ không đăng nhập được." : "";
+    tenant.status === "active"
+      ? " Cán bộ của xã sẽ không xem được hồ sơ nào."
+      : "";
   if (window.confirm(`Bạn chắc chắn muốn ${action} ${tenant.name}?${note}`)) {
-    toggleLock(tenant.id);
+    const message = await toggleLock(tenant);
+    if (message) window.alert(message);
   }
 }
 </script>
@@ -128,6 +135,13 @@ function confirmToggle(tenant: Tenant) {
       </div>
     </form>
 
+    <p
+      v-if="loadError"
+      role="alert"
+      class="mt-6 rounded-md bg-red-50 px-3 py-2 text-sm font-medium text-red-700"
+    >
+      {{ loadError }}
+    </p>
     <div
       class="mt-6 overflow-x-auto rounded-lg border border-slate-200 bg-white"
     >
@@ -136,6 +150,7 @@ function confirmToggle(tenant: Tenant) {
           <tr>
             <th scope="col" class="px-4 py-3 font-semibold">Mã xã</th>
             <th scope="col" class="px-4 py-3 font-semibold">Tên xã</th>
+            <th scope="col" class="px-4 py-3 font-semibold">Số hồ sơ</th>
             <th scope="col" class="px-4 py-3 font-semibold">Trạng thái</th>
             <th scope="col" class="px-4 py-3 font-semibold">Ngày tạo</th>
             <th scope="col" class="px-4 py-3 text-right font-semibold">
@@ -151,6 +166,7 @@ function confirmToggle(tenant: Tenant) {
           >
             <td class="px-4 py-3 font-mono">{{ tenant.code }}</td>
             <td class="px-4 py-3">{{ tenant.name }}</td>
+            <td class="px-4 py-3">{{ tenant.dossier_count }}</td>
             <td class="px-4 py-3">
               <span
                 class="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold"
@@ -186,8 +202,13 @@ function confirmToggle(tenant: Tenant) {
               </button>
             </td>
           </tr>
-          <tr v-if="tenants.length === 0">
-            <td colspan="5" class="px-4 py-8 text-center text-slate-500">
+          <tr v-if="loading && tenants.length === 0">
+            <td colspan="6" class="px-4 py-8 text-center text-slate-500">
+              Đang tải...
+            </td>
+          </tr>
+          <tr v-else-if="tenants.length === 0">
+            <td colspan="6" class="px-4 py-8 text-center text-slate-500">
               Chưa có xã nào. Bấm "Thêm xã" để tạo xã đầu tiên.
             </td>
           </tr>
@@ -196,7 +217,8 @@ function confirmToggle(tenant: Tenant) {
     </div>
 
     <p class="mt-4 text-sm text-slate-500">
-      Đây là dữ liệu mẫu để xem thử. Thay đổi sẽ mất khi tải lại trang.
+      Dữ liệu lấy trực tiếp từ hệ thống. Xã bị khóa thì cán bộ xã đó không xem
+      được hồ sơ nào.
     </p>
   </section>
 </template>

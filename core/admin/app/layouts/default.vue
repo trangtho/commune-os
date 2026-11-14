@@ -3,7 +3,15 @@ SPDX-FileCopyrightText: 2026 CommuneOS Contributors
 SPDX-License-Identifier: Apache-2.0
 -->
 <script setup lang="ts">
-import { Activity, Building2, Package, ScrollText } from "lucide-vue-next";
+import {
+  Activity,
+  Building2,
+  LogOut,
+  Package,
+  ScrollText,
+} from "lucide-vue-next";
+
+const { username, logout } = useAuth();
 
 const menu = [
   { to: "/xa", label: "Danh sách xã", icon: Building2 },
@@ -32,6 +40,17 @@ const menu = [
           {{ item.label }}
         </NuxtLink>
       </nav>
+      <div class="border-t border-slate-800 px-5 py-3 text-sm">
+        <p class="text-slate-400">Đang đăng nhập: {{ username }}</p>
+        <button
+          type="button"
+          class="mt-2 inline-flex items-center gap-2 text-slate-300 hover:text-white"
+          @click="logout"
+        >
+          <LogOut class="h-4 w-4" aria-hidden="true" />
+          Đăng xuất
+        </button>
+      </div>
     </aside>
 
     <main class="min-w-0 flex-1 p-4 md:p-8">

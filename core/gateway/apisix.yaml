@@ -17,4 +17,20 @@ routes:
       type: roundrobin
       nodes:
         "identity:8080": 1
+  # API dữ liệu: APISIX kiểm tra token, PostgREST kiểm tra lại và áp RLS theo xã.
+  - id: rest
+    uri: /rest/*
+    plugins:
+      openid-connect:
+        client_id: commune-app
+        client_secret: khong-dung
+        discovery: http://identity:8080/realms/communeos/.well-known/openid-configuration
+        bearer_only: true
+        use_jwks: true
+      proxy-rewrite:
+        regex_uri: ["^/rest/(.*)", "/$1"]
+    upstream:
+      type: roundrobin
+      nodes:
+        "rest:3000": 1
 #END

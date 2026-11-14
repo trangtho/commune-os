@@ -4,11 +4,12 @@
 export type TenantStatus = "active" | "locked";
 
 export interface Tenant {
-  id: number;
+  id: string;
   code: string;
   name: string;
   status: TenantStatus;
   created_at: string;
+  dossier_count: number;
 }
 
 export type Channel = "counter" | "online";
