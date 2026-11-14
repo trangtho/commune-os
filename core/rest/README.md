@@ -32,6 +32,8 @@ Mọi lời gọi cần header `Authorization: Bearer <token>`. Không có token
 | Thêm xã (chỉ sys_admin)              | `POST /rest/rpc/add_tenant` với `{"code":"xa-c","name":"Xã C"}`            |
 | Khóa / mở xã (chỉ sys_admin)         | `POST /rest/rpc/set_tenant_status` với `{"code":"xa-a","status":"locked"}` |
 
+Hồ sơ thuộc về xã tiếp nhận: `tenant_code` là xã xử lý hồ sơ, `home_tenant_code` là xã của người nộp.
+
 Cú pháp lọc, sắp xếp, chọn cột theo tài liệu PostgREST:
 `?cot=eq.giatri`, `?order=cot.desc`, `?select=cot1,cot2`, `?limit=20`.
 

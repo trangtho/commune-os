@@ -11,6 +11,13 @@ Mọi thay đổi đáng chú ý của dự án được ghi tại đây.
 
 ## [Chưa phát hành]
 
+### Thêm mới (màn hình cán bộ xã, 2026-11-15)
+
+- `apps/commune` đăng nhập bằng Keycloak và đọc hồ sơ qua API lõi `/rest`; bỏ tài khoản cứng `canbo.demo`.
+- API lọc hồ sơ theo xã tiếp nhận (`receiving_tenant_id`); thêm cột `home_tenant_code`, `category`, `description`, `form_data`, `result_note`, `updated_at` cho `dossiers`.
+- Thêm view `dossier_documents`, `procedure_documents`.
+- Token truy cập Keycloak có thời hạn 30 phút.
+
 ### Thêm mới (lõi, 2026-11-14)
 
 - API dữ liệu PostgREST 16.5 sau cổng APISIX tại `/rest/*`; PostgREST tự kiểm tra lại chữ ký token Keycloak (JWKS).
