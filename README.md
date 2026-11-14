@@ -28,6 +28,13 @@ Giấy phép của các thành phần bên thứ ba được liệt kê trong
 
 ## Kiến trúc
 
+| Tầng | Thư mục | Nội dung |
+| --- | --- | --- |
+| Tầng 1 - Lõi headless | `core/` | Cửa ngõ API, định danh, dữ liệu, quy trình, sổ cái, AI, bảng quản trị |
+| Tầng 2 - Ứng dụng | `apps/commune/` | Ứng dụng xã cho cán bộ, lãnh đạo, cấp trên |
+| Tầng 2 - Ứng dụng | `apps/citizen/` | Kênh nộp hồ sơ trực tuyến cho người dân |
+| Cấu hình | `packs/` | Gói thủ tục: BPMN, biểu mẫu, bảng kiểm giấy tờ, wiki |
+
 | Tầng                  | Thư mục         | Nội dung                                                              |
 | --------------------- | --------------- | --------------------------------------------------------------------- |
 | Tầng 1 - Lõi headless | `core/`         | Cửa ngõ API, định danh, dữ liệu, quy trình, sổ cái, AI, bảng quản trị |
@@ -73,7 +80,6 @@ Các tài khoản dưới đây là dữ liệu giả lập, chỉ dùng trên m
 | `canbo.xa-b`  | `12345`  | `xa-b`           | receptionist |
 
 Trang quản trị Keycloak: http://localhost:8080 (tài khoản quản trị lấy từ tệp `.env`).
-
 ## Mở rộng
 
 - Thêm thủ tục mới: sao `packs/_template/`, sửa rồi nạp qua bảng quản trị.
@@ -90,3 +96,60 @@ Hướng dẫn chi tiết trong [docs/](docs/).
 ## Đội phát triển
 
 Danh sách người đóng góp: [Contributors](https://github.com/trangtho/commune-os/graphs/contributors).
+## Kênh Công dân – giao diện & PostgreSQL mô phỏng
+
+Từ bản cập nhật này, `apps/citizen/` chứa ứng dụng Nuxt 3, Vue 3, TypeScript,
+Tailwind CSS có thể điều hướng và thao tác qua API Nitro, với PostgreSQL làm
+nguồn dữ liệu mẫu. Giao diện tái sử dụng header, banner xanh, bộ bước thực
+hiện, danh mục bên trái và bảng hỗ trợ bên phải theo mẫu CommuneOS.
+
+**Chạy bản demo:**
+
+```bash
+cp .env.example .env
+# DÙNG MẬT KHẨU RIÊNG, KHÔNG GIỮ CÁC GIÁ TRỊ CHANGE_ME
+# Trong .env, đặt SESSION_SECRET bằng giá trị từ: openssl rand -hex 32
+make up
+# Mở http://localhost:3000
+```
+
+Lệnh `make up` sử dụng dịch vụ `db-setup` để nạp schema và dữ liệu mẫu cả trên
+**volume trống và volume đã tồn tại**. Thủ tục mẫu trùng mã sẽ không bị ghi đè.
+Để sửa trực tiếp khi đã chạy bản cũ, dùng `make repair-db`; xem thêm
+[docs/CITIZEN_SETUP.md](docs/CITIZEN_SETUP.md).
+
+Tài khoản demo **chỉ dành cho phát triển cục bộ**:
+`congdan.demo` / `Demo@2026!`.
+
+Cổng có danh mục thủ tục, chi tiết thủ tục, nộp hồ sơ nhiều bước có Poka-yoke,
+tải file PDF/JPG/PNG, danh sách và chi tiết hồ sơ, tra cứu tiến độ, bổ sung,
+kết quả mô phỏng, thông báo, trợ lý FAQ, hướng dẫn, hồ sơ cá nhân, đổi mật
+khẩu và phản hồi. Các thay đổi được ghi vào PostgreSQL.
+
+**Giới hạn:** Đây là demo, không phải hệ thống dịch vụ công thật: chưa triển
+khai Keycloak OIDC, cổng APISIX, Flowable, ký số, OCR, RAG hoặc kiểm dịch
+ClamAV. Không nhập, tải lên hoặc đưa vào kho mã bất kỳ dữ liệu cá nhân thật nào.
+Không triển khai public Internet ở chế độ DEMO_MODE.
+
+Chi tiết cấu hình, kiến trúc API, cách thử và hạn chế bảo mật:
+[docs/CITIZEN_SETUP.md](docs/CITIZEN_SETUP.md).
+
+### PostgreSQL: khắc phục thiếu thủ tục trên volume cũ
+
+Từ phiên bản sửa lỗi này, `make up` tự chạy `db-setup` (idempotent) để tạo bảng,
+cấp quyền và nạp dữ liệu mẫu cho volume đã tồn tại. Nếu trang Công dân báo
+"Không tải được thủ tục từ PostgreSQL", chạy `make repair-db`, `make doctor`,
+rồi kiểm tra `http://localhost:3000/api/health` và `/api/procedures`.
+Không xóa Docker volume có dữ liệu cần giữ. Chi tiết: `docs/CITIZEN_SETUP.md`.
+
+
+**Kết nối PostgreSQL cho ứng dụng Nuxt trong Docker:** Các giá trị runtime
+`NUXT_DB_HOST=db`, `NUXT_DB_NAME`, `NUXT_DB_USER`, `NUXT_DB_PASSWORD` và
+`NUXT_SESSION_SECRET` được cấu hình trong `docker-compose.yml`. Chỉ đặt biến
+`PGHOST` trong Compose là chưa đủ để bảo đảm Nuxt runtimeConfig nhận đúng
+địa chỉ khi build image trước khi container chạy. Chi tiết tại
+`docs/CITIZEN_SETUP.md`.
+
+### Tự động cập nhật dữ liệu trên kênh Công dân
+
+Kênh Công dân hỗ trợ đồng bộ không cần tải lại trang bằng PostgreSQL `LISTEN/NOTIFY` → Nuxt SSE → Vue `refreshNuxtData`. Trên database volume cũ, chạy `make repair-db` **một lần** để cài các trigger, sau đó truy cập như bình thường. Nếu SSE bị gián đoạn, trình duyệt tự đối soát dữ liệu bằng gọi API định kỳ. Hướng dẫn kiểm tra và giới hạn demo: [docs/REALTIME_CITIZEN.md](docs/REALTIME_CITIZEN.md).
