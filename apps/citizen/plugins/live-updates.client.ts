@@ -4,6 +4,8 @@
 // Missed signals are reconciled by a slower background check (never window.reload).
 export default defineNuxtPlugin(() => {
   const router = useRouter()
+  const liveStatus = useState<'connecting'|'online'|'offline'>('citizen-live-status', () => 'connecting')
+  const knowledgeRevision = useState<number>('citizen-knowledge-revision', () => 0)
   let source: EventSource | null = null
   let online = false
   let lastHeartbeat = 0
@@ -21,12 +23,12 @@ export default defineNuxtPlugin(() => {
       return keys
     }
     if (resource === 'applications') {
-      const keys = ['citizen-applications', 'citizen-applications-home']
+      const keys = ['citizen-applications', 'citizen-applications-home', 'citizen-applications-page', 'citizen-applications-lookup']
       if (route.path.startsWith('/ho-so/') && typeof route.params.id === 'string')
         keys.push(`citizen-application:${route.params.id}`)
       return keys
     }
-    if (resource === 'notifications') return ['citizen-notifications', 'citizen-notifications-badge']
+    if (resource === 'notifications') return ['citizen-notifications', 'citizen-notifications-badge', 'citizen-notifications-page']
     if (resource === 'profile') return ['citizen-profile', 'citizen-auth', 'citizen-auth-home']
     return []
   }
@@ -48,15 +50,18 @@ export default defineNuxtPlugin(() => {
     source?.close()
     source = null
     online = false
+    liveStatus.value = 'offline'
   }
   function connect() {
     disconnect()
     if (document.hidden || !navigator.onLine) return
+    liveStatus.value = 'connecting'
     const events = new EventSource('/api/live', { withCredentials: true })
     source = events
     events.addEventListener('status', (e) => {
       const status = JSON.parse((e as MessageEvent).data) as { status?: string }
       online = status.status === 'online'
+      liveStatus.value = online ? 'online' : 'offline'
       lastHeartbeat = Date.now()
       if (online) reconcile()
     })
@@ -64,10 +69,13 @@ export default defineNuxtPlugin(() => {
     events.addEventListener('change', (e) => {
       try {
         const data = JSON.parse((e as MessageEvent).data) as { resource?: string }
-        if (data.resource) scheduleRefresh(data.resource)
+        if (data.resource) {
+          if (data.resource === 'procedures') knowledgeRevision.value += 1
+          scheduleRefresh(data.resource)
+        }
       } catch { /* invalid signal */ }
     })
-    events.onerror = () => { online = false }
+    events.onerror = () => { online = false; liveStatus.value = 'offline' }
   }
   onNuxtReady(() => {
     connect()
@@ -75,6 +83,7 @@ export default defineNuxtPlugin(() => {
     fallbackTimer = setInterval(() => {
       if (document.hidden) return
       if (!online || Date.now() - lastHeartbeat > 60_000 || Date.now() - lastReconcile > 60_000) reconcile()
+      if (source?.readyState === EventSource.CLOSED) connect()
       // Periodic reconciliation even on healthy SSE covers missed notifications.
     }, 15_000)
     document.addEventListener('visibilitychange', () => {

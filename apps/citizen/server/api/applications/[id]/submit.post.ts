@@ -1,5 +1,6 @@
 // SPDX-FileCopyrightText: 2026 CommuneOS Contributors
 // SPDX-License-Identifier: Apache-2.0
+import { validateProcedureForm } from '../../../../shared/procedure-forms'
 import { citizenTx } from '../../../utils/database'
 export default defineEventHandler(async(event)=>citizenTx(event,async(client,actor)=>{
   const id=getRouterParam(event,'id')
@@ -10,8 +11,8 @@ export default defineEventHandler(async(event)=>citizenTx(event,async(client,act
   // A published procedure might have been withdrawn while the user edited the draft.
   const active=(await client.query('SELECT 1 FROM procedures WHERE id=$1 AND published',[row.procedure_id])).rowCount
   if(!active)throw createError({statusCode:409,statusMessage:'Thủ tục không còn được công bố; vui lòng chọn thủ tục khác'})
-  if(row.procedure_id==='khai-sinh' && (!String(row.form_data?.childName||'').trim() || !String(row.form_data?.birthDate||'').trim()))
-    throw createError({statusCode:422,statusMessage:'Thiếu thông tin khai sinh bắt buộc'})
+  const issues = validateProcedureForm(row.procedure_id, row.form_data || {})
+  if (issues.length) throw createError({statusCode:422,statusMessage:issues[0].message})
   const missing=(await client.query(`SELECT d.document_name FROM procedure_documents d
     WHERE d.procedure_id=$1 AND d.is_required AND NOT EXISTS
       (SELECT 1 FROM application_documents f WHERE f.application_id=$2 AND f.document_code=d.document_code)`,[row.procedure_id,id])).rows

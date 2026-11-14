@@ -91,6 +91,8 @@ services:
         sh /setup/init/00-create-app-role.sh
         psql -v ON_ERROR_STOP=1 -f /setup/init/01-schema.sql
         psql -v ON_ERROR_STOP=1 -f /setup/seed/seed.sql
+        psql -v ON_ERROR_STOP=1 -f /setup/init/02-ai-knowledge.sql
+        psql -v ON_ERROR_STOP=1 -f /setup/init/03-citizen-chat-history.sql
         psql -v ON_ERROR_STOP=1 -c "SELECT count(*) AS published_procedures FROM procedures WHERE published = true"
         echo 'PostgreSQL setup finished successfully.'
 
@@ -123,6 +125,19 @@ services:
       NUXT_DB_PASSWORD: ${POSTGRES_APP_PASSWORD}
       NUXT_SESSION_SECRET: ${SESSION_SECRET}
       NUXT_STORAGE_DIR: /app/storage
+      # Optional server-side, OpenAI-compatible answer model and legacy classifier.
+      # Do not expose tokens via Nuxt public runtimeConfig.
+      CITIZEN_AI_ENDPOINT: ${CITIZEN_AI_ENDPOINT:-}
+      CITIZEN_AI_MODEL: ${CITIZEN_AI_MODEL:-}
+      CITIZEN_AI_TOKEN: ${CITIZEN_AI_TOKEN:-}
+      CITIZEN_RAG_ENDPOINT: ${CITIZEN_RAG_ENDPOINT:-}
+      CITIZEN_RAG_TOKEN: ${CITIZEN_RAG_TOKEN:-}
+      # Nitro runtime overrides (NUXT_* must be available at container runtime).
+      NUXT_AI_ENDPOINT: ${CITIZEN_AI_ENDPOINT:-}
+      NUXT_AI_MODEL: ${CITIZEN_AI_MODEL:-}
+      NUXT_AI_TOKEN: ${CITIZEN_AI_TOKEN:-}
+      NUXT_RAG_ENDPOINT: ${CITIZEN_RAG_ENDPOINT:-}
+      NUXT_RAG_TOKEN: ${CITIZEN_RAG_TOKEN:-}
     volumes:
       - citizen-uploads:/app/storage
     ports:

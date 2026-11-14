@@ -47,7 +47,7 @@ test('Usability, live badges and printing survive the fixed viewport', () => {
   assert.match(layout, /unreadCount/)
   assert.match(layout, /mobileExtras/)
   assert.match(layout, /Hỗ trợ công dân/)
-  assert.doesNotMatch(layout, /to="\/tro-ly"/)
+  assert.match(layout, /to="\/tro-ly"/)
   const live = read('apps/citizen/plugins/live-updates.client.ts')
   assert.match(live, /'citizen-notifications-badge'/)
   assert.match(live, /'citizen-applications-home'/)

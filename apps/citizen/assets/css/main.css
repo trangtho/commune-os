@@ -98,3 +98,10 @@ body { @apply bg-[#f7faff] text-ink antialiased; font-family: Inter, ui-sans-ser
  .panel { box-shadow: none !important; break-inside: avoid; }
  body { background: white !important; print-color-adjust: exact; -webkit-print-color-adjust: exact; }
 }
+
+/* WCAG keyboard access inside the fixed-height citizen shell. */
+.citizen-skip-link {position:fixed;left:1rem;top:-5rem;z-index:1000;background:#fff;color:#0a4382;padding:.75rem 1rem;border:2px solid #2563eb;border-radius:.5rem;font-weight:700}
+.citizen-skip-link:focus {top:1rem}
+:where(.citizen-app-shell) :is(button,a,input,select,textarea,summary):focus-visible {outline:3px solid #2563eb;outline-offset:3px}
+:where(.citizen-app-shell) :is(button,[role="button"]):disabled {cursor:not-allowed;opacity:.6}
+@media (prefers-reduced-motion:reduce){:where(.citizen-app-shell) *, :where(.citizen-app-shell) *::before, :where(.citizen-app-shell) *::after{animation-duration:.01ms!important;transition-duration:.01ms!important;scroll-behavior:auto!important}}
