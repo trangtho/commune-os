@@ -1,6 +1,10 @@
 # SPDX-FileCopyrightText: 2026 CommuneOS Contributors
 # SPDX-License-Identifier: Apache-2.0
-# Citizen prototype: Nuxt 3 + PostgreSQL 17. Other core services remain future work.
+#
+# Các dịch vụ lõi CommuneOS: db, identity, gateway.
+# Bổ sung db-setup và citizen cho Kênh Công dân; chỉ mở cổng PostgreSQL và
+# Citizen trên localhost, giữ nguyên các cổng phát triển của lõi.
+
 services:
   db:
     image: postgres:17
@@ -13,18 +17,50 @@ services:
       POSTGRES_APP_PASSWORD: ${POSTGRES_APP_PASSWORD}
     volumes:
       - db-data:/var/lib/postgresql/data
-      - ./core/db/init/00-create-app-role.sh:/docker-entrypoint-initdb.d/00-create-app-role.sh:ro
-      - ./core/db/init/01-schema.sql:/docker-entrypoint-initdb.d/01-schema.sql:ro
-      - ./core/db/seed/seed.sql:/docker-entrypoint-initdb.d/03-seed.sql:ro
+      - ./core/db/init:/docker-entrypoint-initdb.d:ro
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
       interval: 5s
       timeout: 3s
-      retries: 15
+      retries: 10
     ports:
       - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
-  # Runs on fresh AND existing PostgreSQL volumes. All scripts are idempotent.
-  # Do not remove db-data: the setup step updates schema and seeds missing rows.
+
+  identity:
+    image: quay.io/keycloak/keycloak:26.8.2
+    command: start-dev --import-realm
+    environment:
+      KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN}
+      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD}
+      KC_DB: postgres
+      KC_DB_URL: jdbc:postgresql://db:5432/keycloak
+      KC_DB_USERNAME: ${POSTGRES_USER}
+      KC_DB_PASSWORD: ${POSTGRES_PASSWORD}
+      KC_HOSTNAME: ${KEYCLOAK_PUBLIC_URL}
+      KC_HOSTNAME_BACKCHANNEL_DYNAMIC: "true"
+    volumes:
+      - ./core/identity/realm:/opt/keycloak/data/import:ro
+    depends_on:
+      db-setup:
+        condition: service_completed_successfully
+    ports:
+      - "8080:8080"
+
+  gateway:
+    image: apache/apisix:3.20.0-debian
+    environment:
+      APISIX_STAND_ALONE: "true"
+    volumes:
+      - ./core/gateway/config.yaml:/usr/local/apisix/conf/config.yaml
+      - ./core/gateway/apisix.yaml:/usr/local/apisix/conf/apisix.yaml
+    depends_on:
+      - identity
+    ports:
+      - "${GATEWAY_PORT}:9080"
+
+  # Bổ sung lược đồ Citizen Portal trên cả PostgreSQL mới và volume hiện có.
+  # Không xóa db-data; seed chỉ được nạp bởi db-setup, tránh mount chồng lên init read-only.
+  # Script khởi tạo ứng dụng và seed được thiết kế để chạy lại.
   db-setup:
     image: postgres:17
     restart: "no"
@@ -47,12 +83,17 @@ services:
     entrypoint: ["/bin/sh", "-eu", "-c"]
     command:
       - |
-        echo 'Setting up PostgreSQL app role, schema and demonstration procedures...'
+        echo 'Preparing PostgreSQL app role, schema and seed...'
+        # Tạo cơ sở dữ liệu Keycloak cho cả volume Citizen cũ.
+        if ! psql -v ON_ERROR_STOP=1 -d postgres -tAc "SELECT 1 FROM pg_database WHERE datname = 'keycloak'" | grep -qx 1; then
+          psql -v ON_ERROR_STOP=1 -d postgres -c "CREATE DATABASE keycloak"
+        fi
         sh /setup/init/00-create-app-role.sh
         psql -v ON_ERROR_STOP=1 -f /setup/init/01-schema.sql
         psql -v ON_ERROR_STOP=1 -f /setup/seed/seed.sql
         psql -v ON_ERROR_STOP=1 -c "SELECT count(*) AS published_procedures FROM procedures WHERE published = true"
         echo 'PostgreSQL setup finished successfully.'
+
   citizen:
     build:
       context: ./apps/citizen
@@ -73,27 +114,19 @@ services:
       SESSION_SECRET: ${SESSION_SECRET}
       DEMO_MODE: "true"
       STORAGE_DIR: /app/storage
+      # Nuxt runtimeConfig: ghi đè giá trị mặc định lúc chạy container.
+      # Chuyển từ docker-compose.override.yml vào cấu hình chính.
+      NUXT_DB_HOST: db
+      NUXT_DB_PORT: "5432"
+      NUXT_DB_NAME: ${POSTGRES_DB}
+      NUXT_DB_USER: communeos_app
+      NUXT_DB_PASSWORD: ${POSTGRES_APP_PASSWORD}
+      NUXT_SESSION_SECRET: ${SESSION_SECRET}
+      NUXT_STORAGE_DIR: /app/storage
     volumes:
       - citizen-uploads:/app/storage
     ports:
       - "127.0.0.1:${CITIZEN_PORT:-3000}:3000"
-  identity:
-    image: quay.io/keycloak/keycloak:26.8.2
-    command: start-dev --import-realm
-    environment:
-      KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN}
-      KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD}
-      KC_DB: postgres
-      KC_DB_URL: jdbc:postgresql://db:5432/keycloak
-      KC_DB_USERNAME: ${POSTGRES_USER}
-      KC_DB_PASSWORD: ${POSTGRES_PASSWORD}
-    volumes:
-      - ./core/identity/realm:/opt/keycloak/data/import:ro
-    depends_on:
-      db:
-        condition: service_healthy
-    ports:
-      - "8080:8080"
 
 volumes:
   db-data:

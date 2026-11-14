@@ -1,0 +1,20 @@
+# SPDX-FileCopyrightText: 2026 CommuneOS Contributors
+# SPDX-License-Identifier: Apache-2.0
+
+routes:
+  - id: ping
+    uri: /api/ping
+    plugins:
+      openid-connect:
+        client_id: commune-app
+        client_secret: khong-dung
+        discovery: http://identity:8080/realms/communeos/.well-known/openid-configuration
+        bearer_only: true
+        use_jwks: true
+      proxy-rewrite:
+        uri: /realms/communeos
+    upstream:
+      type: roundrobin
+      nodes:
+        "identity:8080": 1
+#END
