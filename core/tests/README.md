@@ -7,9 +7,9 @@ SPDX-License-Identifier: Apache-2.0
 
 Kiểm thử API và kiểm thử cách ly dữ liệu giữa các xã.
 
-| Tệp                   | Kiểm tra                                                                                                                                                                                                                                                                                      |
-| --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
-| `tenant-isolation.sh` | Đi đường thật Keycloak → APISIX → PostgREST → PostgreSQL. 12 mục: không token bị chặn, xã A không đọc được hồ sơ xã B, số điện thoại được che, API chỉ đọc, cán bộ xã không thêm được xã, token bị sửa bị chặn, cán bộ xã khác không xử lý được hồ sơ, bước chuyển sai và thiếu lý do bị chặn |
+| Tệp                   | Kiểm tra                                                                                                                                                                                                                                                                                                              |
+| --------------------- | --------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
+| `tenant-isolation.sh` | Đi đường thật Keycloak → APISIX → PostgREST → PostgreSQL. 13 mục: không token bị chặn, xã A không đọc được hồ sơ xã B, số điện thoại được che, API chỉ đọc, cán bộ xã không thêm được xã, token bị sửa bị chặn, cán bộ xã khác không xử lý được hồ sơ, bước chuyển sai và thiếu lý do bị chặn, sổ ghi nhận nguyên vẹn |
 
 ## Chạy
 

@@ -11,6 +11,14 @@ Mọi thay đổi đáng chú ý của dự án được ghi tại đây.
 
 ## [Chưa phát hành]
 
+### Thêm mới (sổ ghi nhận, 2026-11-15)
+
+- Sổ ghi nhận nối chuỗi băm SHA-256 theo từng xã: mỗi sự kiện hồ sơ tự sinh một dòng, không lưu nội dung hồ sơ.
+- Chặn sửa, xóa dòng sổ; hàm `api.verify_ledger` tính lại chuỗi và chỉ ra dòng bị sửa.
+- View `api.ledger`: quản trị xem mọi xã, cán bộ chỉ xem xã mình.
+- Bảng quản trị: màn hình "Kiểm tra hồ sơ đã ký" dùng dữ liệu thật.
+- `make test` tăng lên 13 kiểm tra.
+
 ### Thêm mới (xử lý hồ sơ, 2026-11-15)
 
 - Hàm `api.set_dossier_status`: cán bộ xã chuyển xử lý, yêu cầu bổ sung, hoàn thành, từ chối hồ sơ của xã mình; kiểm tra vai trò, bước chuyển hợp lệ và lý do bắt buộc ngay trong cơ sở dữ liệu.

@@ -33,6 +33,8 @@ Mọi lời gọi cần header `Authorization: Bearer <token>`. Không có token
 | Khóa / mở xã (chỉ sys_admin)         | `POST /rest/rpc/set_tenant_status` với `{"code":"xa-a","status":"locked"}`                           |
 | Đổi trạng thái hồ sơ (cán bộ xã)     | `POST /rest/rpc/set_dossier_status` với `{"dossier_id":"HS-...","status":"processing","note":"..."}` |
 | Các bước chuyển trạng thái được phép | `GET /rest/dossier_transitions`                                                                      |
+| Xem sổ ghi nhận                      | `GET /rest/ledger?order=seq.desc&limit=30`                                                           |
+| Kiểm tra sổ có bị sửa không          | `POST /rest/rpc/verify_ledger` với `{}` hoặc `{"only_tenant":"xa-a"}`                                |
 
 Hồ sơ thuộc về xã tiếp nhận: `tenant_code` là xã xử lý hồ sơ, `home_tenant_code` là xã của người nộp.
 

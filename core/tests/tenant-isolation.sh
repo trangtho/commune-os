@@ -71,6 +71,12 @@ code=$(rpc "$TA" '{"dossier_id":"HS-2026-001210","status":"processing"}')
 code=$(rpc "$TA" '{"dossier_id":"HS-2026-001197","status":"rejected"}')
 [ "$code" = "400" ] && ok "Từ chối không ghi lý do bị chặn (400)" || fail "Từ chối thiếu lý do phải 400, nhận $code"
 
+# Sổ ghi nhận: chuỗi mã băm của xã A phải nguyên vẹn, và xã A không thấy sổ của xã khác.
+ledger=$(curl -s -X POST -H "Authorization: Bearer $TA" -H 'Content-Type: application/json' -d '{}' \
+  "$GW/rest/rpc/verify_ledger" |
+  python3 -c 'import json,sys; d=json.load(sys.stdin); print(",".join("%s:%s" % (r["tenant_code"], r["ok"]) for r in d))')
+[ "$ledger" = "xa-a:True" ] && ok "Sổ ghi nhận của xã A nguyên vẹn, không lộ sổ xã khác" || fail "Kiểm tra sổ ghi nhận: '$ledger'"
+
 code=$(curl -s -o /dev/null -w '%{http_code}' -H "Authorization: Bearer ${TA}sai" "$GW/rest/dossiers")
 [ "$code" = "401" ] && ok "Token bị sửa → 401" || fail "Token bị sửa phải 401, nhận $code"
 
