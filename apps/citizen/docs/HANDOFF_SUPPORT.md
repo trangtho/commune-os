@@ -1,3 +1,8 @@
+<!--
+SPDX-FileCopyrightText: 2026 CommuneOS Contributors
+SPDX-License-Identifier: Apache-2.0
+-->
+
 # Chuyển tiếp hồ sơ trực tuyến ↔ tại quầy và theo dõi hỗ trợ
 
 Hai chức năng này mở rộng **Kênh công dân** theo bố cục `main`. Bản triển khai là mô phỏng nghiệp vụ, không phải hệ thống tiếp nhận hồ sơ hành chính chính thức.

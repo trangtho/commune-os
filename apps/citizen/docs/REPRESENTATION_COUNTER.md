@@ -1,3 +1,8 @@
+<!--
+SPDX-FileCopyrightText: 2026 CommuneOS Contributors
+SPDX-License-Identifier: Apache-2.0
+-->
+
 # Đại diện người thân và chuẩn bị thủ tục tại quầy
 
 ## Phạm vi

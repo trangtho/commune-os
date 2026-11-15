@@ -1,3 +1,8 @@
+<!--
+SPDX-FileCopyrightText: 2026 CommuneOS Contributors
+SPDX-License-Identifier: Apache-2.0
+-->
+
 # CommuneOS · AI thủ tục hành chính
 
 Trợ lý AI là một **tính năng của Kênh công dân**, triển khai bằng Nuxt/Nitro tại

@@ -1,0 +1,27 @@
+# SPDX-FileCopyrightText: 2026 CommuneOS Contributors
+# SPDX-License-Identifier: Apache-2.0
+#
+# Khai báo giấy phép cho các tệp không viết được dòng chú thích SPDX
+# (JSON, tệp khóa phiên bản, hình ảnh do nhóm tự tạo).
+version = 1
+
+[[annotations]]
+path = [
+  "**/package.json",
+  "**/package-lock.json",
+  "**/tsconfig.json",
+  "core/identity/realm/communeos-realm.json",
+  "**/.gitignore",
+  "**/.dockerignore",
+  "**/robots.txt",
+  ".gitattributes",
+  "LICENSE",
+]
+SPDX-FileCopyrightText = "2026 CommuneOS Contributors"
+SPDX-License-Identifier = "Apache-2.0"
+
+# Hình ảnh và biểu tượng do nhóm tự tạo cho dự án.
+[[annotations]]
+path = ["**/*.png", "**/*.jpg", "**/*.jpeg", "**/*.svg", "**/*.ico", "**/*.webp"]
+SPDX-FileCopyrightText = "2026 CommuneOS Contributors"
+SPDX-License-Identifier = "Apache-2.0"

@@ -1,3 +1,8 @@
+<!--
+SPDX-FileCopyrightText: 2026 CommuneOS Contributors
+SPDX-License-Identifier: Apache-2.0
+-->
+
 # Kênh Công dân — hỗ trợ tiếp cận, hồ sơ gia đình, lịch tư vấn và đánh giá theo giai đoạn
 
 ## Phạm vi phiên bản

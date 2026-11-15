@@ -22,7 +22,9 @@ Dự án phát hành theo **Apache License 2.0** (toàn văn trong tệp
 cá nhân được tự do sử dụng, sửa đổi và phân phối lại phần mềm, kể cả cho mục
 đích thương mại, với điều kiện giữ nguyên thông báo bản quyền và giấy phép.
 
-Mỗi tệp mã nguồn mang tiêu đề `SPDX-License-Identifier: Apache-2.0`.
+Mỗi tệp mã nguồn mang tiêu đề SPDX khai báo giấy phép Apache-2.0; các tệp không
+viết được chú thích (JSON, hình ảnh) được khai báo trong [REUSE.toml](REUSE.toml).
+Kiểm tra bằng `reuse lint`.
 Giấy phép của các thành phần bên thứ ba được liệt kê trong
 [DEPENDENCIES.md](DEPENDENCIES.md).
 
@@ -61,12 +63,12 @@ Mọi cấu hình nằm trong tệp `.env`; không cần sửa tệp mã nguồn
 
 Sau khi `make up` chạy xong, mở trình duyệt:
 
-| Giao diện               | Địa chỉ               | Chạy bằng                                                    |
-| ----------------------- | --------------------- | ------------------------------------------------------------ |
-| Kênh người dân          | http://localhost:3000 | Docker (tự chạy)                                             |
-| Màn hình cán bộ xã      | http://localhost:3002 | Docker (tự chạy)                                             |
-| Bảng quản trị hệ thống  | http://localhost:3001 | `cd core/admin && npm install && npm run dev -- --port 3001` |
-| Trang quản trị Keycloak | http://localhost:8080 | Docker (tự chạy)                                             |
+| Giao diện               | Địa chỉ               | Chạy bằng        |
+| ----------------------- | --------------------- | ---------------- |
+| Kênh người dân          | http://localhost:3000 | Docker (tự chạy) |
+| Màn hình cán bộ xã      | http://localhost:3002 | Docker (tự chạy) |
+| Bảng quản trị hệ thống  | http://localhost:3001 | Docker (tự chạy) |
+| Trang quản trị Keycloak | http://localhost:8080 | Docker (tự chạy) |
 
 ## Cấu hình
 
@@ -80,16 +82,9 @@ Các tài khoản dưới đây là dữ liệu giả lập, chỉ dùng trên m
 | ------------- | -------- | ---------------- | ------------ | ---------------------------------- |
 | `canbo.xa-a`  | `12345`  | `xa-a`           | receptionist | API `/rest`, màn hình cán bộ xã    |
 | `canbo.xa-b`  | `12345`  | `xa-b`           | receptionist | API `/rest`, màn hình cán bộ xã    |
-| `quantri`     | tự đặt   | (để trống)       | sys_admin    | Bảng quản trị hệ thống (cổng 3001) |
+| `quantri`     | `12345`  | (để trống)       | sys_admin    | Bảng quản trị hệ thống (cổng 3001) |
 
-Hai tài khoản `canbo.*` có sẵn trong tệp realm và được nạp tự động.
-Tài khoản `quantri` **chưa có trong tệp realm**, phải tạo tay một lần:
-
-1. Mở http://localhost:8080/admin, đăng nhập bằng tài khoản quản trị Keycloak trong `.env`.
-2. Chọn realm **communeos** ở góc trên bên trái (không dùng realm `master`).
-3. Users → Create new user: Username `quantri`, điền Email, First name, Last name, bật Email verified → Create.
-4. Tab Credentials → Set password, **tắt Temporary** → Save.
-5. Tab Role mapping → Assign role → lọc theo realm roles → chọn `sys_admin` → Assign.
+Cả ba tài khoản có sẵn trong tệp realm và được nạp tự động khi dựng lần đầu.
 
 Trang quản trị Keycloak: http://localhost:8080 (tài khoản quản trị lấy từ tệp `.env`).
 

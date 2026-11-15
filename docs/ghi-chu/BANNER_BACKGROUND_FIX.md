@@ -1,3 +1,8 @@
+<!--
+SPDX-FileCopyrightText: 2026 CommuneOS Contributors
+SPDX-License-Identifier: Apache-2.0
+-->
+
 # Sửa banner trùng chữ và responsive – Kênh Công dân
 
 ## Nguyên nhân

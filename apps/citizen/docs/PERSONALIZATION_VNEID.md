@@ -1,3 +1,8 @@
+<!--
+SPDX-FileCopyrightText: 2026 CommuneOS Contributors
+SPDX-License-Identifier: Apache-2.0
+-->
+
 # Cá nhân hóa thủ tục và đăng nhập định danh
 
 Phạm vi: Kênh công dân; giữ bố cục và quy ước `main`. Các thủ tục/địa phương trong dữ liệu seed chỉ mang tính minh họa. **Không coi kết nối VNeID là đã hoạt động thật** khi chưa có IdP và hợp đồng tích hợp được cơ quan có thẩm quyền phê duyệt.

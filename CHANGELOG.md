@@ -11,6 +11,14 @@ Mọi thay đổi đáng chú ý của dự án được ghi tại đây.
 
 ## [Chưa phát hành]
 
+### Thay đổi (chuẩn hóa kho mã, 2026-11-15)
+
+- Mọi tệp có thông tin giấy phép theo chuẩn REUSE (`REUSE.toml`, `LICENSES/`); kiểm tra bằng `reuse lint`.
+- Kiểm tra tự động trên mỗi PR bằng GitHub Actions: giấy phép, dựng từ mã nguồn, `make test`, `make test-citizen`.
+- Bảng quản trị chạy bằng `docker compose` ở cổng 3001; tài khoản mẫu `quantri` có sẵn trong tệp realm.
+- Thêm mẫu issue, mẫu PR, `SECURITY.md`, `CODE_OF_CONDUCT.md`.
+- Chuyển ghi chú quá trình làm vào `docs/ghi-chu/`.
+
 ### Thay đổi (chạy và dọn dẹp, 2026-11-15)
 
 - `docker compose up` chạy luôn màn hình cán bộ xã ở cổng 3002 (biến mới tùy chọn `COMMUNE_PORT`).
@@ -61,7 +69,7 @@ Mọi thay đổi đáng chú ý của dự án được ghi tại đây.
 - Cải thiện kiểm tra upload, bổ sung hồ sơ, tìm kiếm tiếng Việt không dấu và xử lý lỗi API.
 - Hiển thị bộ đếm thông báo chưa đọc theo SSE, làm gọn khối hỗ trợ và menu responsive.
 - Cho phép in phiếu kết quả không cắt viewport; tăng bộ test tĩnh lên 20.
-- Tài liệu triển khai, phạm vi/chức năng chưa hoàn thiện tại `docs/UPDATE_2026-11-14.md`.
+- Tài liệu triển khai, phạm vi/chức năng chưa hoàn thiện tại `docs/ghi-chu/UPDATE_2026-11-14.md`.
 
 ### Thêm mới
 
