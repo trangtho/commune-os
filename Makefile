@@ -25,8 +25,8 @@ seed: .env ## Nạp lại dữ liệu mẫu (idempotent)
 test: .env ## Kiểm thử cách ly xã qua gateway (cần docker compose up)
 	sh core/tests/tenant-isolation.sh
 
-test-citizen: ## Kiểm thử đơn vị Kênh người dân
-	cd apps/citizen && npm test
+test-citizen: ## Kiểm thử đơn vị Kênh người dân (chạy trong Node 22 chính thức)
+	docker run --rm -v "$(CURDIR)":/w -w /w/apps/citizen node:22-alpine npm test
 
 citizen-dev: ## Chạy Nuxt dev; cần export PG*, SESSION_SECRET theo tài liệu
 	cd apps/citizen && npm run dev

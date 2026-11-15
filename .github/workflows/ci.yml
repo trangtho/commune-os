@@ -1,0 +1,68 @@
+# SPDX-FileCopyrightText: 2026 CommuneOS Contributors
+# SPDX-License-Identifier: Apache-2.0
+
+# Kiểm tra tự động trên mỗi Pull Request và mỗi lần đưa mã vào main.
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  giay-phep:
+    name: Giấy phép (REUSE)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Mọi tệp đều có thông tin giấy phép
+        run: |
+          pipx install reuse
+          reuse lint
+
+  kiem-thu:
+    name: Dựng từ mã nguồn và kiểm thử
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Tạo .env từ mẫu
+        run: |
+          cp .env.example .env
+          sed -i "s/^SESSION_SECRET=.*/SESSION_SECRET=$(openssl rand -hex 32)/" .env
+
+      - name: Kiểm tra cú pháp docker-compose và script
+        run: |
+          docker compose config -q
+          sh -n core/tests/tenant-isolation.sh
+          sh -n core/db/init/00-create-app-role.sh
+          sh -n core/db/init/02-create-api-roles.sh
+
+      - name: Dựng và khởi động các dịch vụ lõi
+        run: docker compose up -d --build db identity db-setup rest-keys rest gateway
+
+      - name: Chờ Keycloak và cổng API sẵn sàng
+        run: |
+          for i in $(seq 1 60); do
+            code=$(curl -s -o /dev/null -w '%{http_code}' http://localhost:9080/rest/dossiers || true)
+            kc=$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8080/realms/communeos/.well-known/openid-configuration || true)
+            if [ "$code" = "401" ] && [ "$kc" = "200" ]; then echo "Sẵn sàng sau $i lần thử"; exit 0; fi
+            sleep 5
+          done
+          docker compose ps
+          docker compose logs --tail=40
+          exit 1
+
+      - name: Kiểm thử cách ly xã, xử lý hồ sơ, sổ ghi nhận
+        run: DEMO_PASSWORD=12345 make test
+
+      - name: Kiểm thử Kênh người dân
+        run: make test-citizen
+
+      - name: In log khi lỗi
+        if: failure()
+        run: docker compose logs --tail=60
