@@ -57,19 +57,27 @@ code=$(curl -s -o /dev/null -w '%{http_code}' -X POST -H "Authorization: Bearer 
   -H 'Content-Type: application/json' -d '{"code":"xa-thu","name":"Thử"}' "$GW/rest/rpc/add_tenant")
 [ "$code" = "403" ] && ok "Cán bộ xã không thêm được xã (403)" || fail "Cán bộ xã thêm xã phải 403, nhận $code"
 
-# Xử lý hồ sơ (chỉ thử các trường hợp bị từ chối nên không làm thay đổi dữ liệu).
-rpc() {
+# Xử lý hồ sơ qua động cơ quy trình (chỉ thử các trường hợp bị từ chối nên không đổi dữ liệu).
+wf() {
   curl -s -o /dev/null -w '%{http_code}' -X POST -H "Authorization: Bearer $1" \
-    -H 'Content-Type: application/json' -d "$2" "$GW/rest/rpc/set_dossier_status"
+    -H 'Content-Type: application/json' -d "$3" "$GW/workflow/dossiers/$2/actions"
 }
-code=$(rpc "$TB" '{"dossier_id":"HS-2026-001210","status":"processing"}')
+code=$(wf "$TB" HS-2026-001210 '{"action":"processing"}')
 [ "$code" = "404" ] && ok "Cán bộ xã B không xử lý được hồ sơ xã A (404)" || fail "Xã B xử lý hồ sơ xã A phải 404, nhận $code"
 
-code=$(rpc "$TA" '{"dossier_id":"HS-2026-001210","status":"processing"}')
+code=$(wf "$TA" HS-2026-001210 '{"action":"processing"}')
 [ "$code" = "409" ] && ok "Hồ sơ đã hoàn thành không mở lại được (409)" || fail "Chuyển trạng thái sai phải 409, nhận $code"
 
-code=$(rpc "$TA" '{"dossier_id":"HS-2026-001197","status":"rejected"}')
+code=$(wf "$TA" HS-2026-001197 '{"action":"rejected"}')
 [ "$code" = "400" ] && ok "Từ chối không ghi lý do bị chặn (400)" || fail "Từ chối thiếu lý do phải 400, nhận $code"
+
+actions=$(curl -s -H "Authorization: Bearer $TA" "$GW/workflow/dossiers/HS-2026-001197/actions" |
+  python3 -c 'import json,sys; print(",".join(sorted(json.load(sys.stdin).get("actions", []))))')
+[ "$actions" = "completed,rejected,supplement" ] && ok "Sơ đồ BPMN trả đúng các bước đi tiếp ($actions)" || fail "Bước đi tiếp từ BPMN sai: '$actions'"
+
+code=$(curl -s -o /dev/null -w '%{http_code}' -X POST -H "Authorization: Bearer $TA" -H 'Content-Type: application/json' \
+  -d '{"dossier_id":"HS-2026-001197","status":"completed"}' "$GW/rest/rpc/set_dossier_status")
+[ "$code" = "403" ] && ok "Không bỏ qua được động cơ quy trình: gọi thẳng API ghi bị chặn (403)" || fail "Gọi thẳng set_dossier_status phải 403, nhận $code"
 
 # Sổ ghi nhận: chuỗi mã băm của xã A phải nguyên vẹn, và xã A không thấy sổ của xã khác.
 ledger=$(curl -s -X POST -H "Authorization: Bearer $TA" -H 'Content-Type: application/json' -d '{}' \

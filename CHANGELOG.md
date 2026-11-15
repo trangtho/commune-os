@@ -11,6 +11,20 @@ Mọi thay đổi đáng chú ý của dự án được ghi tại đây.
 
 ## [Chưa phát hành]
 
+### Thêm mới (động cơ quy trình, 2026-11-15)
+
+- Động cơ quy trình BPMN Flowable 8.0.0 và dịch vụ điều phối `core/orchestrator` sau cổng tại `/workflow/*`.
+- Sơ đồ `xu-ly-ho-so.bpmn20.xml` quyết định các bước xử lý hồ sơ; đổi quy trình bằng cách sửa sơ đồ, không sửa mã nguồn.
+- `GET /workflow/dossiers/<mã>/actions` trả bước hiện tại và các bước được phép; `POST` thực hiện một bước.
+- Màn hình cán bộ xã xử lý hồ sơ qua động cơ quy trình.
+
+### Thay đổi (động cơ quy trình)
+
+- Hàm `api.set_dossier_status` chỉ nhận lời gọi từ dịch vụ điều phối; gọi thẳng qua `/rest` bị từ chối (403).
+- Bỏ bảng và view `dossier_transitions`.
+- Biến mới bắt buộc trong `.env`: `FLOWABLE_ADMIN_PASSWORD`, `WORKFLOW_TOKEN`.
+- `make test` tăng lên 15 kiểm tra; CI dựng thêm Flowable và dịch vụ điều phối.
+
 ### Thay đổi (chuẩn hóa kho mã, 2026-11-15)
 
 - Mọi tệp có thông tin giấy phép theo chuẩn REUSE (`REUSE.toml`, `LICENSES/`); kiểm tra bằng `reuse lint`.
@@ -18,6 +32,7 @@ Mọi thay đổi đáng chú ý của dự án được ghi tại đây.
 - Bảng quản trị chạy bằng `docker compose` ở cổng 3001; tài khoản mẫu `quantri` có sẵn trong tệp realm.
 - Thêm mẫu issue, mẫu PR, `SECURITY.md`, `CODE_OF_CONDUCT.md`.
 - Chuyển ghi chú quá trình làm vào `docs/ghi-chu/`.
+- `make test-citizen` chạy trong ảnh `node:22-alpine` để kết quả giống nhau trên mọi máy.
 
 ### Thay đổi (chạy và dọn dẹp, 2026-11-15)
 

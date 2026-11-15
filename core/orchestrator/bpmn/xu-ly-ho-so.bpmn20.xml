@@ -1,0 +1,49 @@
+<!-- 
+SPDX-FileCopyrightText: 2026 CommuneOS Contributors
+SPDX-License-Identifier: Apache-2.0
+
+Quy trình xử lý hồ sơ dùng chung cho mọi thủ tục.
+Mỗi userTask ứng với một trạng thái hồ sơ; biến "action" là trạng thái cán bộ muốn chuyển tới.
+Sửa sơ đồ này (thêm bước, thêm nhánh) là đổi quy trình mà không phải sửa mã nguồn.
+ -->
+<definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:flowable="http://flowable.org/bpmn" targetNamespace="https://github.com/trangtho/commune-os">
+<process id="xu-ly-ho-so" name="Xử lý hồ sơ thủ tục hành chính" isExecutable="true">
+<startEvent id="nop-ho-so" name="Người dân nộp hồ sơ"/>
+<sequenceFlow id="f0" sourceRef="nop-ho-so" targetRef="submitted"/>
+<userTask id="submitted" name="Tiếp nhận hồ sơ" flowable:candidateGroups="receptionist,officer,leader"/>
+<sequenceFlow id="f1" sourceRef="submitted" targetRef="sau-tiep-nhan"/>
+<exclusiveGateway id="sau-tiep-nhan" name="Kết quả tiếp nhận"/>
+<sequenceFlow id="f2" sourceRef="sau-tiep-nhan" targetRef="processing">
+<conditionExpression>${action == 'processing'}</conditionExpression>
+</sequenceFlow>
+<sequenceFlow id="f3" sourceRef="sau-tiep-nhan" targetRef="supplement">
+<conditionExpression>${action == 'supplement'}</conditionExpression>
+</sequenceFlow>
+<sequenceFlow id="f4" sourceRef="sau-tiep-nhan" targetRef="rejected">
+<conditionExpression>${action == 'rejected'}</conditionExpression>
+</sequenceFlow>
+<userTask id="processing" name="Xử lý hồ sơ" flowable:candidateGroups="receptionist,officer,leader"/>
+<sequenceFlow id="f5" sourceRef="processing" targetRef="sau-xu-ly"/>
+<exclusiveGateway id="sau-xu-ly" name="Kết quả xử lý"/>
+<sequenceFlow id="f6" sourceRef="sau-xu-ly" targetRef="completed">
+<conditionExpression>${action == 'completed'}</conditionExpression>
+</sequenceFlow>
+<sequenceFlow id="f7" sourceRef="sau-xu-ly" targetRef="supplement">
+<conditionExpression>${action == 'supplement'}</conditionExpression>
+</sequenceFlow>
+<sequenceFlow id="f8" sourceRef="sau-xu-ly" targetRef="rejected">
+<conditionExpression>${action == 'rejected'}</conditionExpression>
+</sequenceFlow>
+<userTask id="supplement" name="Chờ người dân bổ sung" flowable:candidateGroups="receptionist,officer,leader"/>
+<sequenceFlow id="f9" sourceRef="supplement" targetRef="sau-bo-sung"/>
+<exclusiveGateway id="sau-bo-sung" name="Sau khi bổ sung"/>
+<sequenceFlow id="f10" sourceRef="sau-bo-sung" targetRef="processing">
+<conditionExpression>${action == 'processing'}</conditionExpression>
+</sequenceFlow>
+<sequenceFlow id="f11" sourceRef="sau-bo-sung" targetRef="rejected">
+<conditionExpression>${action == 'rejected'}</conditionExpression>
+</sequenceFlow>
+<endEvent id="completed" name="Hoàn thành, trả kết quả"/>
+<endEvent id="rejected" name="Từ chối"/>
+</process>
+</definitions>

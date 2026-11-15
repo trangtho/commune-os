@@ -21,8 +21,9 @@ thuộc danh sách OSI (https://opensource.org/licenses).
 | PostgreSQL    | 17        | PostgreSQL License | Ảnh chính thức `postgres`                  | Cơ sở dữ liệu                               |
 | Keycloak      | 26.8.2    | Apache-2.0         | Ảnh chính thức `quay.io/keycloak/keycloak` | Định danh, đăng nhập một lần (SSO), cấp JWT |
 | Apache APISIX | 3.20.0    | Apache-2.0         | Ảnh chính thức `apache/apisix`             | Cửa ngõ API: định tuyến, kiểm JWT           |
-| Node.js       | 22-alpine | MIT                | Ảnh chính thức `node`                      | Build và chạy Kênh Công dân (Nuxt 3)        |
+| Node.js       | 22-alpine | MIT                | Ảnh chính thức `node`                      | Chạy các ứng dụng Nuxt và dịch vụ điều phối |
 | PostgREST     | 16.5      | MIT                | Ảnh chính thức postgrest/postgrest         | API dữ liệu sau gateway                     |
+| Flowable REST | 8.0.0     | Apache-2.0         | Ảnh chính thức flowable/flowable-rest      | Động cơ quy trình BPMN                      |
 
 ## Thư viện (trình quản lý gói)
 

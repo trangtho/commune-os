@@ -30,12 +30,12 @@ Giấy phép của các thành phần bên thứ ba được liệt kê trong
 
 ## Kiến trúc
 
-| Tầng                  | Thư mục         | Nội dung                                                              |
-| --------------------- | --------------- | --------------------------------------------------------------------- |
-| Tầng 1 - Lõi headless | `core/`         | Cửa ngõ API, định danh, dữ liệu, quy trình, sổ cái, AI, bảng quản trị |
-| Tầng 2 - Ứng dụng     | `apps/commune/` | Ứng dụng xã cho cán bộ, lãnh đạo, cấp trên                            |
-| Tầng 2 - Ứng dụng     | `apps/citizen/` | Kênh nộp hồ sơ trực tuyến cho người dân                               |
-| Cấu hình              | `packs/`        | Gói thủ tục: BPMN, biểu mẫu, bảng kiểm giấy tờ, wiki                  |
+| Tầng                  | Thư mục         | Nội dung                                                                                          |
+| --------------------- | --------------- | ------------------------------------------------------------------------------------------------- |
+| Tầng 1 - Lõi headless | `core/`         | Cửa ngõ API, định danh, dữ liệu, quy trình, sổ cái, AI, bảng quản trị, động cơ quy trình Flowable |
+| Tầng 2 - Ứng dụng     | `apps/commune/` | Ứng dụng xã cho cán bộ, lãnh đạo, cấp trên                                                        |
+| Tầng 2 - Ứng dụng     | `apps/citizen/` | Kênh nộp hồ sơ trực tuyến cho người dân                                                           |
+| Cấu hình              | `packs/`        | Gói thủ tục: BPMN, biểu mẫu, bảng kiểm giấy tờ, wiki                                              |
 
 Lõi không cấp giao diện cho người dùng cuối; nó chỉ có bảng quản trị cho quản
 trị viên hệ thống. Ứng dụng ở Tầng 2 chỉ gọi lõi qua cửa ngõ API.
@@ -46,7 +46,7 @@ Chi tiết: [docs/](docs/).
 
 - Docker Engine và Docker Compose (hoặc Podman)
 - GNU Make
-- Khoảng 16 GB RAM để chạy đầy đủ, kể cả mô hình AI cục bộ
+- Khoảng 6 GB RAM để chạy đầy đủ, kể cả mô hình AI cục bộ
 
 ## Dựng từ mã nguồn
 

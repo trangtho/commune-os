@@ -43,14 +43,15 @@ jobs:
           sh -n core/db/init/02-create-api-roles.sh
 
       - name: Dựng và khởi động các dịch vụ lõi
-        run: docker compose up -d --build db identity db-setup rest-keys rest gateway
+        run: docker compose up -d --build db identity db-setup rest-keys rest gateway workflow-engine orchestrator
 
       - name: Chờ Keycloak và cổng API sẵn sàng
         run: |
           for i in $(seq 1 60); do
             code=$(curl -s -o /dev/null -w '%{http_code}' http://localhost:9080/rest/dossiers || true)
             kc=$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8080/realms/communeos/.well-known/openid-configuration || true)
-            if [ "$code" = "401" ] && [ "$kc" = "200" ]; then echo "Sẵn sàng sau $i lần thử"; exit 0; fi
+            wf=$(docker compose logs orchestrator 2>/dev/null | grep -c "Dịch vụ điều phối chạy" || true)
+            if [ "$code" = "401" ] && [ "$kc" = "200" ] && [ "$wf" != "0" ]; then echo "Sẵn sàng sau $i lần thử"; exit 0; fi
             sleep 5
           done
           docker compose ps

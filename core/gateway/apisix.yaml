@@ -33,4 +33,20 @@ routes:
       type: roundrobin
       nodes:
         "rest:3000": 1
+  # Động cơ quy trình: mọi thao tác xử lý hồ sơ đi qua đây.
+  - id: workflow
+    uri: /workflow/*
+    plugins:
+      openid-connect:
+        client_id: commune-app
+        client_secret: khong-dung
+        discovery: http://identity:8080/realms/communeos/.well-known/openid-configuration
+        bearer_only: true
+        use_jwks: true
+      proxy-rewrite:
+        regex_uri: ["^/workflow/(.*)", "/$1"]
+    upstream:
+      type: roundrobin
+      nodes:
+        "orchestrator:3000": 1
 #END
