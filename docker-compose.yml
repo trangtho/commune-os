@@ -229,6 +229,23 @@ services:
     ports:
       - "127.0.0.1:${COMMUNE_PORT:-3002}:3000"
 
+  # Bảng quản trị hệ thống của lõi. Chỉ tài khoản có vai trò sys_admin đăng nhập được.
+  admin:
+    build:
+      context: ./core/admin
+      dockerfile: Dockerfile
+    restart: unless-stopped
+    depends_on:
+      - gateway
+      - identity
+    environment:
+      NODE_ENV: production
+      HOST: 0.0.0.0
+      PORT: 3000
+      NUXT_KEYCLOAK_URL: http://identity:8080
+    ports:
+      - "127.0.0.1:${ADMIN_PORT:-3001}:3000"
+
 volumes:
   db-data:
   rest-keys:

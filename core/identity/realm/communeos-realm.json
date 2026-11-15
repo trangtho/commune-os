@@ -613,6 +613,26 @@
       ],
       "notBefore": 0,
       "groups": []
+    },
+    {
+      "username": "quantri",
+      "firstName": "Quan Tri",
+      "lastName": "He Thong",
+      "email": "quantri@example.com",
+      "emailVerified": true,
+      "enabled": true,
+      "credentials": [
+        {
+          "type": "password",
+          "value": "12345",
+          "temporary": false
+        }
+      ],
+      "requiredActions": [],
+      "realmRoles": [
+        "sys_admin",
+        "default-roles-communeos"
+      ]
     }
   ],
   "scopeMappings": [
