@@ -69,7 +69,7 @@ async function login() {
           class="rounded-lg border border-brand-200 bg-brand-50 p-3 text-sm text-brand-800"
         >
           <b>Thông tin đăng nhập demo</b>
-          <p>Tên đăng nhập: <code>canbo.xa-a aa/ canbo.xa-b</code></p>
+          <p>Tên đăng nhập: <code>canbo.xa-a / canbo.xa-b</code></p>
           <p>Mật khẩu: <code>12345</code></p>
           <p class="mt-1 text-xs">Không sử dụng dữ liệu cá nhân thật.</p>
         </div>

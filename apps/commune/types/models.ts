@@ -8,6 +8,4 @@ export interface CaseDocument { id:string; document_code:string; original_name:s
 export interface CaseEvent { id:number; event_type:string; note:string; actor_name:string; created_at:string }
 export interface Notice { id:string; application_id:string|null; title:string; body:string; category:string; is_read:boolean; created_at:string; recipient_role?:string }
 export interface Profile { id:string; display_name:string; email:string; phone:string; address:string; tenant_name:string }
-export interface Staff { id:string; username:string; display_name:string; role:'officer'|'admin'|'manager'; tenant_id:string; is_active:boolean; created_at:string; phone?:string; email?:string; address?:string; soYeuLyLich?:string; giayKhaiSinh?:string; lyLichTuPhap?:string; giaySucKhoe?:string; vanBangChungChi?:string; quyetDinhTuyenDung?:string; phuLucLyLich?:string; quyetDinhNhanSu?:string; danhGiaKiemDiem?:string; keKhaiTaiSan?:string; password?:string; managerCode?:string }
-export type ProfileChangeStatus = 'pending'|'approved'|'rejected'
-export interface ProfileChangeRequest { id:string; staffId:string; field:string; oldValue:string; newValue:string; status:ProfileChangeStatus; requestedAt:string; reviewedAt?:string; reviewedBy?:string; note?:string }
+export interface Staff { id:string; username:string; display_name:string; role:'officer'|'admin'; tenant_id:string; is_active:boolean; created_at:string }

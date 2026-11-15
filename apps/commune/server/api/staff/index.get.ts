@@ -4,7 +4,7 @@ import { staffTx } from '../../utils/database'
 export default defineEventHandler(async(event)=>{
   try {
     return await staffTx(event,async(client)=>{
-      const rows=(await client.query(`SELECT id,username,display_name,role,tenant_id,is_active,created_at,phone,email,address,password,manager_code FROM staff ORDER BY created_at DESC`)).rows
+      const rows=(await client.query(`SELECT id,username,display_name,role,tenant_id,is_active,created_at FROM staff ORDER BY created_at DESC`)).rows
       return rows
     })
   } catch {

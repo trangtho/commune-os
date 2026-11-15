@@ -1,7 +1,7 @@
 <!-- SPDX-FileCopyrightText: 2026 CommuneOS Contributors -->
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 <script setup lang="ts">
-import { Home,FolderOpen,Search,Bell,UserRound,ChevronDown,FileText,ShieldCheck,Building2,Menu,LogOut,CheckCircle2,FilePlus2,ClipboardList,Users,BarChart3,Settings,AlertCircle,User } from 'lucide-vue-next'
+import { Home,FolderOpen,Search,Bell,UserRound,ChevronDown,FileText,ShieldCheck,Building2,Menu,LogOut,CheckCircle2,FilePlus2,ClipboardList,Users,BarChart3,Settings,AlertCircle } from 'lucide-vue-next'
 import type { Application,ApplicationStatus,Notice,Staff } from '~/types/models'
 const route=useRoute();const showMobile=ref(false)
 const mainScroll=ref<HTMLElement|null>(null)
@@ -14,12 +14,12 @@ watch(()=>auth.value?.authenticated,(loggedIn)=>{
   if(loggedIn) void refreshHeaderNotices()
   else clearHeaderNotices()
 })
-const nav=[{to:'/',name:'Tổng quan',icon:Home},{to:'/ho-so',name:'Quản lý hồ sơ',icon:FolderOpen},{to:'/ho-so-ca-nhan',name:'Hồ sơ cá nhân',icon:User},{to:'/thu-tuc',name:'Danh mục thủ tục',icon:ClipboardList},{to:'/thong-bao',name:'Thông báo',icon:Bell},{to:'/bao-cao',name:'Báo cáo',icon:BarChart3},{to:'/tai-khoan',name:'Nhân viên',icon:Users}]
+const nav=[{to:'/',name:'Tổng quan',icon:Home},{to:'/ho-so',name:'Quản lý hồ sơ',icon:FolderOpen},{to:'/thu-tuc',name:'Danh mục thủ tục',icon:ClipboardList},{to:'/thong-bao',name:'Thông báo',icon:Bell},{to:'/bao-cao',name:'Báo cáo',icon:BarChart3},{to:'/tai-khoan',name:'Nhân viên',icon:Users}]
 const header=computed(()=>({
-  '/':'Tổng quan hoạt động','/ho-so':'Quản lý hồ sơ hành chính','/ho-so-ca-nhan':'Hồ sơ cá nhân của tôi','/thu-tuc':'Danh mục thủ tục hành chính',
+  '/':'Tổng quan hoạt động','/ho-so':'Quản lý hồ sơ hành chính','/thu-tuc':'Danh mục thủ tục hành chính',
   '/thong-bao':'Thông báo & công khai','/bao-cao':'Báo cáo thống kê','/tai-khoan':'Quản lý nhân viên'
 })[route.path]||(route.path.startsWith('/ho-so/')?'Chi tiết hồ sơ':route.path.startsWith('/thu-tuc/')?'Chi tiết thủ tục':'Bảng quản trị cán bộ'))
-const description=computed(()=>route.path==='/'?'Theo dõi tình trạng hồ sơ, duyệt và giải quyết đơn từ công dân.':route.path.startsWith('/ho-so/')?'Xem chi tiết, cập nhật tiến độ và xử lý hồ sơ.':route.path==='/ho-so-ca-nhan'?'Xem và cập nhật thông tin hồ sơ cá nhân của bản thân.':'Quản trị minh bạch, an toàn với dữ liệu mô phỏng.')
+const description=computed(()=>route.path==='/'?'Theo dõi tình trạng hồ sơ, duyệt và giải quyết đơn từ công dân.':route.path.startsWith('/ho-so/')?'Xem chi tiết, cập nhật tiến độ và xử lý hồ sơ.':'Quản trị minh bạch, an toàn với dữ liệu mô phỏng.')
 function isActive(path:string){return path==='/'?route.path==='/':route.path===path||route.path.startsWith(`${path}/`)}
 watch(()=>route.path,async()=>{
   showMobile.value=false
