@@ -16,6 +16,7 @@ services:
       POSTGRES_APP_USER: communeos_app
       POSTGRES_APP_PASSWORD: ${POSTGRES_APP_PASSWORD}
       POSTGRES_REST_PASSWORD: ${POSTGRES_REST_PASSWORD}
+      WORKFLOW_TOKEN: ${WORKFLOW_TOKEN}
     volumes:
       - db-data:/var/lib/postgresql/data
       - ./core/db/init:/docker-entrypoint-initdb.d:ro
