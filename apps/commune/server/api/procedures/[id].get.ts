@@ -1,17 +1,13 @@
 // SPDX-FileCopyrightText: 2026 CommuneOS Contributors
 // SPDX-License-Identifier: Apache-2.0
-import { staffTx } from '../../utils/database'
-export default defineEventHandler(async(event)=>{
-  try {
-    return await staffTx(event,async(client)=>{
-      const slug=getRouterParam(event,'slug')
-      const p=(await client.query('SELECT id,title,category,summary,icon,sla_days,fee_note,instructions,published FROM procedures WHERE id=$1',[slug])).rows[0]
-      if(!p)throw createError({statusCode:404,statusMessage:'Thủ tục không tồn tại'})
-      const docs=(await client.query('SELECT document_code,document_name,is_required FROM procedure_documents WHERE procedure_id=$1 ORDER BY document_code',[slug])).rows
-      return {...p,documents:docs||[]}
-    })
-  } catch (e:any) {
-    if(e?.statusCode) throw e
-    throw createError({statusCode:404,statusMessage:'Thủ tục không tồn tại hoặc không thể kết nối cơ sở dữ liệu'})
-  }
+
+// Chi tiết một thủ tục và giấy tờ cần nộp, từ API lõi. Thủ tục xã chưa mở → 404.
+import { coreGet } from '../../utils/core-api'
+
+export default defineEventHandler(async (event) => {
+  const slug = encodeURIComponent(getRouterParam(event, 'id') || '')
+  const rows = await coreGet<any[]>(event, `/procedures?id=eq.${slug}&select=id,title,category,summary,icon,sla_days,fee_note,instructions,published,version`)
+  if (!rows[0]) throw createError({ statusCode: 404, statusMessage: 'Thủ tục không tồn tại hoặc xã chưa mở thủ tục này' })
+  const documents = await coreGet<any[]>(event, `/procedure_documents?procedure_id=eq.${slug}&order=document_code`)
+  return { ...rows[0], documents }
 })

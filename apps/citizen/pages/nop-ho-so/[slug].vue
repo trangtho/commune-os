@@ -33,7 +33,9 @@ const {data:batch} = await useFetch<{id:string;shared_consent:boolean;shared_dat
 const { data: procedure, error: procedureError, refresh: retryProcedure } = await useFetch<Procedure>(
   `/api/procedures/${encodeURIComponent(slug)}`, { key: `citizen-procedure:${slug}` }
 )
-const { data: localities } = await useFetch<{id:string;code:string;name:string;canReceive:boolean}[]>('/api/localities', {key:`citizen-localities:${slug}`,query:{procedureId:slug}})
+const { data: localities } = await useFetch<{id:string;code:string;name:string;canReceive:boolean;procedureOpen?:boolean}[]>('/api/localities', {key:`citizen-localities:${slug}`,query:{procedureId:slug}})
+// Không xã nào đang mở thủ tục này cho người dân (xã mình chưa mở và không có tuyến tiếp nhận khác): không cho khai.
+const noReceiver = computed(() => Boolean(procedure.value) && !draftId.value && Boolean(localities.value?.length) && !localities.value!.some(l => l.canReceive))
 const { data: localitySuggestion } = await useFetch<{selectedTenantId:string;suggestedTenantId:string;suggestedTenantName:string;basis:string;canReceive:boolean;notice:string}>(
   '/api/localities/recommendation',{key:`citizen-locality-recommendation:${slug}`,query:{procedureId:slug}})
 const localityManuallyChosen=ref(false)
@@ -202,6 +204,17 @@ async function submit() {
       <p class="text-sm text-slate-600">Bản nháp không tồn tại, đã nộp, không thuộc tài khoản hoặc không đúng thủ tục.</p>
       <NuxtLink to="/ho-so" class="btn-outline">Quay về hồ sơ của tôi</NuxtLink>
     </section>
+    <section v-else-if="noReceiver" class="panel space-y-3 border-amber-200 p-6" role="alert">
+      <h2 class="font-bold text-amber-800">Xã của bạn chưa mở thủ tục này trên cổng trực tuyến</h2>
+      <p class="text-sm text-slate-600">
+        Thủ tục "{{ procedure?.title }}" hiện chưa nhận hồ sơ trực tuyến ở xã của bạn. Vui lòng chọn thủ tục khác
+        hoặc liên hệ UBND xã để được hướng dẫn.
+      </p>
+      <div class="flex flex-wrap gap-2">
+        <NuxtLink to="/thu-tuc" class="btn-primary">Xem thủ tục khác</NuxtLink>
+        <NuxtLink to="/lien-he" class="btn-outline">Liên hệ hỗ trợ</NuxtLink>
+      </div>
+    </section>
     <template v-else-if="procedure">
       <div class="panel p-4">
         <div class="mb-3 flex flex-wrap items-center justify-between gap-3">
@@ -233,7 +246,7 @@ async function submit() {
           <label for="receiving-locality" class="field-label">Địa phương tiếp nhận hồ sơ</label>
           <select id="receiving-locality" v-model="selectedLocality" class="field" required aria-describedby="locality-hint" @change="localityManuallyChosen=true">
             <option value="">Chọn địa phương</option>
-            <option v-for="loc in localities || []" :key="loc.id" :value="loc.id" :disabled="!loc.canReceive">{{loc.name}}{{loc.canReceive?'':' (chưa có tuyến tiếp nhận được duyệt)'}}</option>
+            <option v-for="loc in localities || []" :key="loc.id" :value="loc.id" :disabled="!loc.canReceive">{{loc.name}}{{loc.canReceive?'':(loc.procedureOpen===false?' (xã chưa mở thủ tục này)':' (chưa có tuyến tiếp nhận được duyệt)')}}</option>
           </select>
           <p v-if="localitySuggestion" class="mt-2 text-xs font-semibold text-brand-700">Gợi ý: {{localitySuggestion.suggestedTenantName}} · {{localitySuggestion.basis}}</p>
           <p id="locality-hint" class="mt-2 text-xs text-blue-800">{{localitySuggestion?.notice||'Chỉ được gửi hồ sơ đến địa phương đã được hệ thống cấp quyền tiếp nhận.'}}</p>

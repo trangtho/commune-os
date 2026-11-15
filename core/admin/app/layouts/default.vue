@@ -15,7 +15,7 @@ const { username, logout } = useAuth();
 
 const menu = [
   { to: "/xa", label: "Danh sách xã", icon: Building2 },
-  { to: "/goi-thu-tuc", label: "Thủ tục", icon: Package },
+  { to: "/thu-tuc", label: "Danh mục thủ tục", icon: Package },
   { to: "/so-cai", label: "Kiểm tra hồ sơ đã ký", icon: ScrollText },
   { to: "/tinh-trang", label: "Tình trạng hệ thống", icon: Activity },
 ];

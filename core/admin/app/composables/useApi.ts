@@ -25,9 +25,10 @@ export function useApi() {
         await logout();
         throw new ApiError("Phiên đăng nhập đã hết, vui lòng đăng nhập lại.");
       }
-      if (status === 409) throw new ApiError("Dữ liệu đã tồn tại.");
+      if (status === 409) throw new ApiError(message ?? "Dữ liệu đã tồn tại.");
       if (status === 403) throw new ApiError(message ?? "Bạn không có quyền làm việc này.");
       if (status === 400) throw new ApiError(message ?? "Dữ liệu chưa hợp lệ.");
+      if (status === 404) throw new ApiError(message ?? "Không tìm thấy dữ liệu.");
       throw new ApiError("Không kết nối được máy chủ. Kiểm tra docker compose đã chạy chưa.");
     }
   }

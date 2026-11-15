@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2026 CommuneOS Contributors
 // SPDX-License-Identifier: Apache-2.0
 export interface ProcedureDocument { document_code: string; document_name: string; is_required: boolean }
-export interface Procedure { id:string; title:string; category:string; summary:string; icon:string; sla_days:number; fee_note:string; instructions:string; documents?:ProcedureDocument[] }
+export interface Procedure { id:string; title:string; category:string; summary:string; icon:string; sla_days:number; fee_note:string; instructions:string; documents?:ProcedureDocument[]; available_in_my_commune?:boolean|null }
 export type ApplicationStatus = 'draft'|'submitted'|'processing'|'supplement'|'completed'|'rejected'
 export interface Application { id:string; procedure_id:string; procedure_title:string; category:string; status:ApplicationStatus; representation_id?:string|null; receiving_tenant_id?:string|null; applicant_name:string; applicant_phone:string; description:string; form_data: Record<string,string>; submitted_at:string; due_at:string|null; result_note:string|null; updated_at:string; documents?:CaseDocument[]; events?:CaseEvent[] }
 export interface CaseDocument { id:string; document_code:string; original_name:string; size_bytes:number; uploaded_at:string }

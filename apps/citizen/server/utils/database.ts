@@ -28,8 +28,10 @@ export async function citizenTx<T>(event: H3Event, work: (client: PoolClient, ac
     const result = await work(client,actor)
     await client.query('COMMIT')
     return result
-  } catch (error) {
+  } catch (error: any) {
     await client.query('ROLLBACK')
+    // Ràng buộc nghiệp vụ trong cơ sở dữ liệu (vd xã chưa mở thủ tục): báo cho người dân, không phải lỗi máy chủ.
+    if (error?.code === '23514') throw createError({ statusCode: 422, statusMessage: error.message })
     throw error
   } finally { client.release() }
 }

@@ -8,7 +8,6 @@ export const applicationSchema=z.object({
 })
 export const statusSchema=z.object({status:z.enum(['draft','submitted','processing','supplement','completed','rejected']),note:z.string().optional()})
 export const supplementSchema=z.object({note:z.string().optional()})
-export const publishSchema=z.object({published:z.boolean()})
 export const broadcastSchema=z.object({title:z.string().min(1),body:z.string().min(1)})
 export const staffSchema=z.object({username:z.string().min(3),display_name:z.string().min(1),role:z.enum(['officer','admin'])})
 export function validate<T extends z.ZodTypeAny>(schema:T,body:unknown){return schema.parse(body) as z.infer<T>}

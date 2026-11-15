@@ -15,6 +15,9 @@ export default defineEventHandler(async(event)=>{
       throw createError({ statusCode: 422, statusMessage: 'Địa phương tiếp nhận chưa được cho phép đối với thủ tục này' })
     const procedure=(await client.query('SELECT id FROM procedures WHERE id=$1 AND published=true',[body.procedureId])).rows[0]
     if(!procedure)throw createError({statusCode:400,statusMessage:'Thủ tục không tồn tại'})
+    // Xã tiếp nhận phải đã mở thủ tục này (cơ sở dữ liệu cũng tự chặn).
+    const enabled=(await client.query('SELECT public.procedure_enabled_for($1::uuid,$2) AS ok',[receivingTenantId,body.procedureId])).rows[0]?.ok
+    if(!enabled)throw createError({statusCode:422,statusMessage:'Xã tiếp nhận chưa mở thủ tục này. Vui lòng chọn thủ tục khác hoặc liên hệ UBND xã.'})
     if (body.representationId) {
       await requireApprovedRepresentation(client,body.representationId,body.procedureId,body.applicantName)
     } else {

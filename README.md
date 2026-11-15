@@ -106,7 +106,8 @@ Trang quản trị Keycloak: http://localhost:8080 (tài khoản quản trị l�
 
 ## Mở rộng
 
-- Thêm thủ tục mới: sao `packs/_template/`, sửa rồi nạp qua bảng quản trị.
+- Thêm thủ tục mới: sao `packs/_template/`, sửa `pack.yaml`, nạp ở bảng quản trị → Danh mục thủ tục → Thêm thủ tục,
+  rồi mở cho từng xã (Danh sách xã → bấm vào xã → tab Thủ tục). Thủ tục mới chưa mở cho xã nào.
 - Xây ứng dụng mới trên lõi: thêm thư mục trong `apps/`, gọi API qua cửa ngõ.
 
 Hướng dẫn chi tiết trong [docs/](docs/).

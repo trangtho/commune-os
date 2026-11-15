@@ -27,5 +27,35 @@ export interface Pack {
   channels: Channel[];
   required_documents: RequiredDocument[];
   roles: { receive: string; review: string; sign: string };
-  loaded_at: string;
+  category: string | null;
+  summary: string | null;
+}
+
+/** Một thủ tục trong danh mục của lõi (GET /rest/procedures, quyền sys_admin). */
+export interface Procedure {
+  id: string;
+  title: string;
+  category: string;
+  version: string;
+  sla_days: number;
+  updated_at: string;
+  summary: string;
+  enabled_tenants: string[];
+}
+
+/** Giấy tờ cần nộp của một thủ tục (GET /rest/procedure_documents). */
+export interface ProcedureDocument {
+  procedure_id: string;
+  document_code: string;
+  document_name: string;
+  is_required: boolean;
+}
+
+/** Kết quả kiểm tra sổ ghi nhận của một xã (POST /rest/rpc/verify_ledger). */
+export interface LedgerCheck {
+  tenant_code: string;
+  entries: number;
+  ok: boolean;
+  broken_seq: number | null;
+  reason: string | null;
 }

@@ -6,6 +6,8 @@
 
 code: ma-thu-tuc            # chữ thường, không dấu, nối bằng gạch ngang
 name: Tên thủ tục
+category: Hộ tịch            # lĩnh vực, hiện ở danh mục thủ tục
+summary: Mô tả ngắn một dòng cho người dân
 version: 1.0.0
 sla_hours: 8                # hạn xử lý tính bằng giờ làm việc
 channels: [counter]         # thêm "online" nếu nhận hồ sơ trực tuyến

@@ -122,6 +122,7 @@ services:
         psql -v ON_ERROR_STOP=1 -f /setup/init/11-workflow.sql
         psql -v ON_ERROR_STOP=1 -f /setup/init/12-citizen-case-review-counter.sql
         sh /setup/init/12-workflow-secret.sh
+        psql -v ON_ERROR_STOP=1 -f /setup/init/13-thu-tuc-theo-xa.sql
         psql -v ON_ERROR_STOP=1 -f /setup/init/14-luu-tru-tep.sql
         psql -v ON_ERROR_STOP=1 -c "SELECT count(*) AS published_procedures FROM procedures WHERE published = true"
         echo 'PostgreSQL setup finished successfully.'

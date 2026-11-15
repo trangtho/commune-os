@@ -2,13 +2,17 @@
 // SPDX-License-Identifier: Apache-2.0
 import { publicQuery } from '../../utils/database'
 import { dbIssue } from '../../utils/db-diagnostics'
+import { readSession } from '../../utils/session'
 export default defineEventHandler(async(event)=>{
   const id=getRouterParam(event,'id')
   try {
     const procedure=(await publicQuery('SELECT * FROM procedures WHERE id=$1 AND published=true',[id]))[0]
     if(!procedure)throw createError({statusCode:404,statusMessage:'Không tìm thấy thủ tục'})
     const documents=await publicQuery('SELECT document_code,document_name,is_required FROM procedure_documents WHERE procedure_id=$1 ORDER BY document_code',[id])
-    return {...procedure,documents}
+    // available_in_my_commune: xã của người dân đang đăng nhập có mở thủ tục này không (null nếu chưa đăng nhập).
+    const tenantId=readSession(event)?.tenantId
+    const available=tenantId?(await publicQuery('SELECT public.procedure_enabled_for($1::uuid,$2) AS ok',[tenantId,id]))[0]?.ok:null
+    return {...procedure,documents,available_in_my_commune:available}
   } catch (error) {
     if ((error as {statusCode?:number})?.statusCode===404) throw error
     const issue=dbIssue(error)
