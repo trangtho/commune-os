@@ -15,8 +15,12 @@ CREATE TABLE IF NOT EXISTS citizen_procedure_guidance_rules (
  CHECK ((verified_at IS NULL) OR (length(trim(source_reference)) > 0))
 );
 -- These are UI discovery examples, NOT legal eligibility criteria or officially approved workflows.
+-- On a fresh database the procedures catalog is populated later by db-setup/seed.sql.
+-- Skip missing references on the first init; re-running this migration after seed fills them.
 INSERT INTO citizen_procedure_guidance_rules
- (id,procedure_id,purpose,audiences,situations,explanation,distinction) VALUES
+ (id,procedure_id,purpose,audiences,situations,explanation,distinction)
+SELECT rule.id,rule.procedure_id,rule.purpose,rule.audiences,rule.situations,rule.explanation,rule.distinction
+FROM (VALUES
  ('demo-birth','khai-sinh','birth',ARRAY['child','family'],ARRAY['first'],
   'Thủ tục có nội dung đăng ký khai sinh cho trẻ theo danh mục đang công bố.',
   'Đăng ký khai sinh khác với xác nhận thông tin cư trú; cơ quan có thẩm quyền quyết định điều kiện áp dụng.'),
@@ -35,6 +39,8 @@ INSERT INTO citizen_procedure_guidance_rules
  ('demo-land','dat-dai','land',ARRAY['self','family'],ARRAY['proof','update'],
   'Danh mục hiện có mục thông tin và hướng dẫn về đất đai.',
   'Mục hướng dẫn không đồng nghĩa có thể giải quyết mọi thủ tục đất đai trực tuyến.')
+) AS rule(id,procedure_id,purpose,audiences,situations,explanation,distinction)
+WHERE EXISTS (SELECT 1 FROM procedures p WHERE p.id = rule.procedure_id)
 ON CONFLICT (id) DO NOTHING;
 
 -- A preparation group is not a legally approved inter-agency service package.

@@ -33,6 +33,15 @@ test('Guidance rules cannot be approved without source; app role is read-only',(
  assert.match(matchApi,/\.strict\(\)/)
  assert.match(matchApi,/WHERE r.enabled AND p.published/)
 })
+test('Guidance demo seed skips missing procedures on fresh init and can populate after seed',()=>{
+ const demoIds=[...migration.matchAll(/\('demo-[a-z]+','([^']+)'/g)].map(match=>match[1])
+ const seed=read('../../../core/db/seed/seed.sql')
+ assert.equal(demoIds.length,6)
+ for(const id of demoIds) assert.ok(seed.includes(`('${id}'`),`Missing seeded procedure: ${id}`)
+ assert.match(migration,/FROM \(VALUES[\s\S]*?\) AS rule\(id,procedure_id,purpose,audiences,situations,explanation,distinction\)/)
+ assert.match(migration,/WHERE EXISTS \(SELECT 1 FROM procedures p WHERE p.id = rule.procedure_id\)/)
+ assert.match(migration,/ON CONFLICT \(id\) DO NOTHING/)
+})
 test('Batch preparation is private, consented, owner-scoped and never self-submits',()=>{
  assert.match(migration,/ALTER TABLE citizen_service_batches FORCE ROW LEVEL SECURITY/)
  assert.match(migration,/ALTER TABLE citizen_service_batch_items FORCE ROW LEVEL SECURITY/)
