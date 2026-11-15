@@ -46,3 +46,28 @@ export async function coreRpc<T>(event: H3Event, fn: string, body: Record<string
     throw createError({ statusCode: 502, statusMessage: 'Không gọi được API lõi. Kiểm tra docker compose đã chạy chưa.' })
   }
 }
+
+
+// Thực hiện một bước xử lý hồ sơ qua động cơ quy trình của lõi: POST /workflow/dossiers/<mã>/actions.
+// Lõi (Flowable + cơ sở dữ liệu) quyết định bước nào hợp lệ; lời nhắn lỗi được giữ nguyên.
+export async function coreWorkflow<T>(event: H3Event, dossierId: string, action: string, note: string | null): Promise<T> {
+  const actor = requireStaff(event)
+  const { gatewayUrl } = useRuntimeConfig(event)
+  try {
+    return await $fetch<T>(`${gatewayUrl}/workflow/dossiers/${encodeURIComponent(dossierId)}/actions`, {
+      method: 'POST',
+      body: { action, note },
+      headers: { Authorization: `Bearer ${actor.token}` },
+    })
+  } catch (e: any) {
+    const status = e?.response?.status
+    if (status === 401) {
+      signOut(event)
+      throw createError({ statusCode: 401, statusMessage: 'Phiên đăng nhập đã hết, vui lòng đăng nhập lại' })
+    }
+    if ([400, 403, 404, 409].includes(status)) {
+      throw createError({ statusCode: status, statusMessage: e?.data?.message || 'Yêu cầu không hợp lệ' })
+    }
+    throw createError({ statusCode: 502, statusMessage: 'Không gọi được động cơ quy trình. Kiểm tra docker compose đã chạy chưa.' })
+  }
+}
