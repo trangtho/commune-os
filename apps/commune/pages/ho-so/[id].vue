@@ -32,6 +32,32 @@ const sending = ref(false);
 const notice = ref("");
 const busy = ref(false);
 const result = ref("");
+// Đính kèm kết quả giải quyết: tệp đi qua dịch vụ tệp của lõi vào kho đối tượng.
+const uploading = ref(false);
+const uploadMessage = ref("");
+async function uploadResult(event: Event) {
+  const input = event.target as HTMLInputElement;
+  const file = input.files?.[0];
+  if (!file || uploading.value) return;
+  uploading.value = true;
+  uploadMessage.value = "";
+  try {
+    const form = new FormData();
+    form.set("file", file);
+    form.set("documentCode", "ket-qua");
+    await $fetch(`/api/applications/${id}/documents`, {
+      method: "POST",
+      body: form,
+    });
+    uploadMessage.value = `Đã lưu ${file.name} vào kho lưu trữ của lõi.`;
+    await refresh();
+  } catch (e) {
+    uploadMessage.value = readableError(e);
+  } finally {
+    uploading.value = false;
+    input.value = "";
+  }
+}
 async function updateStatus() {
   if (!newStatus.value || busy.value) return;
   busy.value = true;
@@ -169,6 +195,11 @@ async function sendMessage() {
               ><small class="text-muted"
                 >{{ bytes(d.size_bytes) }} ·
                 {{ dateTime(d.uploaded_at) }}</small
+              ><small
+                v-if="d.sha256"
+                class="block font-mono text-[11px] text-slate-400"
+                :title="`SHA-256: ${d.sha256}`"
+                >SHA-256 {{ d.sha256.slice(0, 16) }}…</small
               ></span
             ><a
               :href="`/api/documents/${d.id}`"
@@ -177,6 +208,25 @@ async function sendMessage() {
               ><Download :size="16"
             /></a>
           </div>
+          <label
+            class="mt-3 flex cursor-pointer items-center justify-center gap-2 rounded-lg border border-dashed border-slate-300 p-3 text-sm font-semibold text-brand-700 hover:bg-slate-50"
+          >
+            <input
+              type="file"
+              accept="application/pdf,image/png,image/jpeg"
+              class="sr-only"
+              :disabled="uploading"
+              @change="uploadResult"
+            />
+            {{
+              uploading
+                ? "Đang tải lên..."
+                : "Đính kèm kết quả giải quyết (PDF, PNG, JPG ≤ 5 MB)"
+            }}
+          </label>
+          <p v-if="uploadMessage" role="status" class="mt-2 text-sm text-muted">
+            {{ uploadMessage }}
+          </p>
         </section>
         <section class="panel p-4">
           <h3 class="section-label">

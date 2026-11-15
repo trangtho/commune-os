@@ -1,8 +1,6 @@
 // SPDX-FileCopyrightText: 2026 CommuneOS Contributors
 // SPDX-License-Identifier: Apache-2.0
-import { randomUUID } from 'node:crypto'
-import { mkdir,writeFile,rm } from 'node:fs/promises'
-import { join } from 'node:path'
+import { putObject,deleteObject } from '../../../utils/object-store'
 import { citizenTx } from '../../../utils/database'
 import { auditRepresentativeAction } from '../../../utils/representations'
 const formats:Record<string,string>={'application/pdf':'.pdf','image/png':'.png','image/jpeg':'.jpg'}
@@ -17,11 +15,8 @@ export default defineEventHandler(async event => {
   if(binary.length<1||binary.length>5*1024*1024)throw createError({statusCode:413,statusMessage:'Minh chứng không được vượt quá 5 MB'})
   const valid=suffix==='.pdf'?binary.subarray(0,5).toString()==='%PDF-':suffix==='.png'?binary.subarray(0,8).equals(Buffer.from([137,80,78,71,13,10,26,10])):binary[0]===255&&binary[1]===216&&binary[2]===255
   if(!valid)throw createError({statusCode:415,statusMessage:'Tệp không khớp định dạng khai báo'})
-  const folder=String(useRuntimeConfig().storageDir)
-  const name=randomUUID()+suffix
   const safeFilename=String(file.filename || 'minh-chung').replace(/[\/\r\n\x00-\x1f]/g,'').slice(0,160)
-  await mkdir(folder,{recursive:true})
-  await writeFile(join(folder,name),binary,{flag:'wx'})
+  const { key: name } = await putObject(binary, file.type || '')
   try {
     const old=await citizenTx(event,async(client,actor)=>{
       const row=(await client.query(`SELECT evidence_key FROM citizen_representations
@@ -32,7 +27,7 @@ export default defineEventHandler(async event => {
       await auditRepresentativeAction(client,id,actor,'evidence_uploaded')
       return row.evidence_key as string|null
     })
-    if(old)await rm(join(folder,old),{force:true}).catch(()=>{})
+    if(old)await deleteObject(old)
     return {uploaded:true,name:safeFilename}
-  }catch(error){await rm(join(folder,name),{force:true}).catch(()=>{});throw error}
+  }catch(error){await deleteObject(name);throw error}
 })

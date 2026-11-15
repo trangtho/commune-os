@@ -43,7 +43,7 @@ jobs:
           sh -n core/db/init/02-create-api-roles.sh
 
       - name: Dựng và khởi động các dịch vụ lõi
-        run: docker compose up -d --build db identity db-setup rest-keys rest gateway workflow-engine orchestrator
+        run: docker compose up -d --build db identity db-setup rest-keys rest gateway workflow-engine orchestrator storage files
 
       - name: Chờ Keycloak và cổng API sẵn sàng
         run: |

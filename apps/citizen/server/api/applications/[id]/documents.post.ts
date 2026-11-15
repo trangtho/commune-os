@@ -1,8 +1,6 @@
 // SPDX-FileCopyrightText: 2026 CommuneOS Contributors
 // SPDX-License-Identifier: Apache-2.0
-import { randomUUID } from 'node:crypto'
-import { mkdir, writeFile, rm } from 'node:fs/promises'
-import { join } from 'node:path'
+import { putObject, deleteObject } from '../../../utils/object-store'
 import { citizenTx } from '../../../utils/database'
 import { requireCitizen } from '../../../utils/session'
 const accepted:Record<string,string>={'application/pdf':'.pdf','image/png':'.png','image/jpeg':'.jpg'}
@@ -18,11 +16,8 @@ export default defineEventHandler(async(event)=>{
   const buffer=file.data
   const actual=suffix==='.pdf'?buffer.subarray(0,5).toString()==='%PDF-':suffix==='.png'?buffer.subarray(0,8).equals(Buffer.from([137,80,78,71,13,10,26,10])):buffer[0]===0xff&&buffer[1]===0xd8&&buffer[2]===0xff
   if(!actual)throw createError({statusCode:415,statusMessage:'Nội dung tệp không khớp định dạng'})
-  const storageKey=randomUUID()+suffix
-  const folder=String(useRuntimeConfig().storageDir)
-  const destination=join(folder,storageKey)
-  await mkdir(folder,{recursive:true})
-  await writeFile(destination,buffer,{flag:'wx'})
+  // Nội dung vào kho đối tượng của lõi; cơ sở dữ liệu giữ khóa và mã băm SHA-256.
+  const { key: storageKey, sha256 } = await putObject(buffer, file.type || '')
   try {
     return await citizenTx(event,async(client)=>{
       const id=getRouterParam(event,'id')
@@ -33,10 +28,10 @@ export default defineEventHandler(async(event)=>{
       const count=(await client.query('SELECT count(*)::int AS count FROM application_documents WHERE application_id=$1',[id])).rows[0].count
       if(count>=30)throw createError({statusCode:422,statusMessage:'Hồ sơ tối đa 30 tệp; vui lòng liên hệ hỗ trợ nếu cần bổ sung'})
       const originalName=(file.filename||'tai-lieu').replace(/[\\/\r\n\x00-\x1f]/g,'').slice(0,180)
-      const result=(await client.query(`INSERT INTO application_documents(application_id,document_code,original_name,storage_key,mime_type,size_bytes)
-        VALUES($1,$2,$3,$4,$5,$6) RETURNING id,document_code,original_name,size_bytes,uploaded_at`,
-        [id,code,originalName,storageKey,file.type,buffer.length])).rows[0]
+      const result=(await client.query(`INSERT INTO application_documents(application_id,document_code,original_name,storage_key,mime_type,size_bytes,sha256)
+        VALUES($1,$2,$3,$4,$5,$6,$7) RETURNING id,document_code,original_name,size_bytes,uploaded_at`,
+        [id,code,originalName,storageKey,file.type,buffer.length,sha256])).rows[0]
       return result
     })
-  } catch(error) { await rm(destination,{force:true});throw error }
+  } catch(error) { await deleteObject(storageKey);throw error }
 })

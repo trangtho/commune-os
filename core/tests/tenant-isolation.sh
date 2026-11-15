@@ -85,6 +85,24 @@ ledger=$(curl -s -X POST -H "Authorization: Bearer $TA" -H 'Content-Type: applic
   python3 -c 'import json,sys; d=json.load(sys.stdin); print(",".join("%s:%s" % (r["tenant_code"], r["ok"]) for r in d))')
 [ "$ledger" = "xa-a:True" ] && ok "Sổ ghi nhận của xã A nguyên vẹn, không lộ sổ xã khác" || fail "Kiểm tra sổ ghi nhận: '$ledger'"
 
+# Lưu trữ tệp: cán bộ xã A đính kèm và tải về đúng mã băm; cán bộ xã B không tải được.
+printf '%%PDF-1.4\n%% tep kiem thu tu tao\n%%%%EOF\n' > /tmp/communeos-thu.pdf
+doc=$(curl -s -X POST -H "Authorization: Bearer $TA" -H 'Content-Type: application/pdf' \
+  --data-binary @/tmp/communeos-thu.pdf "$GW/files/dossiers/HS-2026-001248/documents?code=ket-qua&name=kiem-thu.pdf" |
+  python3 -c 'import json,sys; d=json.load(sys.stdin); print(d.get("id","-"), d.get("sha256","-"))')
+id=${doc% *}; sum=${doc#* }
+[ "$id" != "-" ] && ok "Cán bộ xã A lưu được tệp vào kho đối tượng" || fail "Không lưu được tệp qua /files"
+
+got=$(curl -s -H "Authorization: Bearer $TA" "$GW/files/documents/$id" | sha256sum | cut -d' ' -f1)
+[ "$got" = "$sum" ] && ok "Tải về đúng nội dung (SHA-256 khớp)" || fail "Tệp tải về không khớp mã băm"
+
+code=$(curl -s -o /dev/null -w '%{http_code}' -H "Authorization: Bearer $TB" "$GW/files/documents/$id")
+[ "$code" = "404" ] && ok "Cán bộ xã B không tải được tệp của xã A (404)" || fail "Xã B tải tệp xã A phải 404, nhận $code"
+
+code=$(curl -s -o /dev/null -w '%{http_code}' -X POST -H "Authorization: Bearer $TA" -H 'Content-Type: application/pdf' \
+  --data-binary 'khong phai pdf' "$GW/files/dossiers/HS-2026-001248/documents?code=ket-qua")
+[ "$code" = "415" ] && ok "Tệp giả định dạng bị từ chối (415)" || fail "Tệp giả phải 415, nhận $code"
+
 code=$(curl -s -o /dev/null -w '%{http_code}' -H "Authorization: Bearer ${TA}sai" "$GW/rest/dossiers")
 [ "$code" = "401" ] && ok "Token bị sửa → 401" || fail "Token bị sửa phải 401, nhận $code"
 

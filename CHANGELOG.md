@@ -11,6 +11,25 @@ Mọi thay đổi đáng chú ý của dự án được ghi tại đây.
 
 ## [Chưa phát hành]
 
+### Thêm mới (lưu trữ dữ liệu phi cấu trúc, 2026-11-15)
+
+- Kho đối tượng chuẩn S3 SeaweedFS 4.53 (dịch vụ `storage`), không mở cổng ra ngoài.
+- Dịch vụ tệp của lõi `core/files` sau cổng APISIX tại `/files/*`: đính kèm và tải giấy tờ của hồ sơ;
+  chỉ nhận PDF, PNG, JPG tối đa 5 MB và kiểm tra nội dung đúng định dạng.
+- Mỗi giấy tờ có mã băm SHA-256, được ghi vào sổ ghi nhận của xã. Tệp bị sửa trong kho bị từ chối khi tải (409).
+- Quyền xem giấy tờ theo xã bằng RLS; hàm `api.register_document`, `api.document_object` chỉ dịch vụ tệp gọi được.
+- Kênh người dân lưu giấy tờ và minh chứng đại diện vào kho đối tượng qua đường nội bộ của dịch vụ tệp;
+  tệp cũ trên đĩa vẫn đọc được.
+- Màn hình cán bộ xã: hiện mã SHA-256 của giấy tờ, thêm ô "Đính kèm kết quả giải quyết".
+- Quét mã độc ClamAV 1.5.2, tùy chọn (`docker compose --profile antivirus`, biến `CLAMAV_HOST`).
+- Biến mới trong `.env`: `S3_ACCESS_KEY`, `S3_SECRET_KEY`, `FILES_SERVICE_TOKEN`, `CLAMAV_HOST`.
+- `make test` thêm 4 kiểm tra lưu trữ tệp.
+
+### Sửa lỗi (lưu trữ dữ liệu phi cấu trúc, 2026-11-15)
+
+- Cán bộ xã không thấy giấy tờ nào của hồ sơ do thiếu chính sách RLS.
+- Nút tải giấy tờ của cán bộ trả dữ liệu giả; nút đính kèm giấy tờ báo lỗi.
+
 ### Thêm mới (động cơ quy trình, 2026-11-15)
 
 - Động cơ quy trình BPMN Flowable 8.0.0 và dịch vụ điều phối `core/orchestrator` sau cổng tại `/workflow/*`.
@@ -107,6 +126,7 @@ Mọi thay đổi đáng chú ý của dự án được ghi tại đây.
 ### Sửa lỗi
 
 - Bỏ khóa ký token khỏi tệp realm; mỗi nơi cài đặt tự sinh khóa riêng khi khởi động lần đầu.
+
 <!--
 Mẫu cho mỗi bản phát hành:
 
