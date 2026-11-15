@@ -26,7 +26,8 @@ test('Draft editor loads saved state before rendering and prevents direct step b
   assert.match(editor, /existingDraft\.value\?\.status !== 'draft'/)
   assert.match(editor, /existingDraft\.value\?\.procedure_id !== slug/)
   assert.match(editor, /if \(next > 1 && !draftId\.value\) return/)
-  assert.match(editor, /if \(next === 3 && missing\.value\.length\) return/)
+  assert.match(editor, /refreshPreflight\(\)/)
+  assert.match(editor, /!preflight\?\.ready/)
   assert.match(editor, /confirmed\.value = false/)
   const api = read('apps/citizen/server/api/applications/[id]/submit.post.ts')
   assert.match(api, /if\(missing\.length\)throw createError\(\{statusCode:422/)
@@ -39,7 +40,8 @@ test('File upload is type checked and bounded, and supplementary uploads require
   assert.match(upload, /if\(count>=30\)/)
   const supplement = read('apps/citizen/pages/ho-so/[id]/bo-sung.vue')
   assert.match(supplement, /lastSupplementTime/)
-  assert.match(supplement, /!hasNewDocuments/)
+  assert.match(supplement, /hasStructured\.value\?completeItems\.value:hasNewDocuments\.value/)
+  assert.match(supplement, /saveItem\(item/)
 })
 
 test('Usability, live badges and printing survive the fixed viewport', () => {

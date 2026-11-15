@@ -353,3 +353,7 @@ Chạy `make COMPOSE="docker compose -f docker-compose.yml" repair-db` để n�
 Giao diện `/chuyen-tiep` và `/yeu-cau-ho-tro` dùng migration `07-citizen-handoff-support.sql`.
 Xem [docs/HANDOFF_SUPPORT.md](docs/HANDOFF_SUPPORT.md) để biết hợp đồng API cán bộ,
 phân quyền và kiểm thử; không dùng mã chuyển tiếp thay cho xác minh danh tính.
+
+### Kiểm tra hồ sơ, số tại quầy, công đoạn xử lý và bổ sung theo mục
+
+Xem [tài liệu triển khai](docs/PREFLIGHT_COUNTER_STAGES_SUPPLEMENTS.md). Các API dành cho công dân và PostgREST RPC có phân quyền dành cho cán bộ được mô tả tại đó; không tự coi trạng thái lịch/quy trình là đã được cán bộ xác nhận khi chưa có dữ liệu thực.

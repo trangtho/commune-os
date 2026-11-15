@@ -43,6 +43,9 @@ export default defineNuxtConfig({
     dbUser: process.env.PGUSER || 'communeos_app',
     dbPassword: process.env.PGPASSWORD || '',
     storageDir: process.env.STORAGE_DIR || './data/uploads',
+    // Dịch vụ tệp của lõi (kho đối tượng). Để trống: lưu vào storageDir trên đĩa.
+    filesUrl: process.env.FILES_URL || '',
+    filesServiceToken: process.env.FILES_SERVICE_TOKEN || '',
     public: { demoMode: process.env.DEMO_MODE !== 'false', systemName: 'CommuneOS' }
   }
 })

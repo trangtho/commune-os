@@ -30,15 +30,27 @@ Giấy phép của các thành phần bên thứ ba được liệt kê trong
 
 ## Kiến trúc
 
-| Tầng                  | Thư mục         | Nội dung                                                                                          |
-| --------------------- | --------------- | ------------------------------------------------------------------------------------------------- |
-| Tầng 1 - Lõi headless | `core/`         | Cửa ngõ API, định danh, dữ liệu, quy trình, sổ cái, AI, bảng quản trị, động cơ quy trình Flowable |
-| Tầng 2 - Ứng dụng     | `apps/commune/` | Ứng dụng xã cho cán bộ, lãnh đạo, cấp trên                                                        |
-| Tầng 2 - Ứng dụng     | `apps/citizen/` | Kênh nộp hồ sơ trực tuyến cho người dân                                                           |
-| Cấu hình              | `packs/`        | Gói thủ tục: BPMN, biểu mẫu, bảng kiểm giấy tờ, wiki                                              |
+| Tầng                  | Thư mục         | Nội dung                                                                           |
+| --------------------- | --------------- | ---------------------------------------------------------------------------------- |
+| Tầng 1 - Lõi headless | core/           | Cửa ngõ API, định danh, dữ liệu, lưu trữ tệp, quy trình, sổ cái, AI, bảng quản trị |
+| Tầng 2 - Ứng dụng     | `apps/commune/` | Ứng dụng xã cho cán bộ, lãnh đạo, cấp trên                                         |
+| Tầng 2 - Ứng dụng     | `apps/citizen/` | Kênh nộp hồ sơ trực tuyến cho người dân                                            |
+| Cấu hình              | `packs/`        | Gói thủ tục: BPMN, biểu mẫu, bảng kiểm giấy tờ, wiki                               |
 
 Lõi không cấp giao diện cho người dùng cuối; nó chỉ có bảng quản trị cho quản
 trị viên hệ thống. Ứng dụng ở Tầng 2 chỉ gọi lõi qua cửa ngõ API.
+
+### Dịch vụ của lõi
+
+| Dịch vụ (docker compose)          | Thành phần            | Vai trò                                                                         |
+| --------------------------------- | --------------------- | ------------------------------------------------------------------------------- |
+| `identity`                        | Keycloak              | Đăng nhập một lần, cấp token có `tenant_id`                                     |
+| `gateway`                         | Apache APISIX         | Cửa ngõ API: `/rest`, `/workflow`, `/files`, kiểm tra token                     |
+| `db`, `rest`                      | PostgreSQL, PostgREST | Dữ liệu có cấu trúc, API tự sinh, cách ly xã bằng RLS                           |
+| `workflow-engine`, `orchestrator` | Flowable, Node.js     | Quy trình xử lý hồ sơ theo sơ đồ BPMN                                           |
+| `storage`                         | SeaweedFS             | Kho đối tượng chuẩn S3 cho giấy tờ (dữ liệu phi cấu trúc)                       |
+| `files`                           | Node.js               | Dịch vụ tệp: kiểm tra, lưu, mã băm SHA-256 ([core/files](core/files/README.md)) |
+| `antivirus` (tùy chọn)            | ClamAV                | Quét mã độc tệp tải lên                                                         |
 
 Chi tiết: [docs/](docs/).
 
@@ -47,6 +59,7 @@ Chi tiết: [docs/](docs/).
 - Docker Engine và Docker Compose (hoặc Podman)
 - GNU Make
 - Khoảng 6 GB RAM để chạy đầy đủ, kể cả mô hình AI cục bộ
+- Thêm khoảng 1,5 GB RAM nếu bật quét mã độc (dịch vụ antivirus)
 
 ## Dựng từ mã nguồn
 
@@ -73,6 +86,9 @@ Sau khi `make up` chạy xong, mở trình duyệt:
 ## Cấu hình
 
 Xem chú thích từng biến trong [.env.example](.env.example).
+Với kho lưu trữ tệp, cần đặt `S3_SECRET_KEY` và `FILES_SERVICE_TOKEN` bằng giá trị ngẫu nhiên
+(`openssl rand -hex 24`). Bật quét mã độc: `docker compose --profile antivirus up -d antivirus`
+rồi đặt `CLAMAV_HOST=antivirus`.
 
 ## Tài khoản thử
 

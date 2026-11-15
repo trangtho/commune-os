@@ -17,9 +17,11 @@ services:
       POSTGRES_APP_PASSWORD: ${POSTGRES_APP_PASSWORD}
       POSTGRES_REST_PASSWORD: ${POSTGRES_REST_PASSWORD}
       WORKFLOW_TOKEN: ${WORKFLOW_TOKEN}
+    # Do not run app migrations via docker-entrypoint-initdb.d:
+    # on a fresh volume, guidance rules reference procedures before seed.sql exists.
+    # db-setup owns the ordered schema/seed/migration lifecycle.
     volumes:
       - db-data:/var/lib/postgresql/data
-      - ./core/db/init:/docker-entrypoint-initdb.d:ro
     healthcheck:
       test:
         [
@@ -28,7 +30,8 @@ services:
         ]
       interval: 5s
       timeout: 3s
-      retries: 10
+      retries: 20
+      start_period: 90s
     ports:
       - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
 
@@ -115,8 +118,11 @@ services:
         psql -v ON_ERROR_STOP=1 -f /setup/init/08-api-can-bo.sql
         psql -v ON_ERROR_STOP=1 -f /setup/init/09-api-xu-ly-ho-so.sql
         psql -v ON_ERROR_STOP=1 -f /setup/init/10-ledger.sql
+        psql -v ON_ERROR_STOP=1 -f /setup/init/11-citizen-guidance-batches.sql
         psql -v ON_ERROR_STOP=1 -f /setup/init/11-workflow.sql
+        psql -v ON_ERROR_STOP=1 -f /setup/init/12-citizen-case-review-counter.sql
         sh /setup/init/12-workflow-secret.sh
+        psql -v ON_ERROR_STOP=1 -f /setup/init/14-luu-tru-tep.sql
         psql -v ON_ERROR_STOP=1 -c "SELECT count(*) AS published_procedures FROM procedures WHERE published = true"
         echo 'PostgreSQL setup finished successfully.'
 
@@ -181,6 +187,45 @@ services:
       - workflow-engine
       - rest
 
+      # Kho đối tượng chuẩn S3 cho dữ liệu phi cấu trúc (SeaweedFS, Apache-2.0). Không mở cổng ra ngoài.
+  storage:
+    image: chrislusf/seaweedfs:4.53
+    restart: unless-stopped
+    command: server -dir=/data -s3
+    environment:
+      AWS_ACCESS_KEY_ID: ${S3_ACCESS_KEY}
+      AWS_SECRET_ACCESS_KEY: ${S3_SECRET_KEY}
+    volumes:
+      - storage-data:/data
+
+  # Dịch vụ tệp của lõi: kiểm tra, quét mã độc (tùy chọn), lưu vào kho, ghi mã băm.
+  files:
+    image: node:22-alpine
+    restart: unless-stopped
+    working_dir: /app
+    command: ["node", "server.mjs"]
+    environment:
+      S3_ENDPOINT: http://storage:8333
+      S3_BUCKET: communeos-documents
+      S3_ACCESS_KEY: ${S3_ACCESS_KEY}
+      S3_SECRET_KEY: ${S3_SECRET_KEY}
+      REST_URL: http://rest:3000
+      WORKFLOW_TOKEN: ${WORKFLOW_TOKEN}
+      FILES_SERVICE_TOKEN: ${FILES_SERVICE_TOKEN}
+      CLAMAV_HOST: ${CLAMAV_HOST:-}
+    volumes:
+      - ./core/files:/app:ro
+    depends_on:
+      - storage
+      - rest
+
+  # Quét mã độc (tùy chọn, cần khoảng 1,5 GB RAM):
+  #   docker compose --profile antivirus up -d antivirus   rồi đặt CLAMAV_HOST=antivirus
+  antivirus:
+    image: clamav/clamav:1.5.2
+    profiles: ["antivirus"]
+    restart: unless-stopped
+
   citizen:
     build:
       context: ./apps/citizen
@@ -230,6 +275,8 @@ services:
       NUXT_OIDC_CLIENT_SECRET: ${CITIZEN_OIDC_CLIENT_SECRET:-}
       NUXT_OIDC_REDIRECT_URI: ${CITIZEN_OIDC_REDIRECT_URI:-}
       NUXT_STORAGE_DIR: /app/storage
+      NUXT_FILES_URL: http://files:3000
+      NUXT_FILES_SERVICE_TOKEN: ${FILES_SERVICE_TOKEN}
       # Optional server-side, OpenAI-compatible answer model and legacy classifier.
       # Do not expose tokens via Nuxt public runtimeConfig.
       CITIZEN_AI_ENDPOINT: ${CITIZEN_AI_ENDPOINT:-}
@@ -289,3 +336,4 @@ volumes:
   db-data:
   rest-keys:
   citizen-uploads:
+  storage-data:

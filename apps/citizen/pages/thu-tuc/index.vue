@@ -27,6 +27,7 @@ function reset(){q.value='';category.value='';showRecommended=false}
 </script>
 <template>
 <div class="space-y-4">
+ <div class="flex flex-wrap gap-2 rounded-xl border border-blue-100 bg-blue-50 p-3 text-sm"><span class="flex-1 font-semibold text-brand-900">Chưa biết chính xác tên thủ tục? Trả lời 4 câu hỏi để được gợi ý.</span><NuxtLink to="/goi-y-thu-tuc" class="font-bold text-brand-700 underline">Tìm thủ tục qua câu hỏi →</NuxtLink><NuxtLink to="/lien-thong" class="font-bold text-brand-700 underline">Chuẩn bị nhiều thủ tục →</NuxtLink></div>
   <div class="flex flex-wrap items-start justify-between gap-3"><div><h2 class="text-xl font-black">Danh mục thủ tục hành chính</h2><p class="text-sm text-muted">Tìm thủ tục phù hợp với nhu cầu của bạn, hoặc xem toàn bộ danh mục.</p></div>
     <span class="rounded-lg bg-blue-50 px-3 py-2 text-xs font-semibold text-brand-700">{{list.length}} thủ tục mẫu</span></div>
   <div class="panel flex flex-wrap items-center gap-2 p-2"><Search class="ml-2 text-brand-600" :size="20"/><label for="procedure-search" class="sr-only">Tìm kiếm thủ tục hành chính</label>

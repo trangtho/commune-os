@@ -23,7 +23,9 @@ export default defineNuxtPlugin(() => {
       return keys
     }
     if (resource === 'applications') {
-      const keys = ['citizen-applications', 'citizen-applications-home', 'citizen-applications-page', 'citizen-applications-lookup', 'citizen-procedure-recommendations']
+      const keys = ['citizen-applications', 'citizen-applications-home', 'citizen-applications-page', 'citizen-applications-lookup', 'citizen-procedure-recommendations', 'citizen-batches-list']
+      if (route.path.startsWith('/lien-thong/') && typeof route.params.id === 'string')
+        keys.push(`citizen-batch:${route.params.id}`)
       if (route.path.startsWith('/ho-so/') && typeof route.params.id === 'string')
         keys.push(`citizen-application:${route.params.id}`)
       return keys

@@ -4,6 +4,7 @@ import { validateProcedureForm } from '../../../../shared/procedure-forms'
 import { citizenTx } from '../../../utils/database'
 import { permittedReceivingTenant } from '../../../utils/citizen-preferences'
 import { requireApprovedRepresentation,requireOwnApplicant,auditRepresentativeAction } from '../../../utils/representations'
+import { reviewStoredDraft } from '../../../utils/preflight'
 export default defineEventHandler(async(event)=>citizenTx(event,async(client,actor)=>{
   const id=getRouterParam(event,'id')
   const body=await readBody(event)
@@ -27,6 +28,9 @@ export default defineEventHandler(async(event)=>citizenTx(event,async(client,act
     WHERE d.procedure_id=$1 AND d.is_required AND NOT EXISTS
       (SELECT 1 FROM application_documents f WHERE f.application_id=$2 AND f.document_code=d.document_code)`,[row.procedure_id,id])).rows
   if(missing.length)throw createError({statusCode:422,statusMessage:'Thiếu giấy tờ: '+missing.map(d=>d.document_name).join(', ')})
+  // Re-evaluate the persisted draft and its documents inside this same transaction.
+  const preflight=await reviewStoredDraft(client,actor,String(id))
+  if(!preflight.ready)throw createError({statusCode:422,statusMessage:preflight.blocking.map(x=>x.message).join('; ').slice(0,400)})
   await client.query("UPDATE applications SET status='submitted',submitted_at=now(),updated_at=now(),due_at=CURRENT_DATE+(SELECT sla_days FROM procedures WHERE id=$2) WHERE id=$1",[id,row.procedure_id])
   await client.query("INSERT INTO application_events(application_id,event_type,note,actor_name) VALUES($1,'submitted','Công dân đã nộp hồ sơ và xác nhận đầy đủ giấy tờ.',$2)",[id,actor.name])
   if(row.representation_id)await auditRepresentativeAction(client,row.representation_id,actor,'application_submitted',id)

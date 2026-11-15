@@ -1,7 +1,6 @@
 // SPDX-FileCopyrightText: 2026 CommuneOS Contributors
 // SPDX-License-Identifier: Apache-2.0
-import { rm } from 'node:fs/promises'
-import { join } from 'node:path'
+import { deleteObject } from '../../../../utils/object-store'
 import { citizenTx } from '../../../../utils/database'
 /** Only draft / supplement documents may be removed, and only by the case owner (RLS). */
 export default defineEventHandler(async event => {
@@ -23,11 +22,7 @@ export default defineEventHandler(async event => {
       throw createError({ statusCode: 503, statusMessage: 'Cơ sở dữ liệu chưa cấp quyền xóa tài liệu cho tài khoản ứng dụng. Cần quản trị viên cấp quyền DELETE theo RLS.' })
     throw error
   }
-  if (/^[\w-]{36}\.(pdf|png|jpg)$/.test(storageKey)) {
-    // The DB transaction is the source of truth. Failed filesystem cleanup may be retried by an operator.
-    await rm(join(String(useRuntimeConfig().storageDir), storageKey), { force: true }).catch(error => {
-      console.error('[documents/delete] orphaned storage object; manual cleanup required', String(error))
-    })
-  }
+  // Cơ sở dữ liệu là nguồn sự thật; xóa tệp hỏng thì chỉ ghi nhật ký để dọn sau.
+  await deleteObject(storageKey)
   return { ok: true }
 })

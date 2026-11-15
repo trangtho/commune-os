@@ -49,4 +49,18 @@ routes:
       type: roundrobin
       nodes:
         "orchestrator:3000": 1
+  # Dịch vụ tệp: cổng kiểm tra token, PostgreSQL kiểm tra quyền theo xã.
+  - id: files
+    uri: /files/*
+    plugins:
+      openid-connect:
+        client_id: commune-app
+        client_secret: khong-dung
+        discovery: http://identity:8080/realms/communeos/.well-known/openid-configuration
+        bearer_only: true
+        use_jwks: true
+    upstream:
+      type: roundrobin
+      nodes:
+        "files:3000": 1
 #END

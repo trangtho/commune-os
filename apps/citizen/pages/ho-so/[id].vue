@@ -10,6 +10,8 @@ const { data: c, error, refresh } = await useFetch<Application>(`/api/applicatio
 const { data: support, error: supportError, refresh: refreshSupport } = await useFetch<SupportItem[]>('/api/support', {
   key: `citizen-support:${id}`, query: { applicationId: id }
 })
+const {data:stages,error:stagesError,refresh:refreshStages}=await useFetch<{items:{id:string;stage_name:string;unit_name:string;stage_status:'pending'|'active'|'done'|'paused';due_at:string|null;reason:string;staff_name:string;created_at:string}[]}>(
+ `/api/applications/${encodeURIComponent(id)}/stages`,{key:`citizen-case-stages:${id}`})
 const { date, dateTime, bytes } = useFormat()
 const fields = computed(() => getProcedureFormFields(c.value?.procedure_id || ''))
 const message = ref('')
@@ -38,7 +40,7 @@ async function sendMessage() {
         <div class="flex flex-wrap items-start justify-between gap-3"><div class="min-w-0"><p class="break-all text-xs font-semibold text-muted">Mã hồ sơ: {{ c.id }}</p><h2 class="mt-1 text-xl font-black">{{ c.procedure_title }}</h2></div><StatusPill :status="c.status" /></div>
         <div class="mt-4 grid gap-3 border-t pt-4 text-sm sm:grid-cols-3"><div><span class="text-xs text-muted">Người nộp</span><p class="font-bold">{{ c.applicant_name }}</p></div><div><span class="text-xs text-muted">Ngày tiếp nhận</span><p class="font-bold">{{ c.status === 'draft' ? 'Chưa nộp' : dateTime(c.submitted_at) }}</p></div><div><span class="text-xs text-muted">Hạn xử lý (dự kiến)</span><p class="font-bold">{{ c.status === 'draft' ? 'Chưa tính' : date(c.due_at) }}</p></div></div>
       </section>
-      <section class="panel p-5"><h3 class="section-label">Tiến độ xử lý hồ sơ</h3><CaseTimeline :status="c.status" /><div class="mt-4 border-t border-slate-100 pt-3"><p v-if="!c.events?.length" class="text-sm text-muted">Chưa có hoạt động cập nhật.</p><div v-for="e in c.events || []" :key="e.id" class="flex gap-3 border-b border-slate-100 py-3 last:border-b-0"><span class="mt-1 h-3 w-3 shrink-0 rounded-full bg-blue-500" /><div><p class="text-sm font-bold">{{ e.note }}</p><p class="mt-1 text-xs text-muted">{{ dateTime(e.created_at) }} · {{ e.actor_name }}</p></div></div></div></section>
+      <section class="panel p-5"><h3 class="section-label">Tiến độ xử lý hồ sơ</h3><CaseTimeline :status="c.status" :stages="stages?.items || []" /><p v-if="stagesError" role="alert" class="text-xs text-rose-700">Chưa tải được công đoạn chi tiết. <button class="font-bold underline" @click="refreshStages()">Thử lại</button></p><div class="mt-4 border-t border-slate-100 pt-3"><p v-if="!c.events?.length" class="text-sm text-muted">Chưa có hoạt động cập nhật.</p><div v-for="e in c.events || []" :key="e.id" class="flex gap-3 border-b border-slate-100 py-3 last:border-b-0"><span class="mt-1 h-3 w-3 shrink-0 rounded-full bg-blue-500" /><div><p class="text-sm font-bold">{{ e.note }}</p><p class="mt-1 text-xs text-muted">{{ dateTime(e.created_at) }} · {{ e.actor_name }}</p></div></div></div></section>
       <section class="panel p-5">
         <h3 class="section-label">Thông tin đã kê khai</h3>
         <dl class="grid gap-4 sm:grid-cols-2">

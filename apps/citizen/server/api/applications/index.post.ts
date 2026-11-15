@@ -1,12 +1,14 @@
 // SPDX-FileCopyrightText: 2026 CommuneOS Contributors
 // SPDX-License-Identifier: Apache-2.0
+import { z } from 'zod'
 import { validateProcedureForm, sanitizeProcedureForm } from '../../../shared/procedure-forms'
 import { citizenTx } from '../../utils/database'
 import { permittedReceivingTenant } from '../../utils/citizen-preferences'
 import { applicationSchema,validate } from '../../utils/validation'
 import {requireApprovedRepresentation,requireOwnApplicant,auditRepresentativeAction} from '../../utils/representations'
+const createSchema=applicationSchema.extend({batchId:z.string().uuid().optional()})
 export default defineEventHandler(async(event)=>{
-  const body=validate(applicationSchema,await readBody(event))
+  const body=validate(createSchema,await readBody(event))
   const valid=(await citizenTx(event,async(client,actor)=>{
     const receivingTenantId = body.receivingTenantId || actor.tenantId
     if (!(await permittedReceivingTenant(client, { procedureId: body.procedureId, sourceTenantId: actor.tenantId, receivingTenantId })))
@@ -26,6 +28,14 @@ export default defineEventHandler(async(event)=>{
     await client.query(`INSERT INTO applications(id,citizen_id,tenant_id,procedure_id,status,applicant_name,
       applicant_phone,description,form_data,submitted_at,due_at,receiving_tenant_id,representation_id) VALUES($1,$2,$3,$4,'draft',$5,$6,$7,$8::jsonb,NULL,NULL,$9,$10)`,
       [id,actor.id,actor.tenantId,body.procedureId,body.applicantName,body.phone,body.description,JSON.stringify(sanitizeProcedureForm(body.procedureId, body.formData)),receivingTenantId,body.representationId || null])
+    if (body.batchId) {
+      // Validate the owner, tenant, and selected procedure before linking the new draft.
+      const linked=await client.query(`UPDATE citizen_service_batch_items i SET application_id=$1
+        FROM citizen_service_batches b WHERE i.batch_id=b.id AND b.id=$2 AND
+        b.citizen_id=$3 AND b.tenant_id=$4 AND i.procedure_id=$5 AND i.application_id IS NULL
+        RETURNING i.procedure_id`,[id,body.batchId,actor.id,actor.tenantId,body.procedureId])
+      if(!linked.rowCount)throw createError({statusCode:409,statusMessage:'Nhóm thủ tục không hợp lệ hoặc đã có hồ sơ cho thủ tục này'})
+    }
     if(body.representationId)await auditRepresentativeAction(client,body.representationId,actor,'application_created',id)
     return {id,status:'draft'}
   }))

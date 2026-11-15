@@ -43,7 +43,7 @@ jobs:
           sh -n core/db/init/02-create-api-roles.sh
 
       - name: Dựng và khởi động các dịch vụ lõi
-        run: docker compose up -d --build db identity db-setup rest-keys rest gateway workflow-engine orchestrator
+        run: docker compose up -d --build db identity db-setup rest-keys rest gateway workflow-engine orchestrator storage files
 
       - name: Chờ Keycloak và cổng API sẵn sàng
         run: |
@@ -66,4 +66,10 @@ jobs:
 
       - name: In log khi lỗi
         if: failure()
-        run: docker compose logs --tail=60
+        run: |
+          echo '=== Trang thai tat ca containers ==='
+          docker compose ps -a || true
+          echo '=== PostgreSQL va db-setup ==='
+          docker compose logs --no-color --tail=200 db db-setup || true
+          echo '=== Cac dich vu loi con lai ==='
+          docker compose logs --no-color --tail=60 identity rest gateway workflow-engine orchestrator || true

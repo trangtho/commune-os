@@ -27,6 +27,9 @@ function chooseRepresentation(id:string) {
 }
 const slug = String(route.params.slug)
 const initialDraftId = typeof route.query.draft === 'string' ? route.query.draft : ''
+const batchId = typeof route.query.bundle === 'string' ? route.query.bundle : ''
+const {data:batch} = await useFetch<{id:string;shared_consent:boolean;shared_data:{applicantName?:string;phone?:string};items:{procedure_id:string;application_id:string|null}[]}>(
+  `/api/service-batches/${encodeURIComponent(batchId||'missing')}`, {key:`citizen-filing-batch:${batchId||'none'}`,immediate:Boolean(batchId)})
 const { data: procedure, error: procedureError, refresh: retryProcedure } = await useFetch<Procedure>(
   `/api/procedures/${encodeURIComponent(slug)}`, { key: `citizen-procedure:${slug}` }
 )
@@ -66,6 +69,13 @@ const fields = computed(() => getProcedureFormFields(procedure.value?.id || slug
 const formIssues = computed(() => validateProcedureForm(procedure.value?.id || slug, formData))
 const formError = (key: string) => formIssues.value.find(issue => issue.key === key)?.message
 const uploaded = ref<CaseDocument[]>([])
+interface PreflightFinding {code:string;message:string;section:string;target?:string}
+interface Preflight {ready:boolean;blocking:PreflightFinding[];verify:PreflightFinding[];checkedAt:string}
+const {data:preflight,pending:checkingPreflight,refresh:refreshPreflight,error:preflightError}=await useFetch<Preflight>(
+  () => `/api/applications/${encodeURIComponent(draftId.value||'missing')}/preflight`,
+  {key:`citizen-preflight:${initialDraftId||slug}`,immediate:false,watch:false}
+)
+
 
 if (existingDraft.value?.status === 'draft' && existingDraft.value.procedure_id === slug) {
   const data = existingDraft.value
@@ -98,6 +108,12 @@ watch(() => route.query.step, (value) => {
   const requested = parseStep(value)
   step.value = draftId.value ? (requested === 3 && !allowReview.value ? 2 : requested) : 1
 })
+// Explicit opt-in only: no sensitive field is copied from other component applications.
+watch(batch, value=>{
+  if(!value?.shared_consent || initialDraftId || !value.items.some(i=>i.procedure_id===slug&&!i.application_id))return
+  if(actingFor.value==='self' && value.shared_data.applicantName && !form.applicantName)form.applicantName=value.shared_data.applicantName
+  if(value.shared_data.phone && (!form.phone || form.phone===(profile.value?.phone||'')))form.phone=value.shared_data.phone
+},{immediate:true})
 watch(form, () => { confirmed.value = false }, { deep: true })
 watch(formData, () => { confirmed.value = false }, { deep: true })
 watch(uploaded, () => { confirmed.value = false }, { deep: true })
@@ -110,15 +126,15 @@ const canNext = computed(() => form.applicantName.trim().length >= 2 && !phoneIs
 async function goStep(next: number) {
   if (next < 1 || next > 3 || busy.value || isInvalidDraft.value) return
   if (next > 1 && !draftId.value) return
-  if (next === 3 && missing.value.length) return
   if (next === 3 && !canNext.value) return
   allowReview.value = next === 3
   confirmed.value = false
   errorText.value = ''
   step.value = next
+  if(next===3)await refreshPreflight()
   await navigateTo({
     path: route.path,
-    query: { step: String(next), ...(draftId.value ? { draft: draftId.value } : {}) }
+    query: { step: String(next), ...(draftId.value ? { draft: draftId.value } : {}), ...(batchId ? {bundle:batchId}: {}) }
   }, { replace: true })
 }
 async function saveDraft() {
@@ -130,7 +146,7 @@ async function saveDraft() {
   errorText.value = ''
   try {
     const payload = {
-      procedureId: procedure.value.id, applicantName: form.applicantName.trim(), representationId: actingFor.value==='representative'?representationId.value:null,
+      ...(batchId && !draftId.value ? {batchId}:{}), procedureId: procedure.value.id, applicantName: form.applicantName.trim(), representationId: actingFor.value==='representative'?representationId.value:null,
       phone: form.phone.trim(), description: form.description.trim(), receivingTenantId: selectedLocality.value || undefined,
       formData: sanitizeProcedureForm(procedure.value.id, formData)
     }
@@ -156,6 +172,8 @@ async function submit() {
   busy.value = true
   errorText.value = ''
   try {
+    await refreshPreflight()
+    if(!preflight.value?.ready)throw new Error(preflight.value?.blocking?.[0]?.message||'Chưa kiểm tra xong tính đầy đủ của hồ sơ')
     await $fetch(`/api/applications/${encodeURIComponent(draftId.value)}/submit`, {
       method: 'POST', body: { confirmed: true }
     })
@@ -169,6 +187,7 @@ async function submit() {
 
 <template>
   <div class="space-y-4">
+    <NuxtLink v-if="batchId" :to="`/lien-thong/${batchId}`" class="inline-flex items-center gap-2 rounded-lg bg-blue-50 px-3 py-2 text-sm font-bold text-brand-700">← Trở về nhóm hồ sơ</NuxtLink>
     <NuxtLink :to="`/thu-tuc/${slug}`" class="inline-flex items-center gap-1 text-xs font-semibold text-brand-700">
       <ArrowLeft :size="14" /> Chi tiết thủ tục
     </NuxtLink>
@@ -260,7 +279,7 @@ async function submit() {
 
       <section v-else-if="step === 2" class="panel space-y-4 p-4 sm:p-5">
         <div><h3 class="section-label"><FileText class="text-brand-600" :size="21" />Thành phần giấy tờ</h3>
-          <p class="text-sm text-muted">Tải đủ giấy tờ có dấu * để tiếp tục. Bạn có thể thay bằng bản mới trước khi nộp.</p>
+          <p class="text-sm text-muted">Tải các giấy tờ bắt buộc; bạn có thể sang bước rà soát để xem mục còn thiếu, nhưng chưa thể gửi hồ sơ khi còn lỗi.</p>
         </div>
         <DocUploader :application-id="draftId" :requirements="procedure.documents || []" :uploaded="uploaded" @uploaded="recordUpload" @deleted="removeUpload" />
         <div :class="['rounded-lg p-3 text-sm font-semibold', missing.length ? 'bg-amber-50 text-amber-800' : 'bg-green-50 text-green-800']" role="status">
@@ -270,7 +289,7 @@ async function submit() {
         </div>
         <div class="flex flex-col gap-2 border-t pt-4 sm:flex-row sm:justify-between">
           <button type="button" class="btn-outline w-full sm:w-auto" @click="goStep(1)"><ArrowLeft :size="15" /> Quay lại</button>
-          <button type="button" class="btn-primary w-full sm:w-auto" :disabled="Boolean(missing.length)" @click="goStep(3)">
+          <button type="button" class="btn-primary w-full sm:w-auto" @click="goStep(3)">
             Tiếp tục rà soát <ArrowRight :size="15" />
           </button>
         </div>
@@ -296,13 +315,28 @@ async function submit() {
         <p :class="['rounded-lg border p-3 text-sm', missing.length ? 'border-amber-200 bg-amber-50 text-amber-800' : 'border-green-200 bg-green-50 text-green-900']">
           {{ missing.length ? 'Hồ sơ chưa đủ giấy tờ bắt buộc. Hãy quay lại bước tải giấy tờ.' : `Đã đủ ${procedure.documents?.filter(d => d.is_required).length || 0} loại giấy tờ bắt buộc (mô phỏng).` }}
         </p>
+        <div class="rounded-xl border border-blue-200 bg-blue-50/40 p-4" role="region" aria-labelledby="preflight-title">
+          <div class="flex flex-wrap items-center justify-between gap-2">
+            <h4 id="preflight-title" class="font-extrabold text-brand-900">Kiểm tra hồ sơ trước khi nộp</h4>
+            <button type="button" class="btn-outline !px-3 !py-1.5 !text-xs" :disabled="checkingPreflight" @click="refreshPreflight()">{{checkingPreflight?'Đang kiểm tra...':'Kiểm tra lại'}}</button>
+          </div>
+          <p class="mt-2 text-xs text-muted">Kết quả đối chiếu trên dữ liệu bản nháp đã lưu. Không thay thế việc thẩm định của cơ quan có thẩm quyền.</p>
+          <p v-if="preflightError" role="alert" class="mt-3 text-sm text-rose-700">Không thể kiểm tra hồ sơ. Hãy thử lại trước khi nộp.</p>
+          <p v-else-if="preflight?.ready" class="mt-3 rounded-lg bg-green-50 p-3 text-sm font-bold text-green-800" role="status">Các điều kiện kiểm tra tự động đã đạt.</p>
+          <div v-if="preflight?.blocking?.length" class="mt-3 space-y-2" role="alert"><p class="font-bold text-rose-800">Cần hoàn thiện {{preflight.blocking.length}} mục:</p>
+            <p v-for="issue in preflight.blocking" :key="issue.section+issue.code" class="rounded-lg bg-rose-50 p-2 text-sm text-rose-800">• {{issue.message}}</p>
+          </div>
+          <div v-if="preflight?.verify?.length" class="mt-3 space-y-1"><p class="text-sm font-bold text-amber-900">Nội dung cần cán bộ xác minh</p>
+            <p v-for="issue in preflight.verify" :key="issue.code" class="text-xs text-amber-900">• {{issue.message}}</p>
+          </div>
+        </div>
         <label class="flex cursor-pointer items-start gap-3 rounded-lg border p-3 text-sm">
           <input v-model="confirmed" type="checkbox" class="mt-1 h-4 w-4 accent-brand-600" />
           <span>Tôi xác nhận thông tin đã kê khai và giấy tờ đã đính kèm là chính xác; nếu nộp thay người thân, quyền đại diện đã được kiểm tra; hiểu đây là hệ thống thử nghiệm với dữ liệu giả.</span>
         </label>
         <div class="flex flex-col gap-2 border-t pt-4 sm:flex-row sm:justify-between">
           <button type="button" class="btn-outline w-full sm:w-auto" @click="goStep(2)"><ArrowLeft :size="15" /> Quay lại</button>
-          <button type="button" class="btn-primary w-full sm:w-auto" :disabled="!confirmed || Boolean(missing.length) || busy" @click="submit">
+          <button type="button" class="btn-primary w-full sm:w-auto" :disabled="!confirmed || Boolean(missing.length) || !preflight?.ready || Boolean(preflightError) || checkingPreflight || busy" @click="submit">
             {{ busy ? 'Đang gửi...' : 'Xác nhận & nộp hồ sơ' }} <CheckCircle2 :size="16" />
           </button>
         </div>

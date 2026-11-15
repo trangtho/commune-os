@@ -24,6 +24,8 @@ thuộc danh sách OSI (https://opensource.org/licenses).
 | Node.js       | 22-alpine | MIT                | Ảnh chính thức `node`                      | Chạy các ứng dụng Nuxt và dịch vụ điều phối |
 | PostgREST     | 16.5      | MIT                | Ảnh chính thức postgrest/postgrest         | API dữ liệu sau gateway                     |
 | Flowable REST | 8.0.0     | Apache-2.0         | Ảnh chính thức flowable/flowable-rest      | Động cơ quy trình BPMN                      |
+| SeaweedFS     | 4.53      | Apache-2.0         | Ảnh chính thức chrislusf/seaweedfs         | Kho đối tượng chuẩn S3 (giấy tờ hồ sơ)      |
+| ClamAV        | 1.5.2     | GPL-2.0-only       | Ảnh chính thức clamav/clamav (tùy chọn)    | Quét mã độc tệp tải lên, chạy dịch vụ riêng |
 
 ## Thư viện (trình quản lý gói)
 

@@ -1,26 +1,22 @@
 // SPDX-FileCopyrightText: 2026 CommuneOS Contributors
 // SPDX-License-Identifier: Apache-2.0
-import { staffTx } from '../../../utils/database'
-import { readMultipartFormData } from 'h3'
-export default defineEventHandler(async(event)=>staffTx(event,async(client,actor)=>{
-  const id=getRouterParam(event,'id')
-  const form=await readMultipartFormData(event)
-  let file:Blob|null=null;let documentCode=''
-  for(const part of form||[]){
-    if(part.name==='file'&&part.data)file=part.data
-    if(part.name==='documentCode')documentCode=String(part.data)
-  }
-  if(!file||!documentCode)throw createError({statusCode:400,statusMessage:'Thiếu tệp hoặc mã loại giấy tờ'})
-  const arrayBuffer=await file.arrayBuffer()
-  const buffer=Buffer.from(arrayBuffer)
-  const allowed=['application/pdf','image/png','image/jpeg']
-  if(!allowed.includes(file.type||'')||buffer.length===0||buffer.length>5*1024*1024)throw createError({statusCode:400,statusMessage:'Chỉ nhận PDF/JPG/PNG, tối đa 5 MB'})
-  const row=(await client.query('SELECT id FROM applications WHERE id=$1 FOR UPDATE',[id])).rows[0]
-  if(!row)throw createError({statusCode:404,statusMessage:'Hồ sơ không tồn tại'})
-  const docId=`doc-${Date.now()}-${Math.random().toString(36).slice(2)}`
-  await client.query(`INSERT INTO application_documents(id,application_id,document_code,original_name,size_bytes,uploaded_at) VALUES($1,$2,$3,$4,$5,now())`,
-    [docId,id,documentCode,file.name||'tệp đính kèm',buffer.length])
-  await client.query(`INSERT INTO application_events(application_id,event_type,note,actor_name,created_at) VALUES($1,'document_upload',$2,$3,now())`,
-    [id,`Cán bộ tải giấy tờ: ${file.name}`,actor.name])
-  return {id:docId,document_code:documentCode,original_name:file.name||'tệp đính kèm',size_bytes:buffer.length,uploaded_at:new Date().toISOString()}
-}))
+
+// Cán bộ đính kèm giấy tờ (ví dụ kết quả giải quyết) vào hồ sơ.
+// Tệp chuyển nguyên vẹn sang dịch vụ tệp của lõi; lõi kiểm tra định dạng, lưu vào kho đối tượng,
+// ghi mã băm vào cơ sở dữ liệu và sổ ghi nhận.
+import { coreFiles } from '../../../utils/core-files'
+
+export default defineEventHandler(async (event) => {
+  const id = encodeURIComponent(getRouterParam(event, 'id') || '')
+  const parts = await readMultipartFormData(event)
+  const file = parts?.find((p) => p.name === 'file' && p.filename)
+  const code = parts?.find((p) => p.name === 'documentCode')?.data.toString('utf8') || ''
+  if (!file?.data?.length || !code) throw createError({ statusCode: 400, statusMessage: 'Thiếu tệp hoặc loại giấy tờ' })
+  const query = new URLSearchParams({ code, name: file.filename || 'tep-dinh-kem' })
+  const res = await coreFiles(event, `/dossiers/${id}/documents?${query}`, {
+    method: 'POST',
+    body: new Uint8Array(file.data),
+    contentType: file.type || 'application/octet-stream',
+  })
+  return await res.json()
+})
