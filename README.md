@@ -59,6 +59,15 @@ make test                 # kiểm thử cách ly xã qua gateway (cần DEMO_PA
 
 Mọi cấu hình nằm trong tệp `.env`; không cần sửa tệp mã nguồn nào.
 
+Sau khi `make up` chạy xong, mở trình duyệt:
+
+| Giao diện               | Địa chỉ               | Chạy bằng                                                    |
+| ----------------------- | --------------------- | ------------------------------------------------------------ |
+| Kênh người dân          | http://localhost:3000 | Docker (tự chạy)                                             |
+| Màn hình cán bộ xã      | http://localhost:3002 | Docker (tự chạy)                                             |
+| Bảng quản trị hệ thống  | http://localhost:3001 | `cd core/admin && npm install && npm run dev -- --port 3001` |
+| Trang quản trị Keycloak | http://localhost:8080 | Docker (tự chạy)                                             |
+
 ## Cấu hình
 
 Xem chú thích từng biến trong [.env.example](.env.example).

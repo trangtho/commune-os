@@ -11,6 +11,12 @@ Mọi thay đổi đáng chú ý của dự án được ghi tại đây.
 
 ## [Chưa phát hành]
 
+### Thay đổi (chạy và dọn dẹp, 2026-11-15)
+
+- `docker compose up` chạy luôn màn hình cán bộ xã ở cổng 3002 (biến mới tùy chọn `COMMUNE_PORT`).
+- Ảnh Docker của `apps/commune` dùng Node.js 22 cho thống nhất với `DEPENDENCIES.md`.
+- Xóa tệp thừa `default.vue.bak`; sửa bảng kiến trúc bị lặp trong `README.md`.
+
 ### Thêm mới (sổ ghi nhận, 2026-11-15)
 
 - Sổ ghi nhận nối chuỗi băm SHA-256 theo từng xã: mỗi sự kiện hồ sơ tự sinh một dòng, không lưu nội dung hồ sơ.
