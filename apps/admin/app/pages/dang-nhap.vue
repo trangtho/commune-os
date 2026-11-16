@@ -8,13 +8,15 @@ definePageMeta({ layout: false });
 const { login } = useAuth();
 const username = ref("");
 const password = ref("");
+// Mã xác thực 6 số từ ứng dụng (FreeOTP, Google Authenticator) khi tài khoản đã bật xác thực hai lớp.
+const otp = ref("");
 const error = ref<string | null>(null);
 const loading = ref(false);
 
 async function submit() {
   error.value = null;
   loading.value = true;
-  error.value = await login(username.value.trim(), password.value);
+  error.value = await login(username.value.trim(), password.value, otp.value.trim());
   loading.value = false;
   if (!error.value) await navigateTo("/xa");
 }
@@ -51,6 +53,21 @@ async function submit() {
         class="mt-1 h-11 w-full rounded-md border border-slate-300 px-3"
         required
       />
+
+      <label for="otp" class="mt-4 block text-sm font-medium">Mã xác thực</label>
+      <input
+        id="otp"
+        v-model="otp"
+        inputmode="numeric"
+        autocomplete="one-time-code"
+        pattern="[0-9]{6}"
+        maxlength="6"
+        aria-describedby="otp-hint"
+        class="mt-1 h-11 w-full rounded-md border border-slate-300 px-3 tracking-widest"
+      />
+      <p id="otp-hint" class="mt-1 text-xs text-slate-500">
+        6 số trong ứng dụng xác thực. Bỏ trống nếu tài khoản chưa bật xác thực hai lớp.
+      </p>
 
       <p
         v-if="error"

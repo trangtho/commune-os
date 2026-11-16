@@ -3,10 +3,11 @@ SPDX-FileCopyrightText: 2026 CommuneOS Contributors
 SPDX-License-Identifier: Apache-2.0
 -->
 
-# core/admin
+# apps/admin
 
-Bảng quản trị hệ thống (Nuxt 4) cho quản trị viên. Đây là giao diện quản trị
-bắt buộc của lõi; không dành cho cán bộ xã hay người dân.
+Bảng quản trị hệ thống (Nuxt 4) cho quản trị viên. Đây là một ứng dụng Tầng 2:
+nó không nằm trong lõi mà gọi lõi qua cổng API như mọi ứng dụng khác (lõi không có giao diện).
+Không dành cho cán bộ xã hay người dân.
 
 ## Chức năng
 
@@ -20,7 +21,7 @@ Cần các dịch vụ lõi đang chạy (`docker compose up -d` ở thư mục 
 khoản `quantri` đã tạo trong Keycloak (xem mục "Tài khoản thử" ở README gốc).
 
 ```bash
-cd core/admin
+cd apps/admin
 npm install
 npm run dev -- --port 3001
 ```

@@ -320,7 +320,7 @@ services:
   # Bảng quản trị hệ thống của lõi. Chỉ tài khoản có vai trò sys_admin đăng nhập được.
   admin:
     build:
-      context: ./core/admin
+      context: ./apps/admin
       dockerfile: Dockerfile
     restart: unless-stopped
     depends_on:
