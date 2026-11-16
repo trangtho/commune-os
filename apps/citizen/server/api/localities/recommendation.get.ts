@@ -18,6 +18,11 @@ export default defineEventHandler(async event => {
     const canReceive = await permittedReceivingTenant(client, {
       procedureId, sourceTenantId: actor.tenantId, receivingTenantId: suggested.candidateTenantId
     })
+    const approvedRoute = canReceive && suggested.candidateTenantId !== actor.tenantId
+      ? (await client.query(`SELECT approval_reference,valid_until FROM citizen_procedure_receivers
+          WHERE procedure_id=$1 AND source_tenant_id=$2 AND receiving_tenant_id=$3
+            AND enabled AND valid_until>now() AND btrim(approval_reference)<>''`,
+        [procedureId,actor.tenantId,suggested.candidateTenantId])).rows[0] || null : null
     const ids = [actor.tenantId, suggested.candidateTenantId]
     const names = new Map((await client.query('SELECT id,name FROM tenants WHERE id=ANY($1::uuid[])', [ids])).rows.map(row => [row.id,row.name]))
     return {
@@ -28,6 +33,8 @@ export default defineEventHandler(async event => {
       selectedTenantName: names.get(canReceive ? suggested.candidateTenantId : actor.tenantId) || 'Địa phương tài khoản',
       basis: suggested.basis,
       canReceive,
+      approvalReference: approvedRoute?.approval_reference || null,
+      localityVerified: preferences.locality_source === 'oidc_verified' && Boolean(preferences.locality_verified_at),
       notice: !canReceive
         ? 'Địa phương bạn khai chưa có tuyến tiếp nhận được phê duyệt cho thủ tục này. Chỉ có thể nộp tại địa phương của tài khoản; vui lòng kiểm tra thẩm quyền với cán bộ.'
         : 'Đây là gợi ý kỹ thuật dựa trên tài khoản và lựa chọn của bạn, không xác nhận thẩm quyền pháp lý hoặc dữ liệu cư trú từ VNeID.'

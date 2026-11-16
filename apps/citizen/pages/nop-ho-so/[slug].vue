@@ -36,7 +36,7 @@ const { data: procedure, error: procedureError, refresh: retryProcedure } = awai
 const { data: localities } = await useFetch<{id:string;code:string;name:string;canReceive:boolean;procedureOpen?:boolean}[]>('/api/localities', {key:`citizen-localities:${slug}`,query:{procedureId:slug}})
 // Không xã nào đang mở thủ tục này cho người dân (xã mình chưa mở và không có tuyến tiếp nhận khác): không cho khai.
 const noReceiver = computed(() => Boolean(procedure.value) && !draftId.value && Boolean(localities.value?.length) && !localities.value!.some(l => l.canReceive))
-const { data: localitySuggestion } = await useFetch<{selectedTenantId:string;suggestedTenantId:string;suggestedTenantName:string;basis:string;canReceive:boolean;notice:string}>(
+const { data: localitySuggestion } = await useFetch<{selectedTenantId:string;suggestedTenantId:string;suggestedTenantName:string;basis:string;canReceive:boolean;notice:string;approvalReference:string|null;localityVerified:boolean}>(
   '/api/localities/recommendation',{key:`citizen-locality-recommendation:${slug}`,query:{procedureId:slug}})
 const localityManuallyChosen=ref(false)
 const selectedLocality = ref('')
@@ -249,6 +249,8 @@ async function submit() {
             <option v-for="loc in localities || []" :key="loc.id" :value="loc.id" :disabled="!loc.canReceive">{{loc.name}}{{loc.canReceive?'':(loc.procedureOpen===false?' (xã chưa mở thủ tục này)':' (chưa có tuyến tiếp nhận được duyệt)')}}</option>
           </select>
           <p v-if="localitySuggestion" class="mt-2 text-xs font-semibold text-brand-700">Gợi ý: {{localitySuggestion.suggestedTenantName}} · {{localitySuggestion.basis}}</p>
+          <p v-if="localitySuggestion?.approvalReference" class="mt-2 text-xs text-muted">Tuyến tiếp nhận được duyệt: {{localitySuggestion.approvalReference}}</p>
+          <p v-if="localitySuggestion && !localitySuggestion.localityVerified" class="mt-2 text-xs text-amber-900">Địa phương cư trú chưa được xác minh qua nguồn định danh đáng tin cậy; cơ quan tiếp nhận có thể cần đối chiếu thêm.</p>
           <p id="locality-hint" class="mt-2 text-xs text-blue-800">{{localitySuggestion?.notice||'Chỉ được gửi hồ sơ đến địa phương đã được hệ thống cấp quyền tiếp nhận.'}}</p>
           <NuxtLink to="/ho-so-ca-nhan" class="mt-1 inline-block text-xs font-bold text-brand-700 underline">Cập nhật địa phương tự khai trong hồ sơ cá nhân</NuxtLink>
         </div>

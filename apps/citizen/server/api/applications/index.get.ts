@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { citizenTx } from '../../utils/database'
 import { normalizeSearch } from '../../../utils/search'
-const validStatuses = new Set(['draft', 'submitted', 'processing', 'supplement', 'completed', 'rejected'])
+const validStatuses = new Set(['draft', 'submitted', 'processing', 'supplement', 'completed', 'rejected', 'withdrawn'])
 export default defineEventHandler(async event => citizenTx(event, async client => {
   const query = getQuery(event)
   const status = typeof query.status === 'string' && validStatuses.has(query.status) ? query.status : ''
@@ -40,7 +40,7 @@ export default defineEventHandler(async event => citizenTx(event, async client =
   const items = (await client.query(`SELECT ${columns} FROM applications a JOIN procedures p ON a.procedure_id = p.id
     ${condition} ORDER BY a.updated_at DESC, a.id DESC LIMIT $5 OFFSET $6`, [...params, pageSize, (currentPage - 1) * pageSize])).rows
   const grouped = (await client.query('SELECT status, count(*)::int AS count FROM applications GROUP BY status')).rows
-  const counts: Record<string, number> = { draft: 0, submitted: 0, processing: 0, supplement: 0, completed: 0, rejected: 0 }
+  const counts: Record<string, number> = { draft: 0, submitted: 0, processing: 0, supplement: 0, completed: 0, rejected: 0, withdrawn: 0 }
   for (const row of grouped) if (row.status in counts) counts[row.status] = Number(row.count)
   return { items, total: count, page: currentPage, pageSize, counts }
 }))

@@ -7,7 +7,7 @@ interface Stage {id:string;stage_name:string;unit_name:string;stage_status:'pend
 const props=defineProps<{status:ApplicationStatus;stages?:Stage[]}>()
 const {dateTime}=useFormat()
 const labels:Record<string,string>={pending:'Chờ thực hiện',active:'Đang thực hiện',done:'Đã hoàn thành',paused:'Tạm dừng'}
-const statusLabels:Record<ApplicationStatus,string>={draft:'Bản nháp',submitted:'Đã nộp',processing:'Đang xử lý',supplement:'Cần bổ sung',completed:'Hoàn thành',rejected:'Không chấp thuận'}
+const statusLabels:Record<ApplicationStatus,string>={draft:'Bản nháp',submitted:'Đã nộp',processing:'Đang xử lý',supplement:'Cần bổ sung',completed:'Hoàn thành',rejected:'Không chấp thuận',withdrawn:'Đã rút'}
 const latest=computed(()=>{
  const seen=new Set<string>()
  return [...(props.stages||[])].reverse().filter(s=>{if(seen.has(s.stage_name))return false;seen.add(s.stage_name);return true}).reverse()
