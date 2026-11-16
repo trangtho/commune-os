@@ -16,6 +16,9 @@ export default defineEventHandler(async(event)=>citizenTx(event,async(client,act
   if(!active)throw createError({statusCode:409,statusMessage:'Thủ tục không còn được công bố; vui lòng chọn thủ tục khác'})
   if (!(await permittedReceivingTenant(client,{procedureId:row.procedure_id,sourceTenantId:actor.tenantId,receivingTenantId:row.receiving_tenant_id || actor.tenantId})))
     throw createError({statusCode:409,statusMessage:'Tuyến tiếp nhận không còn hiệu lực; vui lòng chỉnh sửa bản nháp và chọn lại địa phương'})
+  // Quản trị có thể đã tắt thủ tục ở xã tiếp nhận trong lúc người dân soạn bản nháp.
+  const enabled=(await client.query('SELECT public.procedure_enabled_for($1::uuid,$2) AS ok',[row.receiving_tenant_id || actor.tenantId,row.procedure_id])).rows[0]?.ok
+  if(!enabled)throw createError({statusCode:409,statusMessage:'Xã tiếp nhận đã ngừng nhận hồ sơ cho thủ tục này'})
   if (row.representation_id) {
     // Recheck approval, scope and expiry under lock at final submission.
     await requireApprovedRepresentation(client,row.representation_id,row.procedure_id,row.applicant_name)

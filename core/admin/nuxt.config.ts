@@ -13,6 +13,11 @@ export default defineNuxtConfig({
   runtimeConfig: {
     // Chỉ dùng phía máy chủ Nuxt (server/api/dang-nhap.post.ts).
     keycloakUrl: process.env.KEYCLOAK_URL || "http://localhost:8080",
+    public: {
+      // Địa chỉ trình duyệt mở được: màn hình cán bộ xã và trang quản trị Keycloak.
+      communeUrl: "http://localhost:3002",
+      keycloakPublicUrl: "http://localhost:8080",
+    },
   },
   routeRules: {
     // Trình duyệt gọi /rest/... cùng địa chỉ với trang → không lỗi CORS.

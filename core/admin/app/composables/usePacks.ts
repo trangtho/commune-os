@@ -1,10 +1,14 @@
 // SPDX-FileCopyrightText: 2026 CommuneOS Contributors
 // SPDX-License-Identifier: Apache-2.0
 
-// Nơi duy nhất lấy và nạp gói thủ tục. Hiện dùng dữ liệu giả; khi lõi có API,
-// việc đọc và kiểm tệp pack.yaml sẽ do dịch vụ điều phối làm (POST /admin/packs).
-import type { Channel, Pack, RequiredDocument } from '~/types'
-import { mockPacks } from '~/mocks/packs'
+// Danh mục thủ tục của lõi và việc bật/tắt thủ tục cho từng xã, qua API lõi:
+//   GET  /rest/procedures                   danh mục (kèm các xã đã bật)
+//   GET  /rest/procedure_documents          giấy tờ cần nộp của thủ tục
+//   POST /rest/rpc/import_procedure         nạp gói thủ tục (pack.yaml đã đọc thành JSON)
+//   POST /rest/rpc/set_tenant_procedures    bật / tắt nhiều thủ tục cho một xã
+//   POST /rest/rpc/set_procedure_tenants    bật / tắt một thủ tục cho nhiều xã
+// Lõi kiểm tra lại mọi thứ; phần đọc tệp ở đây chỉ để báo lỗi sớm cho người dùng.
+import type { Channel, Pack, Procedure, ProcedureDocument, RequiredDocument, Tenant } from '~/types'
 
 function clean(value: string): string {
   return value.replace(/\s+#.*$/, '').trim().replace(/^["']|["']$/g, '')
@@ -16,8 +20,8 @@ function field(text: string, key: string): string | null {
 }
 
 /**
- * Đọc tạm các trường chính của pack.yaml để hiển thị. Đây không phải bộ đọc
- * YAML đầy đủ; nó chỉ phục vụ giao diện trong giai đoạn dùng dữ liệu giả.
+ * Đọc các trường của pack.yaml theo đúng mẫu packs/_template. Đây không phải bộ đọc
+ * YAML đầy đủ: tệp phải giữ đúng cấu trúc của mẫu.
  */
 export function parsePackYaml(text: string): Pack | string {
   const code = field(text, 'code')
@@ -50,29 +54,94 @@ export function parsePackYaml(text: string): Pack | string {
       review: field(text, 'review') ?? 'officer',
       sign: field(text, 'sign') ?? 'leader',
     },
-    loaded_at: new Date().toISOString(),
+    category: field(text, 'category'),
+    summary: field(text, 'summary'),
   }
 }
 
-export function usePacks() {
-  const packs = useState<Pack[]>('packs', () => mockPacks.map(p => ({ ...p })))
+export function useProcedures() {
+  const { api } = useApi()
+  const procedures = useState<Procedure[]>('procedures', () => [])
+  const tenants = useState<Tenant[]>('procedure-tenants', () => [])
+  const loading = ref(false)
+  const loadError = ref<string | null>(null)
 
-  /** Nạp gói từ nội dung pack.yaml. Trả về thông báo lỗi, hoặc null nếu thành công. */
-  function loadPack(yamlText: string): string | null {
-    const parsed = parsePackYaml(yamlText)
-    if (typeof parsed === 'string') return parsed
-    const existing = packs.value.findIndex(p => p.code === parsed.code)
-    if (existing >= 0) {
-      if (packs.value[existing]!.version === parsed.version) {
-        return `Thủ tục "${parsed.code}" phiên bản ${parsed.version} đã có trong hệ thống.`
-      }
-      packs.value[existing] = parsed
+  async function load() {
+    loading.value = true
+    loadError.value = null
+    try {
+      const [p, t] = await Promise.all([
+        api<Procedure[]>('/procedures?select=id,title,category,summary,version,sla_days,updated_at,enabled_tenants&order=category,title'),
+        api<Tenant[]>('/tenants'),
+      ])
+      procedures.value = p
+      tenants.value = t
+    } catch (e) {
+      loadError.value = (e as Error).message
+    } finally {
+      loading.value = false
     }
-    else {
-      packs.value.push(parsed)
-    }
-    return null
   }
 
-  return { packs, loadPack }
+  /** Nạp gói từ nội dung pack.yaml. Trả về thông báo lỗi, hoặc null nếu thành công. */
+  async function importPack(yamlText: string): Promise<string | null> {
+    const pack = parsePackYaml(yamlText)
+    if (typeof pack === 'string') return pack
+    try {
+      await api('/rpc/import_procedure', {
+        method: 'POST',
+        body: {
+          pack: {
+            code: pack.code, name: pack.name, version: pack.version, sla_hours: pack.sla_hours,
+            category: pack.category, summary: pack.summary,
+            required_documents: pack.required_documents,
+          },
+        },
+      })
+      await load()
+      return null
+    } catch (e) {
+      return (e as Error).message
+    }
+  }
+
+  /** Bật/tắt nhiều thủ tục cho một xã. Trả về thông báo lỗi, hoặc null nếu thành công. */
+  async function setForTenant(tenantCode: string, procedureIds: string[], enabled: boolean): Promise<string | null> {
+    if (procedureIds.length === 0) return null
+    try {
+      await api('/rpc/set_tenant_procedures', {
+        method: 'POST',
+        body: { tenant_code: tenantCode, procedure_ids: procedureIds, enabled },
+      })
+      await load()
+      return null
+    } catch (e) {
+      return (e as Error).message
+    }
+  }
+
+  /** Bật/tắt một thủ tục cho nhiều xã. */
+  async function setForProcedure(procedureId: string, tenantCodes: string[], enabled: boolean): Promise<string | null> {
+    if (tenantCodes.length === 0) return null
+    try {
+      await api('/rpc/set_procedure_tenants', {
+        method: 'POST',
+        body: { procedure_id: procedureId, tenant_codes: tenantCodes, enabled },
+      })
+      await load()
+      return null
+    } catch (e) {
+      return (e as Error).message
+    }
+  }
+
+  async function documents(procedureId: string): Promise<ProcedureDocument[]> {
+    return api<ProcedureDocument[]>(`/procedure_documents?procedure_id=eq.${encodeURIComponent(procedureId)}&order=document_code`)
+  }
+
+  /** Số thủ tục đang mở ở một xã. */
+  const openCount = (tenantCode: string) =>
+    procedures.value.filter((p) => p.enabled_tenants.includes(tenantCode)).length
+
+  return { procedures, tenants, loading, loadError, load, importPack, setForTenant, setForProcedure, documents, openCount }
 }

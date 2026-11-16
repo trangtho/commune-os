@@ -103,6 +103,15 @@ code=$(curl -s -o /dev/null -w '%{http_code}' -X POST -H "Authorization: Bearer 
   --data-binary 'khong phai pdf' "$GW/files/dossiers/HS-2026-001248/documents?code=ket-qua")
 [ "$code" = "415" ] && ok "Tệp giả định dạng bị từ chối (415)" || fail "Tệp giả phải 415, nhận $code"
 
+# Thủ tục theo xã: cán bộ thấy danh mục của xã mình nhưng không tự bật/tắt được.
+n=$(curl -s -H "Authorization: Bearer $TA" "$GW/rest/procedures?select=id" |
+  python3 -c 'import json,sys; print(len(json.load(sys.stdin)))')
+[ "$n" -gt 0 ] && ok "Cán bộ xã A thấy $n thủ tục xã mình đang mở" || fail "Cán bộ xã A không thấy thủ tục nào"
+
+code=$(curl -s -o /dev/null -w '%{http_code}' -X POST -H "Authorization: Bearer $TA" -H 'Content-Type: application/json' \
+  -d '{"tenant_code":"xa-a","procedure_id":"khai-sinh","enabled":false}' "$GW/rest/rpc/set_tenant_procedure")
+[ "$code" = "403" ] && ok "Cán bộ xã không tự bật/tắt thủ tục được (403)" || fail "Cán bộ bật/tắt thủ tục phải 403, nhận $code"
+
 code=$(curl -s -o /dev/null -w '%{http_code}' -H "Authorization: Bearer ${TA}sai" "$GW/rest/dossiers")
 [ "$code" = "401" ] && ok "Token bị sửa → 401" || fail "Token bị sửa phải 401, nhận $code"
 

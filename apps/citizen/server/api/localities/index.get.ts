@@ -13,5 +13,15 @@ export default defineEventHandler(async event => {
           AND trim(approval_reference)<>'' AND valid_until>now()`, [procedureId,user.tenantId])).rows.map(row => row.receiving_tenant_id))
     : [] as string[]
   const allowed = new Set([actor.tenantId, ...permitted])
-  return rows.map(row => ({ ...row, canReceive: allowed.has(row.id), isAccountLocality: row.id === actor.tenantId }))
+  // Xã tiếp nhận còn phải đang mở thủ tục này (quản trị bật/tắt ở bảng quản trị lõi).
+  const open = procedureId && /^[a-z0-9-]{2,80}$/.test(procedureId)
+    ? new Set((await publicQuery<{ id:string }>(
+        'SELECT t.id FROM tenants t WHERE public.procedure_enabled_for(t.id, $1)', [procedureId])).map(row => row.id))
+    : null
+  return rows.map(row => ({
+    ...row,
+    canReceive: allowed.has(row.id) && (!open || open.has(row.id)),
+    procedureOpen: !open || open.has(row.id),
+    isAccountLocality: row.id === actor.tenantId,
+  }))
 })

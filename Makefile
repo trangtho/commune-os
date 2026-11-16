@@ -61,6 +61,9 @@ guidance-batches-test: .env ## Kiểm tra RLS nhóm hồ sơ và quyền cấu h
 preflight-counter-test: .env ## Kiểm tra số thứ tự và phân quyền yêu cầu bổ sung (ROLLBACK)
 	$(COMPOSE) exec -T db sh -c 'psql -v ON_ERROR_STOP=1 -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"' < core/db/tests/citizen-preflight-counter-supplement.sql
 
+case-actions-test: .env ## Kiểm tra quyền xem xét, nhận kết quả và chuyển cơ quan (ROLLBACK)
+	$(COMPOSE) exec -T db sh -c 'psql -v ON_ERROR_STOP=1 -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"' < core/db/tests/citizen-case-actions-delivery-routing.sql
+
 repair-db: .env ## Khởi tạo/sửa schema và seed trên volume hiện tại; không xóa dữ liệu
 	$(COMPOSE) up -d db
 	$(COMPOSE) run --rm db-setup

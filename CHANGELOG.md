@@ -11,6 +11,27 @@ Mọi thay đổi đáng chú ý của dự án được ghi tại đây.
 
 ## [Chưa phát hành]
 
+### Thêm mới (thủ tục theo xã, 2026-11-16)
+
+- Thủ tục theo xã: danh mục thủ tục dùng chung, mỗi xã chỉ nhận hồ sơ cho thủ tục quản trị đã mở cho xã đó
+  (bảng `tenant_procedures`); cơ sở dữ liệu tự chặn hồ sơ nộp vào xã chưa mở thủ tục.
+- Nạp gói thủ tục từ `pack.yaml` (`api.import_procedure`), kiểm tra mã, tên, phiên bản; thêm gói mẫu `packs/dang-ky-tam-vang`.
+- API lõi `api.set_tenant_procedure`, `api.set_tenant_procedures`, `api.set_procedure_tenants` (chỉ `sys_admin`);
+  `GET /rest/procedures` với cán bộ chỉ trả thủ tục xã mình đang mở.
+- Bảng quản trị lấy xã làm trung tâm: danh sách xã có tìm kiếm và số thủ tục đang mở; trang chi tiết xã
+  (tổng quan, sổ ghi nhận, mở/tắt thủ tục theo lĩnh vực, mở/tắt hàng loạt); danh mục thủ tục và trang chi tiết thủ tục.
+- Kênh người dân chỉ hiện thủ tục xã mình đang mở; mở thủ tục xã chưa mở thì báo ngay, không hiện biểu mẫu.
+- `make test` thêm 2 kiểm tra.
+
+### Thay đổi (thủ tục theo xã, 2026-11-16)
+
+- Kênh cán bộ đọc danh mục thủ tục qua API lõi; bỏ nút công bố thủ tục của cán bộ xã.
+- Bảng quản trị bỏ dữ liệu giả của trang gói thủ tục; đường dẫn cũ `/goi-thu-tuc` chuyển sang `/thu-tuc`.
+
+### Sửa lỗi (thủ tục theo xã, 2026-11-16)
+
+- Ràng buộc nghiệp vụ của cơ sở dữ liệu không còn hiện "Server Error" ở Kênh người dân mà báo lời nhắn rõ (422).
+
 ### Thêm mới (lưu trữ dữ liệu phi cấu trúc, 2026-11-15)
 
 - Kho đối tượng chuẩn S3 SeaweedFS 4.53 (dịch vụ `storage`), không mở cổng ra ngoài.

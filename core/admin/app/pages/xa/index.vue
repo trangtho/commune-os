@@ -3,14 +3,29 @@ SPDX-FileCopyrightText: 2026 CommuneOS Contributors
 SPDX-License-Identifier: Apache-2.0
 -->
 <script setup lang="ts">
-import { Lock, Plus, Unlock, X } from "lucide-vue-next";
+import { ChevronRight, Lock, Plus, Search, Unlock, X } from "lucide-vue-next";
 import type { Tenant } from "~/types";
 
 const { tenants, loading, loadError, load, addTenant, toggleLock } =
   useTenants();
 
+// Số thủ tục đang mở của từng xã lấy từ danh mục thủ tục.
+const { procedures, load: loadProcedures, openCount } = useProcedures();
+
 // Mở trang là lấy danh sách xã từ API.
-onMounted(load);
+onMounted(() => Promise.all([load(), loadProcedures()]));
+
+// Tìm theo mã hoặc tên, lọc theo trạng thái: dùng được khi có hàng trăm xã.
+const query = ref("");
+const statusFilter = ref<"all" | "active" | "locked">("all");
+const visible = computed(() => {
+  const q = query.value.trim().toLowerCase();
+  return tenants.value.filter(
+    (t) =>
+      (statusFilter.value === "all" || t.status === statusFilter.value) &&
+      (!q || t.code.includes(q) || t.name.toLowerCase().includes(q)),
+  );
+});
 
 const showForm = ref(false);
 const code = ref("");
@@ -135,6 +150,28 @@ async function confirmToggle(tenant: Tenant) {
       </div>
     </form>
 
+    <div class="mt-6 flex flex-wrap items-center gap-3">
+      <label class="relative block w-full max-w-sm">
+        <span class="sr-only">Tìm xã theo mã hoặc tên</span>
+        <Search class="pointer-events-none absolute left-3 top-3 h-5 w-5 text-slate-400" aria-hidden="true" />
+        <input
+          v-model="query"
+          type="search"
+          placeholder="Tìm theo mã hoặc tên xã"
+          class="h-11 w-full rounded-md border border-slate-300 pl-10 pr-3"
+        />
+      </label>
+      <label class="flex items-center gap-2 text-sm">
+        Trạng thái
+        <select v-model="statusFilter" class="h-11 rounded-md border border-slate-300 px-3">
+          <option value="all">Tất cả</option>
+          <option value="active">Đang hoạt động</option>
+          <option value="locked">Đã khóa</option>
+        </select>
+      </label>
+      <span class="text-sm text-slate-500">{{ visible.length }} / {{ tenants.length }} xã</span>
+    </div>
+
     <p
       v-if="loadError"
       role="alert"
@@ -151,6 +188,7 @@ async function confirmToggle(tenant: Tenant) {
             <th scope="col" class="px-4 py-3 font-semibold">Mã xã</th>
             <th scope="col" class="px-4 py-3 font-semibold">Tên xã</th>
             <th scope="col" class="px-4 py-3 font-semibold">Số hồ sơ</th>
+            <th scope="col" class="px-4 py-3 font-semibold">Thủ tục đang mở</th>
             <th scope="col" class="px-4 py-3 font-semibold">Trạng thái</th>
             <th scope="col" class="px-4 py-3 font-semibold">Ngày tạo</th>
             <th scope="col" class="px-4 py-3 text-right font-semibold">
@@ -160,13 +198,18 @@ async function confirmToggle(tenant: Tenant) {
         </thead>
         <tbody>
           <tr
-            v-for="tenant in tenants"
+            v-for="tenant in visible"
             :key="tenant.id"
             class="border-t border-slate-200"
           >
             <td class="px-4 py-3 font-mono">{{ tenant.code }}</td>
-            <td class="px-4 py-3">{{ tenant.name }}</td>
+            <td class="px-4 py-3">
+              <NuxtLink :to="`/xa/${tenant.code}`" class="font-semibold text-blue-700 hover:underline">
+                {{ tenant.name }}
+              </NuxtLink>
+            </td>
             <td class="px-4 py-3">{{ tenant.dossier_count }}</td>
+            <td class="px-4 py-3">{{ openCount(tenant.code) }} / {{ procedures.length }}</td>
             <td class="px-4 py-3">
               <span
                 class="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold"
@@ -187,7 +230,13 @@ async function confirmToggle(tenant: Tenant) {
             <td class="px-4 py-3 whitespace-nowrap">
               {{ formatDateTime(tenant.created_at) }}
             </td>
-            <td class="px-4 py-3 text-right">
+            <td class="px-4 py-3 text-right whitespace-nowrap">
+              <NuxtLink
+                :to="`/xa/${tenant.code}`"
+                class="mr-2 inline-flex h-9 items-center gap-1 rounded-md border border-slate-300 px-3 font-medium hover:bg-slate-100"
+              >
+                Chi tiết <ChevronRight class="h-4 w-4" aria-hidden="true" />
+              </NuxtLink>
               <button
                 type="button"
                 class="inline-flex h-9 items-center gap-2 rounded-md border border-slate-300 px-3 font-medium hover:bg-slate-100"
@@ -203,12 +252,17 @@ async function confirmToggle(tenant: Tenant) {
             </td>
           </tr>
           <tr v-if="loading && tenants.length === 0">
-            <td colspan="6" class="px-4 py-8 text-center text-slate-500">
+            <td colspan="7" class="px-4 py-8 text-center text-slate-500">
               Đang tải...
             </td>
           </tr>
+          <tr v-else-if="tenants.length > 0 && visible.length === 0">
+            <td colspan="7" class="px-4 py-8 text-center text-slate-500">
+              Không có xã nào khớp điều kiện tìm.
+            </td>
+          </tr>
           <tr v-else-if="tenants.length === 0">
-            <td colspan="6" class="px-4 py-8 text-center text-slate-500">
+            <td colspan="7" class="px-4 py-8 text-center text-slate-500">
               Chưa có xã nào. Bấm "Thêm xã" để tạo xã đầu tiên.
             </td>
           </tr>
@@ -217,8 +271,8 @@ async function confirmToggle(tenant: Tenant) {
     </div>
 
     <p class="mt-4 text-sm text-slate-500">
-      Dữ liệu lấy trực tiếp từ hệ thống. Xã bị khóa thì cán bộ xã đó không xem
-      được hồ sơ nào.
+      Bấm vào tên xã để mở thủ tục cho xã và xem tình trạng của xã. Xã bị khóa
+      thì cán bộ xã đó không xem được hồ sơ nào.
     </p>
   </section>
 </template>
