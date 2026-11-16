@@ -17,7 +17,7 @@ Mọi thay đổi đáng chú ý của dự án được ghi tại đây.
 - Đăng nhập bảng quản trị nhận mã xác thực hai lớp (OTP) khi tài khoản đã bật trong Keycloak;
   báo rõ khi tài khoản bị khóa hoặc chưa hoàn tất cài đặt.
 - `DEPENDENCIES.md` liệt kê đủ thư viện của `apps/admin`, `apps/citizen`, `apps/commune`
-  và nêu rõ kho mã không đi kèm mô hình AI (#N).
+  và nêu rõ kho mã không đi kèm mô hình AI (#52).
 
 ### Thêm mới (thủ tục theo xã, 2026-11-16)
 
