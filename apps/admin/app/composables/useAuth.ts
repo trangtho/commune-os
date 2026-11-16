@@ -33,11 +33,11 @@ export function useAuth() {
   });
 
   /** Trả về thông báo lỗi, hoặc null nếu đăng nhập được. */
-  async function login(user: string, password: string): Promise<string | null> {
+  async function login(user: string, password: string, otp = ""): Promise<string | null> {
     try {
       const res = await $fetch<{ access_token: string }>("/api/dang-nhap", {
         method: "POST",
-        body: { username: user, password },
+        body: { username: user, password, otp },
       });
       if (!readToken(res.access_token).realm_access?.roles?.includes("sys_admin")) {
         return "Tài khoản này không có quyền quản trị hệ thống.";
@@ -45,8 +45,8 @@ export function useAuth() {
       token.value = res.access_token;
       sessionStorage.setItem(KEY, res.access_token);
       return null;
-    } catch {
-      return "Sai tên đăng nhập hoặc mật khẩu.";
+    } catch (e: any) {
+      return e?.data?.statusMessage || e?.statusMessage || "Sai tên đăng nhập, mật khẩu hoặc mã xác thực.";
     }
   }
 

@@ -11,6 +11,14 @@ Mọi thay đổi đáng chú ý của dự án được ghi tại đây.
 
 ## [Chưa phát hành]
 
+### Thay đổi (lõi không giao diện, 2026-11-16)
+
+- Chuyển bảng quản trị hệ thống từ `core/admin` sang `apps/admin`: thư mục `core/` chỉ còn dịch vụ và API.
+- Đăng nhập bảng quản trị nhận mã xác thực hai lớp (OTP) khi tài khoản đã bật trong Keycloak;
+  báo rõ khi tài khoản bị khóa hoặc chưa hoàn tất cài đặt.
+- `DEPENDENCIES.md` liệt kê đủ thư viện của `apps/admin`, `apps/citizen`, `apps/commune`
+  và nêu rõ kho mã không đi kèm mô hình AI (#52).
+
 ### Thêm mới (thủ tục theo xã, 2026-11-16)
 
 - Thủ tục theo xã: danh mục thủ tục dùng chung, mỗi xã chỉ nhận hồ sơ cho thủ tục quản trị đã mở cho xã đó
