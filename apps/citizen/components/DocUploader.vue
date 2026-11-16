@@ -1,14 +1,42 @@
 <!-- SPDX-FileCopyrightText: 2026 CommuneOS Contributors -->
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 <script setup lang="ts">
-import { CheckCircle2, UploadCloud, FileText, LoaderCircle, Eye, X, Download, Trash2, RefreshCw } from 'lucide-vue-next'
+import { CheckCircle2, UploadCloud, FileText, LoaderCircle, Eye, X, Download, Trash2, RefreshCw,FolderLock,ShieldCheck } from 'lucide-vue-next'
 import type { CaseDocument, ProcedureDocument } from '~/types/models'
+import { vaultIsUsable,todayVietnam } from '~/shared/citizen-vault'
 const props = defineProps<{ applicationId: string; requirements: ProcedureDocument[]; uploaded: CaseDocument[] }>()
 const emit = defineEmits<{ (e: 'uploaded', value: CaseDocument): void; (e: 'deleted', id: string): void }>()
 const busy = ref('')
 const errorText = ref('')
 const successText = ref('')
 const pending = ref<{ code: string; file: File; url: string } | null>(null)
+const reuseCode=ref('')
+const reuseVersionId=ref('')
+const reuseConfirmed=ref(false)
+type ReuseDoc={id:string;title:string;archived_at:string|null;versions:{id:string;version_no:number;original_name:string;expires_on:string|null}[]}
+const {data:vaultData,refresh:refreshVault,pending:loadingVault,error:vaultError}=useFetch<{documents:ReuseDoc[]}>('/api/citizen/vault',{
+  key:'citizen-vault-picker',immediate:false,default:()=>({documents:[]})
+})
+const reuseChoices=computed(()=>(vaultData.value?.documents||[]).flatMap(d=>d.versions.filter(v=>vaultIsUsable(d.archived_at,v.expires_on,todayVietnam()))
+  .map(v=>({id:v.id,label:`${d.title} · phiên bản ${v.version_no} · ${v.original_name}`}))))
+async function openVault(code:string){
+ reuseCode.value=reuseCode.value===code?'':code
+ reuseVersionId.value='';reuseConfirmed.value=false;errorText.value='';successText.value=''
+ if(reuseCode.value)await refreshVault()
+}
+async function attachFromVault(code:string){
+ if(!reuseVersionId.value||!reuseConfirmed.value||busy.value)return
+ busy.value=code;errorText.value='';successText.value=''
+ try{
+  const doc=await $fetch<CaseDocument>(`/api/applications/${encodeURIComponent(props.applicationId)}/documents/from-vault`,{
+   method:'POST',body:{versionId:reuseVersionId.value,documentCode:code,confirmed:true}
+  })
+  emit('uploaded',doc)
+  reuseCode.value='';reuseVersionId.value='';reuseConfirmed.value=false
+  successText.value='Đã gắn bản sao giấy tờ từ kho vào hồ sơ. Lịch sử chia sẻ đã được ghi nhận.'
+ }catch(e){errorText.value=readableError(e)}finally{busy.value=''}
+}
+
 const latest = (code: string) => props.uploaded.find(d => d.document_code === code)
 const versions = (code: string) => props.uploaded.filter(d => d.document_code === code).length
 const done = (code: string) => Boolean(latest(code))
@@ -77,6 +105,19 @@ async function deleteDoc(doc: CaseDocument) {
           <UploadCloud :size="15" /> {{ done(req.document_code) ? 'Tải phiên bản mới' : 'Chọn tệp' }}
           <input type="file" accept=".pdf,.png,.jpg,.jpeg,application/pdf,image/png,image/jpeg" class="sr-only" :aria-label="`Chọn tệp ${req.document_name}`" :disabled="!!busy" @change="onFile($event, req.document_code)" />
         </label>
+        <button type="button" class="btn-outline w-full !px-3 !py-2 !text-xs sm:w-auto" :disabled="!!busy" @click="openVault(req.document_code)"><FolderLock :size="15"/> Dùng giấy tờ trong kho</button>
+      </div>
+      <div v-if="reuseCode===req.document_code" class="mt-3 space-y-3 rounded-lg border border-blue-200 bg-blue-50 p-3">
+        <p class="text-sm font-extrabold text-brand-900">Sử dụng lại giấy tờ đã lưu</p>
+        <p class="text-xs text-slate-700">Chỉ chọn phiên bản còn hiệu lực, phù hợp với yêu cầu <b>{{req.document_name}}</b>. Hệ thống tạo bản sao riêng trong hồ sơ sau khi bạn đồng ý.</p>
+        <p v-if="loadingVault" class="text-xs">Đang tải kho giấy tờ...</p>
+        <p v-else-if="vaultError" role="alert" class="text-xs text-rose-700">Không thể lấy danh sách giấy tờ. Thử lại.</p>
+        <template v-else><select v-model="reuseVersionId" class="field" :aria-label="`Chọn giấy tờ từ kho cho ${req.document_name}`"><option value="">-- Chọn giấy tờ và phiên bản --</option><option v-for="item in reuseChoices" :key="item.id" :value="item.id">{{item.label}}</option></select>
+          <NuxtLink to="/kho-giay-to" class="inline-block text-xs font-semibold text-brand-700 underline">Quản lý kho giấy tờ số</NuxtLink>
+          <p v-if="!reuseChoices.length" class="text-xs text-amber-800">Kho chưa có giấy tờ hợp lệ, vui lòng thêm tài liệu trước.</p>
+          <label class="flex items-start gap-2 text-xs text-slate-700"><input v-model="reuseConfirmed" type="checkbox" class="mt-0.5 accent-blue-700"/><span>Tôi đã xem xét phiên bản được chọn, xác nhận phù hợp với hồ sơ này và <b>đồng ý chia sẻ riêng lần này</b>.</span></label>
+          <button type="button" class="btn-primary !text-xs" :disabled="!!busy||!reuseVersionId||!reuseConfirmed" @click="attachFromVault(req.document_code)"><ShieldCheck :size="15"/>Xác nhận dùng giấy tờ</button>
+        </template>
       </div>
       <div v-if="pending?.code === req.document_code" class="mt-3 space-y-3 rounded-lg border border-dashed border-blue-300 bg-blue-50 p-3">
         <div class="flex flex-wrap items-center justify-between gap-2">

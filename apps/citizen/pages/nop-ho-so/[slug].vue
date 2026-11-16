@@ -1,7 +1,7 @@
 <!-- SPDX-FileCopyrightText: 2026 CommuneOS Contributors -->
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 <script setup lang="ts">
-import { ArrowLeft, ArrowRight, CheckCircle2, AlertCircle, FileText, ShieldCheck, Save } from 'lucide-vue-next'
+import { ArrowLeft, ArrowRight, CheckCircle2, AlertCircle, FileText, ShieldCheck, Save, Sparkles, BadgeCheck } from 'lucide-vue-next'
 import type { Procedure, Application, CaseDocument } from '~/types/models'
 import { getProcedureFormFields, validateProcedureForm, sanitizeProcedureForm } from '~/shared/procedure-forms'
 import { phoneIssue } from '~/shared/identity-validation'
@@ -68,6 +68,26 @@ const formData = reactive<Record<string, string>>({})
 const attempted = ref(false)
 const today = new Date(Date.now() + 7 * 60 * 60 * 1000).toISOString().slice(0, 10)
 const fields = computed(() => getProcedureFormFields(procedure.value?.id || slug))
+type AutofillSuggestion={fieldKey:string;label:string;key:string;value:string;source:'self_declared'|'oidc_verified';sourceLabel:string;verifiedAt:string|null}
+const {data:autofill,error:autofillError,refresh:refreshAutofill}=await useFetch<{suggestions:AutofillSuggestion[]}>(
+ '/api/citizen/autofill',{key:`citizen-autofill:${slug}`,query:{procedureId:slug},default:()=>({suggestions:[]})})
+const autofillSelected=ref<string[]>([])
+const autofillApplied=ref<string[]>([])
+const autofillReviewed=ref(true)
+const selectedSuggestions=computed(()=>autofill.value?.suggestions||[])
+function applyAutofill(){
+ if(actingFor.value!=='self')return
+ const applied:string[]=[]
+ for(const s of selectedSuggestions.value){
+  if(autofillSelected.value.includes(s.fieldKey)){
+   formData[s.fieldKey]=s.value
+   applied.push(s.fieldKey)
+  }
+ }
+ if(applied.length){autofillApplied.value=[...new Set([...autofillApplied.value,...applied])];autofillReviewed.value=false;confirmed.value=false}
+}
+function autofillProvenance(fieldKey:string){return selectedSuggestions.value.find(s=>s.fieldKey===fieldKey&&formData[fieldKey]===s.value)}
+
 const formIssues = computed(() => validateProcedureForm(procedure.value?.id || slug, formData))
 const formError = (key: string) => formIssues.value.find(issue => issue.key === key)?.message
 const uploaded = ref<CaseDocument[]>([])
@@ -118,6 +138,7 @@ watch(batch, value=>{
 },{immediate:true})
 watch(form, () => { confirmed.value = false }, { deep: true })
 watch(formData, () => { confirmed.value = false }, { deep: true })
+watch(actingFor,()=>{autofillSelected.value=[];autofillApplied.value=[];autofillReviewed.value=true})
 watch(uploaded, () => { confirmed.value = false }, { deep: true })
 
 const missing = computed(() => procedure.value?.documents?.filter(
@@ -144,6 +165,7 @@ async function saveDraft() {
   if (busy.value || !procedure.value || isInvalidDraft.value) return
   if (!selectedLocality.value || localities.value?.every(l => l.id !== selectedLocality.value || !l.canReceive)) {errorText.value='Vui lòng chọn địa phương tiếp nhận được hỗ trợ';return}
   if (!canNext.value) { errorText.value = phoneIssue(form.phone) || formIssues.value[0]?.message || 'Kiểm tra họ tên người nộp hồ sơ'; return }
+  if (autofillApplied.value.length&&!autofillReviewed.value){errorText.value='Vui lòng rà soát và xác nhận dữ liệu đã tự điền trước khi lưu nháp';return}
   busy.value = true
   errorText.value = ''
   try {
@@ -270,6 +292,15 @@ async function submit() {
             <h3 class="section-label !mb-1">Thông tin riêng của thủ tục</h3>
             <p class="text-xs text-muted">Biểu mẫu hướng dẫn thử nghiệm theo từng thủ tục; vui lòng đối chiếu biểu mẫu chính thức khi thực hiện thực tế.</p>
           </div>
+          <div v-if="actingFor==='self'" class="space-y-3 rounded-xl border border-blue-200 bg-blue-50/60 p-4" role="region" aria-label="Trợ lý tự điền biểu mẫu">
+            <div class="flex items-center gap-2"><Sparkles class="text-brand-600" :size="19"/><h4 class="font-extrabold text-brand-900">Gợi ý điền từ hồ sơ cá nhân</h4></div>
+            <p class="text-xs leading-5 text-slate-600">Dữ liệu chỉ được điền khi bạn tự chọn và bấm áp dụng; trường thuộc về người thân hoặc người khác sẽ không được tự điền.</p>
+            <p v-if="autofillError" role="alert" class="text-xs text-rose-700">Không tải được dữ liệu tự điền. <button type="button" class="font-bold underline" @click="refreshAutofill()">Thử lại</button></p>
+            <p v-else-if="!selectedSuggestions.length" class="text-xs text-slate-600">Chưa có trường phù hợp hoặc dữ liệu cần thiết. <NuxtLink to="/ho-so-ca-nhan" class="font-bold text-brand-700 underline">Cập nhật hồ sơ cá nhân</NuxtLink>.</p>
+            <div v-else class="grid gap-2"><label v-for="s in selectedSuggestions" :key="s.fieldKey" class="flex items-start gap-3 rounded-lg border border-slate-200 bg-white p-3 text-xs"><input v-model="autofillSelected" :value="s.fieldKey" type="checkbox" class="mt-0.5 accent-blue-700"/><span class="min-w-0 flex-1"><b class="block text-sm">{{s.label}}</b><span class="mt-1 block break-words">{{s.key==='citizenIdentifier'?'••••••••'+s.value.slice(-4):s.value}}</span><span :class="['mt-1 block',s.source==='oidc_verified'?'text-green-700':'text-amber-800']">{{s.source==='oidc_verified'?'Đã xác minh qua nguồn định danh':'Dữ liệu công dân tự khai'}} · {{s.sourceLabel}}</span><span v-if="formData[s.fieldKey]" class="mt-1 block text-slate-500">Đã có giá trị trong biểu mẫu. Áp dụng sẽ thay thế giá trị hiện tại.</span></span></label></div>
+            <button v-if="selectedSuggestions.length" type="button" class="btn-outline !text-xs" :disabled="!autofillSelected.length" @click="applyAutofill"><Sparkles :size="15"/>Áp dụng {{autofillSelected.length}} trường đã chọn</button>
+            <label v-if="autofillApplied.length" class="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs leading-5 text-amber-900"><input v-model="autofillReviewed" type="checkbox" class="mt-0.5 accent-blue-700"/><span>Tôi đã kiểm tra lại từng giá trị vừa tự điền và nguồn dữ liệu của chúng trước khi lưu hồ sơ.</span></label>
+          </div>
           <div class="grid gap-4 sm:grid-cols-2">
             <div v-for="field in fields" :key="field.key" :class="field.type === 'textarea' ? 'sm:col-span-2' : ''">
               <label :for="`citizen-field-${field.key}`" class="field-label">{{ field.label }} <span v-if="field.required" class="text-rose-500" aria-hidden="true">*</span></label>
@@ -279,6 +310,7 @@ async function submit() {
               </select>
               <textarea v-else-if="field.type === 'textarea'" :id="`citizen-field-${field.key}`" v-model="formData[field.key]" class="field" rows="3" :maxlength="field.maxLength || 500" :required="field.required" :placeholder="field.placeholder || ''" :aria-invalid="attempted && Boolean(formError(field.key))" />
               <input v-else :id="`citizen-field-${field.key}`" v-model="formData[field.key]" class="field" :type="field.type === 'number' || field.type === 'citizenId' ? 'text' : field.type" :inputmode="field.type === 'number' || field.type === 'citizenId' ? 'numeric' : undefined" :required="field.required" :maxlength="field.maxLength || undefined" :minlength="field.minLength || undefined" :pattern="field.type === 'number' ? '[0-9]*' : undefined" :max="field.type === 'date' ? today : undefined" :aria-describedby="field.help || (attempted && formError(field.key)) ? `hint-${field.key}` : undefined" :placeholder="field.placeholder || ''" :aria-invalid="attempted && Boolean(formError(field.key))" />
+              <p v-if="autofillApplied.includes(field.key) && autofillProvenance(field.key)" :class="['mt-1 flex items-center gap-1 text-xs',autofillProvenance(field.key)?.source==='oidc_verified'?'text-green-700':'text-amber-700']"><BadgeCheck :size="13"/>Đã áp dụng từ: {{autofillProvenance(field.key)?.sourceLabel}} — hãy kiểm tra giá trị.</p>
               <p v-if="field.help" :id="`hint-${field.key}`" class="mt-1 text-xs text-muted">{{ field.help }}</p>
               <p v-if="attempted && formError(field.key)" :id="`hint-${field.key}`" class="mt-1 text-xs font-medium text-rose-700" role="alert">{{ formError(field.key) }}</p>
             </div>
@@ -324,6 +356,7 @@ async function submit() {
             <div v-for="field in fields" :key="field.key" class="min-w-0">
               <dt class="text-xs font-semibold text-slate-500">{{ field.label }}</dt>
               <dd class="break-words font-semibold">{{ formData[field.key] || 'Không cung cấp' }}</dd>
+              <dd v-if="autofillApplied.includes(field.key) && autofillProvenance(field.key)" class="mt-1 text-xs text-brand-700">Nguồn tự điền: {{autofillProvenance(field.key)?.sourceLabel}}</dd>
             </div>
           </dl>
         </div>

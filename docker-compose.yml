@@ -125,6 +125,7 @@ services:
         sh /setup/init/12-workflow-secret.sh
         psql -v ON_ERROR_STOP=1 -f /setup/init/13-thu-tuc-theo-xa.sql
         psql -v ON_ERROR_STOP=1 -f /setup/init/14-luu-tru-tep.sql
+        psql -v ON_ERROR_STOP=1 -f /setup/init/15-citizen-vault-autofill.sql
         psql -v ON_ERROR_STOP=1 -c "SELECT count(*) AS published_procedures FROM procedures WHERE published = true"
         echo 'PostgreSQL setup finished successfully.'
 
@@ -261,6 +262,14 @@ services:
       CITIZEN_OIDC_RESIDENCE_TENANT_CLAIM: ${CITIZEN_OIDC_RESIDENCE_TENANT_CLAIM:-}
       CITIZEN_OIDC_TEMPORARY_TENANT_CLAIM: ${CITIZEN_OIDC_TEMPORARY_TENANT_CLAIM:-}
       CITIZEN_OIDC_LOCALITY_SCOPE: ${CITIZEN_OIDC_LOCALITY_SCOPE:-}
+      # Disabled by default: only for authorized OIDC attribute contracts + explicit opt-in.
+      CITIZEN_OIDC_PERSONAL_DATA_APPROVED: ${CITIZEN_OIDC_PERSONAL_DATA_APPROVED:-false}
+      CITIZEN_OIDC_PERSONAL_DATA_SCOPE: ${CITIZEN_OIDC_PERSONAL_DATA_SCOPE:-}
+      CITIZEN_OIDC_NAME_CLAIM: ${CITIZEN_OIDC_NAME_CLAIM:-}
+      CITIZEN_OIDC_BIRTH_DATE_CLAIM: ${CITIZEN_OIDC_BIRTH_DATE_CLAIM:-}
+      CITIZEN_OIDC_IDENTIFIER_CLAIM: ${CITIZEN_OIDC_IDENTIFIER_CLAIM:-}
+      CITIZEN_OIDC_PHONE_CLAIM: ${CITIZEN_OIDC_PHONE_CLAIM:-}
+      CITIZEN_OIDC_ADDRESS_CLAIM: ${CITIZEN_OIDC_ADDRESS_CLAIM:-}
       CITIZEN_VNEID_INTEGRATION_APPROVED: ${CITIZEN_VNEID_INTEGRATION_APPROVED:-false}
       CITIZEN_OIDC_ISSUER: ${CITIZEN_OIDC_ISSUER:-}
       CITIZEN_OIDC_AUTHORIZE_URL: ${CITIZEN_OIDC_AUTHORIZE_URL:-}

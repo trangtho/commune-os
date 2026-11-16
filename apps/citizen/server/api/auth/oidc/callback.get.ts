@@ -16,7 +16,7 @@ export default defineEventHandler(async event => {
   if(!response.ok)throw createError({statusCode:401,statusMessage:'Máy chủ Identity từ chối xác thực'})
   const tokens=await response.json() as {id_token?:string}
   if(!tokens.id_token)throw createError({statusCode:401,statusMessage:'Identity không trả về ID token'})
-  const user=await verifiedOidcSubject(tokens.id_token,flow.nonce)
+  const user=await verifiedOidcSubject(tokens.id_token,flow.nonce,Boolean(flow.usePersonalData))
   const login=oidcLoginName(user.iss,user.sub)
   const rows=await publicQuery<{id:string;tenant_id:string;display_name:string}>('SELECT id,tenant_id,display_name FROM citizen_login_lookup($1)',[login])
   if(!rows[0])throw createError({statusCode:403,statusMessage:'Định danh đã xác thực nhưng chưa được liên kết tài khoản Công dân. Liên hệ quản trị viên Identity.'})
@@ -44,6 +44,24 @@ export default defineEventHandler(async event => {
           temporary_tenant_id=COALESCE(EXCLUDED.temporary_tenant_id,citizen_service_preferences.temporary_tenant_id),
           locality_source='oidc_verified',locality_verified_at=now(),updated_at=now()`,
         [actor.id,actor.tenantId,residence,temporary])
+      await client.query('COMMIT')
+    }catch(error){await client.query('ROLLBACK');throw error}
+    finally{client.release()}
+  }
+  // Only import contract-approved claims from a verified ID token and an explicit login opt-in.
+  if(flow.usePersonalData && c.verifiedFacts && Object.keys(user.personalFacts).length){
+    const client=await db().connect()
+    try{
+      await client.query('BEGIN')
+      await client.query('SELECT set_config($1,$2,true),set_config($3,$4,true)',
+        ['app.citizen_id',rows[0].id,'app.tenant_id',rows[0].tenant_id])
+      for(const [key,value] of Object.entries(user.personalFacts)) {
+        if(!value)continue
+        await client.query(`INSERT INTO citizen_verified_facts(citizen_id,tenant_id,field_key,field_value,source_issuer)
+          VALUES($1,$2,$3,$4,$5) ON CONFLICT(citizen_id,field_key) DO UPDATE SET
+          field_value=EXCLUDED.field_value,source_issuer=EXCLUDED.source_issuer,verified_at=now()`,
+          [rows[0].id,rows[0].tenant_id,key,value,user.iss])
+      }
       await client.query('COMMIT')
     }catch(error){await client.query('ROLLBACK');throw error}
     finally{client.release()}

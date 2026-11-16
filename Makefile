@@ -64,6 +64,9 @@ preflight-counter-test: .env ## Kiểm tra số thứ tự và phân quyền yê
 case-actions-test: .env ## Kiểm tra quyền xem xét, nhận kết quả và chuyển cơ quan (ROLLBACK)
 	$(COMPOSE) exec -T db sh -c 'psql -v ON_ERROR_STOP=1 -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"' < core/db/tests/citizen-case-actions-delivery-routing.sql
 
+vault-autofill-test: .env ## Kiểm thử RLS kho giấy tờ và tự điền (ROLLBACK)
+	$(COMPOSE) exec -T db sh -c 'psql -v ON_ERROR_STOP=1 -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"' < core/db/tests/citizen-vault-autofill.sql
+
 repair-db: .env ## Khởi tạo/sửa schema và seed trên volume hiện tại; không xóa dữ liệu
 	$(COMPOSE) up -d db
 	$(COMPOSE) run --rm db-setup
