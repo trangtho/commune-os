@@ -30,15 +30,17 @@ Giấy phép của các thành phần bên thứ ba được liệt kê trong
 
 ## Kiến trúc
 
-| Tầng                  | Thư mục         | Nội dung                                                                           |
-| --------------------- | --------------- | ---------------------------------------------------------------------------------- |
-| Tầng 1 - Lõi headless | core/           | Cửa ngõ API, định danh, dữ liệu, lưu trữ tệp, quy trình, sổ cái, AI, bảng quản trị |
-| Tầng 2 - Ứng dụng     | `apps/commune/` | Ứng dụng xã cho cán bộ, lãnh đạo, cấp trên                                         |
-| Tầng 2 - Ứng dụng     | `apps/citizen/` | Kênh nộp hồ sơ trực tuyến cho người dân                                            |
-| Cấu hình              | `packs/`        | Gói thủ tục: BPMN, biểu mẫu, bảng kiểm giấy tờ, wiki                               |
+| Tầng                  | Thư mục         | Nội dung                                                                          |
+| --------------------- | --------------- | --------------------------------------------------------------------------------- |
+| Tầng 1 - Lõi headless | core/           | Cửa ngõ API, định danh, dữ liệu, lưu trữ tệp, quy trình, sổ cái (không giao diện) |
+| Tầng 2 - Ứng dụng     | `apps/commune/` | Ứng dụng xã cho cán bộ, lãnh đạo, cấp trên                                        |
+| Tầng 2 - Ứng dụng     | `apps/citizen/` | Kênh nộp hồ sơ trực tuyến cho người dân                                           |
+| Tầng 2 - Ứng dụng     | `apps/admin/`   | Bảng quản trị hệ thống: xã, thủ tục, sổ ghi nhận                                  |
+| Cấu hình              | `packs/`        | Gói thủ tục: BPMN, biểu mẫu, bảng kiểm giấy tờ, wiki                              |
 
-Lõi không cấp giao diện cho người dùng cuối; nó chỉ có bảng quản trị cho quản
-trị viên hệ thống. Ứng dụng ở Tầng 2 chỉ gọi lõi qua cửa ngõ API.
+Lõi hoàn toàn không có giao diện: chỉ có dịch vụ và API. Cả ba ứng dụng ở Tầng 2,
+kể cả bảng quản trị, chỉ gọi lõi qua cửa ngõ API.
+Mỗi xã tự có danh sách thủ tục được mở. Cán bộ và người dân chỉ thấy, chỉ nộp được thủ tục xã mình đang mở; cơ sở dữ liệu tự chặn nếu ai đó vượt qua giao diện. Quản trị hệ thống cấu hình xã và thủ tục nhưng không đọc được nội dung hồ sơ.
 
 ### Dịch vụ của lõi
 

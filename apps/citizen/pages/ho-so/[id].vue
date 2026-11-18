@@ -52,6 +52,8 @@ async function sendMessage() {
           <NuxtLink :to="`/ho-so/${c.id}/chuyen-co-quan`" class="btn-outline">Cơ quan tiếp nhận và chuyển giao</NuxtLink>
         </div>
       </section>
+      <CitizenCaseRoadmap :application-id="id" />
+      <CitizenCaseInsights :application-id="id" />
       <section class="panel p-5"><h3 class="section-label">Tiến độ xử lý hồ sơ</h3><CaseTimeline :status="c.status" :stages="stages?.items || []" /><p v-if="stagesError" role="alert" class="text-xs text-rose-700">Chưa tải được công đoạn chi tiết. <button class="font-bold underline" @click="refreshStages()">Thử lại</button></p><div class="mt-4 border-t border-slate-100 pt-3"><p v-if="!c.events?.length" class="text-sm text-muted">Chưa có hoạt động cập nhật.</p><div v-for="e in c.events || []" :key="e.id" class="flex gap-3 border-b border-slate-100 py-3 last:border-b-0"><span class="mt-1 h-3 w-3 shrink-0 rounded-full bg-blue-500" /><div><p class="text-sm font-bold">{{ e.note }}</p><p class="mt-1 text-xs text-muted">{{ dateTime(e.created_at) }} · {{ e.actor_name }}</p></div></div></div></section>
       <section class="panel p-5">
         <h3 class="section-label">Thông tin đã kê khai</h3>

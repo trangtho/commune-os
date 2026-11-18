@@ -1,7 +1,7 @@
 <!-- SPDX-FileCopyrightText: 2026 CommuneOS Contributors -->
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 <script setup lang="ts">
-import { ArrowLeft, ArrowRight, CheckCircle2, AlertCircle, FileText, ShieldCheck, Save } from 'lucide-vue-next'
+import { ArrowLeft, ArrowRight, CheckCircle2, AlertCircle, FileText, ShieldCheck, Save, Sparkles, BadgeCheck } from 'lucide-vue-next'
 import type { Procedure, Application, CaseDocument } from '~/types/models'
 import { getProcedureFormFields, validateProcedureForm, sanitizeProcedureForm } from '~/shared/procedure-forms'
 import { phoneIssue } from '~/shared/identity-validation'
@@ -63,11 +63,87 @@ const draftId = ref(initialDraftId)
 const busy = ref(false)
 const errorText = ref('')
 const confirmed = ref(false)
+const versionNeedsReview=ref(Boolean(initialDraftId))
 const form = reactive({ applicantName: '', phone: '', description: '' })
 const formData = reactive<Record<string, string>>({})
 const attempted = ref(false)
 const today = new Date(Date.now() + 7 * 60 * 60 * 1000).toISOString().slice(0, 10)
 const fields = computed(() => getProcedureFormFields(procedure.value?.id || slug))
+const {data:guided}=await useFetch<{fields:{key:string;description:string;source:string|null}[];provenance?:string;notice:string}>(
+ `/api/procedures/${encodeURIComponent(slug)}/guide`,{key:`procedure-form-guide:${slug}`})
+const fieldGuide=(key:string)=>guided.value?.fields.find(x=>x.key===key)
+const guideQuestion=ref('')
+const guideAnswer=ref('')
+const guideOpen=ref(false)
+function suggestNextField(){
+ const field=fields.value.find(f=>f.required && !String(formData[f.key]||'').trim()) || fields.value.find(f=>!String(formData[f.key]||'').trim())
+ guideOpen.value=true
+ guideAnswer.value=field?`Bước tiếp theo: ${field.label}. ${fieldGuide(field.key)?.description||'Nhập thông tin theo giấy tờ phù hợp.'}`:'Bạn đã nhập các trường biểu mẫu hiện có. Hãy kiểm tra giấy tờ và chuyển đến bước rà soát.'
+}
+function askGuide(){
+ const q=guideQuestion.value.trim().toLowerCase()
+ if(q.length<3)return
+ const field=fields.value.find(f=>f.label.toLowerCase().includes(q)||q.includes(f.label.toLowerCase()))
+ guideOpen.value=true
+ guideAnswer.value=field?`${field.label}: ${fieldGuide(field.key)?.description||'Hãy đối chiếu giấy tờ phù hợp.'}`:'Chưa xác định được trường cụ thể từ câu hỏi. Hãy chọn một trường hoặc hỏi cán bộ hỗ trợ; trợ lý không suy đoán yêu cầu pháp lý.'
+}
+
+
+type AutofillSuggestion={fieldKey:string;label:string;key:string;value:string;source:'self_declared'|'oidc_verified';sourceLabel:string;verifiedAt:string|null}
+const {data:autofill,error:autofillError,refresh:refreshAutofill}=await useFetch<{suggestions:AutofillSuggestion[]}>(
+ '/api/citizen/autofill',{key:`citizen-autofill:${slug}`,query:{procedureId:slug},default:()=>({suggestions:[]})})
+const autofillSelected=ref<string[]>([])
+const autofillApplied=ref<string[]>([])
+const autofillReviewed=ref(true)
+const selectedSuggestions=computed(()=>autofill.value?.suggestions||[])
+function applyAutofill(){
+ if(actingFor.value!=='self')return
+ const applied:string[]=[]
+ for(const s of selectedSuggestions.value){
+  if(autofillSelected.value.includes(s.fieldKey)){
+   formData[s.fieldKey]=s.value
+   applied.push(s.fieldKey)
+  }
+ }
+ if(applied.length){autofillApplied.value=[...new Set([...autofillApplied.value,...applied])];autofillReviewed.value=false;confirmed.value=false}
+}
+function autofillProvenance(fieldKey:string){return selectedSuggestions.value.find(s=>s.fieldKey===fieldKey&&formData[fieldKey]===s.value)}
+
+// Cross-device draft continuation. Form values are stored only after an initial, validated draft exists.
+const cursorRevision=ref<number|null>(null)
+const draftSyncMessage=ref('')
+let autosaveTimer:ReturnType<typeof setTimeout>|null=null
+let autosaveInProgress=false
+async function loadDraftCursor(){
+ if(!draftId.value)return
+ try{const current=await $fetch<{revision:number;step:number}>(`/api/citizen/draft-cursors/${encodeURIComponent(draftId.value)}`)
+  cursorRevision.value=current.revision
+ }catch(error){draftSyncMessage.value='Chưa thể kiểm tra trạng thái đồng bộ: '+readableError(error)}
+}
+async function syncForm(){
+ if(!draftId.value||cursorRevision.value===null||busy.value||autosaveInProgress||!autofillReviewed.value||isInvalidDraft.value)return
+ autosaveInProgress=true
+ try{const result=await $fetch<{revision:number;savedAt:string}>(`/api/applications/${encodeURIComponent(draftId.value)}/autosave`,{
+   method:'PUT',body:{formData:sanitizeProcedureForm(slug,formData),expectedRevision:cursorRevision.value}})
+  cursorRevision.value=result.revision;draftSyncMessage.value='Đã đồng bộ bản nháp lúc '+new Date(result.savedAt).toLocaleTimeString('vi-VN')
+ }catch(error){cursorRevision.value=null;draftSyncMessage.value='Chưa thể tự lưu: '+readableError(error)+' Hãy làm mới trang để kiểm tra phiên bản.'}
+ finally{autosaveInProgress=false}
+}
+watch(formData,()=>{
+ if(!draftId.value||cursorRevision.value===null||!autofillReviewed.value)return
+ if(autosaveTimer)clearTimeout(autosaveTimer)
+ autosaveTimer=setTimeout(()=>{void syncForm()},1800)
+},{deep:true})
+onMounted(()=>{if(draftId.value)void loadDraftCursor()})
+onBeforeUnmount(()=>{if(autosaveTimer)clearTimeout(autosaveTimer)})
+function applyPacket(fields:Record<string,string>){
+ if(actingFor.value!=='self')return
+ for(const [key,value] of Object.entries(fields))if(getProcedureFormFields(slug).some(f=>f.key===key))formData[key]=value
+ autofillApplied.value=[...new Set([...autofillApplied.value,...Object.keys(fields)])]
+ autofillReviewed.value=false;confirmed.value=false
+ draftSyncMessage.value='Gợi ý chưa lưu. Hãy rà soát, xác nhận dữ liệu tự điền và lưu bản nháp.'
+}
+
 const formIssues = computed(() => validateProcedureForm(procedure.value?.id || slug, formData))
 const formError = (key: string) => formIssues.value.find(issue => issue.key === key)?.message
 const uploaded = ref<CaseDocument[]>([])
@@ -118,6 +194,7 @@ watch(batch, value=>{
 },{immediate:true})
 watch(form, () => { confirmed.value = false }, { deep: true })
 watch(formData, () => { confirmed.value = false }, { deep: true })
+watch(actingFor,()=>{autofillSelected.value=[];autofillApplied.value=[];autofillReviewed.value=true})
 watch(uploaded, () => { confirmed.value = false }, { deep: true })
 
 const missing = computed(() => procedure.value?.documents?.filter(
@@ -138,12 +215,14 @@ async function goStep(next: number) {
     path: route.path,
     query: { step: String(next), ...(draftId.value ? { draft: draftId.value } : {}), ...(batchId ? {bundle:batchId}: {}) }
   }, { replace: true })
+  if(draftId.value){try{await $fetch(`/api/citizen/draft-cursors/${encodeURIComponent(draftId.value)}`,{method:'PUT',body:{step:next}})}catch{draftSyncMessage.value='Không thể đồng bộ vị trí bước này.'}}
 }
 async function saveDraft() {
   attempted.value = true
   if (busy.value || !procedure.value || isInvalidDraft.value) return
   if (!selectedLocality.value || localities.value?.every(l => l.id !== selectedLocality.value || !l.canReceive)) {errorText.value='Vui lòng chọn địa phương tiếp nhận được hỗ trợ';return}
   if (!canNext.value) { errorText.value = phoneIssue(form.phone) || formIssues.value[0]?.message || 'Kiểm tra họ tên người nộp hồ sơ'; return }
+  if (autofillApplied.value.length&&!autofillReviewed.value){errorText.value='Vui lòng rà soát và xác nhận dữ liệu đã tự điền trước khi lưu nháp';return}
   busy.value = true
   errorText.value = ''
   try {
@@ -158,6 +237,7 @@ async function saveDraft() {
     } else {
       await $fetch(`/api/applications/${encodeURIComponent(draftId.value)}`, { method: 'PATCH', body: payload })
     }
+    await loadDraftCursor()
     busy.value = false
     await refreshNuxtData('citizen-applications')
     await goStep(2)
@@ -170,6 +250,7 @@ function recordUpload(document: CaseDocument) {
 }
 function removeUpload(id: string) { uploaded.value = uploaded.value.filter(document => document.id !== id) }
 async function submit() {
+  if(versionNeedsReview.value){errorText.value='Hãy xác nhận đã rà soát phiên bản thủ tục mới trước khi nộp';return}
   if (busy.value || !draftId.value || isInvalidDraft.value || missing.value.length || !confirmed.value) return
   busy.value = true
   errorText.value = ''
@@ -189,6 +270,8 @@ async function submit() {
 
 <template>
   <div class="space-y-4">
+    <CitizenFilingCompanion v-if="procedure&&!isInvalidDraft" :procedure-id="slug" :application-id="draftId" :current-step="step" :acting-for="actingFor" @apply="applyPacket" />
+    <p v-if="draftSyncMessage" class="rounded-lg bg-blue-50 p-2 text-xs text-brand-900" role="status">{{draftSyncMessage}}</p>
     <NuxtLink v-if="batchId" :to="`/lien-thong/${batchId}`" class="inline-flex items-center gap-2 rounded-lg bg-blue-50 px-3 py-2 text-sm font-bold text-brand-700">← Trở về nhóm hồ sơ</NuxtLink>
     <NuxtLink :to="`/thu-tuc/${slug}`" class="inline-flex items-center gap-1 text-xs font-semibold text-brand-700">
       <ArrowLeft :size="14" /> Chi tiết thủ tục
@@ -216,6 +299,7 @@ async function submit() {
       </div>
     </section>
     <template v-else-if="procedure">
+      <DraftProcedureAlert v-if="draftId" :draft-id="draftId" @status="versionNeedsReview=$event" @reviewed="retryProcedure();refreshPreflight()"/>
       <div class="panel p-4">
         <div class="mb-3 flex flex-wrap items-center justify-between gap-3">
           <div>
@@ -226,7 +310,7 @@ async function submit() {
             Bản nháp: {{ draftId }}
           </span>
         </div>
-        <div class="grid grid-cols-3 gap-2" aria-label="Các bước nộp hồ sơ">
+        <div class="grid grid-cols-1 gap-2 min-[440px]:grid-cols-3" aria-label="Các bước nộp hồ sơ">
           <div v-for="(title, index) in ['Điền biểu mẫu', 'Tải giấy tờ', 'Xác nhận & nộp']" :key="title"
             :class="['rounded-lg px-2 py-3 text-center text-xs font-bold sm:text-sm', step === index+1 ? 'bg-brand-600 text-white' : step > index+1 ? 'bg-green-100 text-green-800' : 'bg-slate-100 text-slate-500']"
             :aria-current="step === index+1 ? 'step' : undefined">
@@ -236,6 +320,12 @@ async function submit() {
       </div>
 
       <form v-if="step === 1" class="panel space-y-5 p-4 sm:p-5" @submit.prevent="saveDraft">
+        <section class="space-y-3 rounded-xl border border-blue-200 bg-blue-50/60 p-3" aria-label="Trợ lý hướng dẫn kê khai">
+          <div class="flex flex-wrap items-center justify-between gap-2"><h3 class="text-sm font-extrabold text-brand-900">Trợ lý hướng dẫn kê khai từng bước</h3><button type="button" class="btn-outline !text-xs" @click="suggestNextField">Gợi ý bước tiếp theo</button></div>
+          <div class="flex flex-wrap gap-2"><input v-model="guideQuestion" class="field min-w-0 flex-1" minlength="3" maxlength="120" placeholder="Bạn chưa hiểu trường nào?"/><button type="button" class="btn-outline" @click="askGuide">Giải thích</button></div>
+          <p v-if="guideOpen" class="rounded-lg bg-white p-3 text-sm" role="status">{{guideAnswer}}</p><p class="text-xs text-muted">Hướng dẫn từ biểu mẫu và nguồn đang công bố; không tự sửa hoặc nộp thay công dân. {{guided?.notice}}</p>
+        </section>
+
         <h3 class="section-label">Thông tin người nộp hồ sơ</h3>
         <fieldset class="rounded-xl border border-slate-200 p-3"><legend class="px-1 text-sm font-extrabold text-brand-900">Bạn thực hiện thủ tục cho ai?</legend>
           <div class="flex flex-wrap gap-4 text-sm"><label class="inline-flex items-center gap-2"><input type="radio" name="representative-mode" :checked="actingFor==='self'" @change="chooseActingFor('self')"/>Cho bản thân</label><label class="inline-flex items-center gap-2"><input type="radio" name="representative-mode" :checked="actingFor==='representative'" @change="chooseActingFor('representative')"/>Đại diện người thân</label></div>
@@ -270,15 +360,26 @@ async function submit() {
             <h3 class="section-label !mb-1">Thông tin riêng của thủ tục</h3>
             <p class="text-xs text-muted">Biểu mẫu hướng dẫn thử nghiệm theo từng thủ tục; vui lòng đối chiếu biểu mẫu chính thức khi thực hiện thực tế.</p>
           </div>
+          <div v-if="actingFor==='self'" class="space-y-3 rounded-xl border border-blue-200 bg-blue-50/60 p-4" role="region" aria-label="Trợ lý tự điền biểu mẫu">
+            <div class="flex items-center gap-2"><Sparkles class="text-brand-600" :size="19"/><h4 class="font-extrabold text-brand-900">Gợi ý điền từ hồ sơ cá nhân</h4></div>
+            <p class="text-xs leading-5 text-slate-600">Dữ liệu chỉ được điền khi bạn tự chọn và bấm áp dụng; trường thuộc về người thân hoặc người khác sẽ không được tự điền.</p>
+            <p v-if="autofillError" role="alert" class="text-xs text-rose-700">Không tải được dữ liệu tự điền. <button type="button" class="font-bold underline" @click="refreshAutofill()">Thử lại</button></p>
+            <p v-else-if="!selectedSuggestions.length" class="text-xs text-slate-600">Chưa có trường phù hợp hoặc dữ liệu cần thiết. <NuxtLink to="/ho-so-ca-nhan" class="font-bold text-brand-700 underline">Cập nhật hồ sơ cá nhân</NuxtLink>.</p>
+            <div v-else class="grid gap-2"><label v-for="s in selectedSuggestions" :key="s.fieldKey" class="flex items-start gap-3 rounded-lg border border-slate-200 bg-white p-3 text-xs"><input v-model="autofillSelected" :value="s.fieldKey" type="checkbox" class="mt-0.5 accent-blue-700"/><span class="min-w-0 flex-1"><b class="block text-sm">{{s.label}}</b><span class="mt-1 block break-words">{{s.key==='citizenIdentifier'?'••••••••'+s.value.slice(-4):s.value}}</span><span :class="['mt-1 block',s.source==='oidc_verified'?'text-green-700':'text-amber-800']">{{s.source==='oidc_verified'?'Đã xác minh qua nguồn định danh':'Dữ liệu công dân tự khai'}} · {{s.sourceLabel}}</span><span v-if="formData[s.fieldKey]" class="mt-1 block text-slate-500">Đã có giá trị trong biểu mẫu. Áp dụng sẽ thay thế giá trị hiện tại.</span></span></label></div>
+            <button v-if="selectedSuggestions.length" type="button" class="btn-outline !text-xs" :disabled="!autofillSelected.length" @click="applyAutofill"><Sparkles :size="15"/>Áp dụng {{autofillSelected.length}} trường đã chọn</button>
+            <label v-if="autofillApplied.length" class="flex items-start gap-2 rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs leading-5 text-amber-900"><input v-model="autofillReviewed" type="checkbox" class="mt-0.5 accent-blue-700"/><span>Tôi đã kiểm tra lại từng giá trị vừa tự điền và nguồn dữ liệu của chúng trước khi lưu hồ sơ.</span></label>
+          </div>
           <div class="grid gap-4 sm:grid-cols-2">
             <div v-for="field in fields" :key="field.key" :class="field.type === 'textarea' ? 'sm:col-span-2' : ''">
               <label :for="`citizen-field-${field.key}`" class="field-label">{{ field.label }} <span v-if="field.required" class="text-rose-500" aria-hidden="true">*</span></label>
+              <p v-if="fieldGuide(field.key)" class="mb-2 text-xs text-brand-700">Hướng dẫn từng bước: {{fieldGuide(field.key)?.description}} <a v-if="fieldGuide(field.key)?.source" :href="fieldGuide(field.key)?.source||undefined" target="_blank" rel="noopener noreferrer" class="underline">Nguồn công bố</a></p>
               <select v-if="field.type === 'select'" :id="`citizen-field-${field.key}`" v-model="formData[field.key]" class="field" :required="field.required" :aria-invalid="attempted && Boolean(formError(field.key))">
                 <option value="">-- Chọn thông tin --</option>
                 <option v-for="option in field.options" :key="option" :value="option">{{ option }}</option>
               </select>
               <textarea v-else-if="field.type === 'textarea'" :id="`citizen-field-${field.key}`" v-model="formData[field.key]" class="field" rows="3" :maxlength="field.maxLength || 500" :required="field.required" :placeholder="field.placeholder || ''" :aria-invalid="attempted && Boolean(formError(field.key))" />
               <input v-else :id="`citizen-field-${field.key}`" v-model="formData[field.key]" class="field" :type="field.type === 'number' || field.type === 'citizenId' ? 'text' : field.type" :inputmode="field.type === 'number' || field.type === 'citizenId' ? 'numeric' : undefined" :required="field.required" :maxlength="field.maxLength || undefined" :minlength="field.minLength || undefined" :pattern="field.type === 'number' ? '[0-9]*' : undefined" :max="field.type === 'date' ? today : undefined" :aria-describedby="field.help || (attempted && formError(field.key)) ? `hint-${field.key}` : undefined" :placeholder="field.placeholder || ''" :aria-invalid="attempted && Boolean(formError(field.key))" />
+              <p v-if="autofillApplied.includes(field.key) && autofillProvenance(field.key)" :class="['mt-1 flex items-center gap-1 text-xs',autofillProvenance(field.key)?.source==='oidc_verified'?'text-green-700':'text-amber-700']"><BadgeCheck :size="13"/>Đã áp dụng từ: {{autofillProvenance(field.key)?.sourceLabel}} — hãy kiểm tra giá trị.</p>
               <p v-if="field.help" :id="`hint-${field.key}`" class="mt-1 text-xs text-muted">{{ field.help }}</p>
               <p v-if="attempted && formError(field.key)" :id="`hint-${field.key}`" class="mt-1 text-xs font-medium text-rose-700" role="alert">{{ formError(field.key) }}</p>
             </div>
@@ -324,6 +425,7 @@ async function submit() {
             <div v-for="field in fields" :key="field.key" class="min-w-0">
               <dt class="text-xs font-semibold text-slate-500">{{ field.label }}</dt>
               <dd class="break-words font-semibold">{{ formData[field.key] || 'Không cung cấp' }}</dd>
+              <dd v-if="autofillApplied.includes(field.key) && autofillProvenance(field.key)" class="mt-1 text-xs text-brand-700">Nguồn tự điền: {{autofillProvenance(field.key)?.sourceLabel}}</dd>
             </div>
           </dl>
         </div>
@@ -351,7 +453,7 @@ async function submit() {
         </label>
         <div class="flex flex-col gap-2 border-t pt-4 sm:flex-row sm:justify-between">
           <button type="button" class="btn-outline w-full sm:w-auto" @click="goStep(2)"><ArrowLeft :size="15" /> Quay lại</button>
-          <button type="button" class="btn-primary w-full sm:w-auto" :disabled="!confirmed || Boolean(missing.length) || !preflight?.ready || Boolean(preflightError) || checkingPreflight || busy" @click="submit">
+          <button type="button" class="btn-primary w-full sm:w-auto" :disabled="versionNeedsReview || !confirmed || Boolean(missing.length) || !preflight?.ready || Boolean(preflightError) || checkingPreflight || busy" @click="submit">
             {{ busy ? 'Đang gửi...' : 'Xác nhận & nộp hồ sơ' }} <CheckCircle2 :size="16" />
           </button>
         </div>

@@ -125,6 +125,10 @@ services:
         sh /setup/init/12-workflow-secret.sh
         psql -v ON_ERROR_STOP=1 -f /setup/init/13-thu-tuc-theo-xa.sql
         psql -v ON_ERROR_STOP=1 -f /setup/init/14-luu-tru-tep.sql
+        psql -v ON_ERROR_STOP=1 -f /setup/init/15-citizen-vault-autofill.sql
+        psql -v ON_ERROR_STOP=1 -f /setup/init/16-citizen-procedure-privacy.sql
+        psql -v ON_ERROR_STOP=1 -f /setup/init/17-citizen-intelligent-services.sql
+        psql -v ON_ERROR_STOP=1 -f /setup/init/18-citizen-life-journeys.sql
         psql -v ON_ERROR_STOP=1 -c "SELECT count(*) AS published_procedures FROM procedures WHERE published = true"
         echo 'PostgreSQL setup finished successfully.'
 
@@ -239,6 +243,7 @@ services:
     environment:
       NODE_ENV: production
       CITIZEN_STAFF_BRIDGE_TOKEN: ${CITIZEN_STAFF_BRIDGE_TOKEN:-}
+      CITIZEN_GOVERNANCE_TOKEN: ${CITIZEN_GOVERNANCE_TOKEN:-}
       HOST: 0.0.0.0
       PORT: 3000
       PGHOST: db
@@ -248,6 +253,7 @@ services:
       PGPASSWORD: ${POSTGRES_APP_PASSWORD}
       SESSION_SECRET: ${SESSION_SECRET}
       DEMO_MODE: ${DEMO_MODE:-true}
+      CITIZEN_RETENTION_SCAN_ENABLED: ${CITIZEN_RETENTION_SCAN_ENABLED:-false}
       STORAGE_DIR: /app/storage
       # Nuxt runtimeConfig: ghi đè giá trị mặc định lúc chạy container.
       # Chuyển từ docker-compose.override.yml vào cấu hình chính.
@@ -261,6 +267,24 @@ services:
       CITIZEN_OIDC_RESIDENCE_TENANT_CLAIM: ${CITIZEN_OIDC_RESIDENCE_TENANT_CLAIM:-}
       CITIZEN_OIDC_TEMPORARY_TENANT_CLAIM: ${CITIZEN_OIDC_TEMPORARY_TENANT_CLAIM:-}
       CITIZEN_OIDC_LOCALITY_SCOPE: ${CITIZEN_OIDC_LOCALITY_SCOPE:-}
+      CITIZEN_PUBLIC_ORIGIN: ${CITIZEN_PUBLIC_ORIGIN:-}
+      # Dịch vụ kết quả điện tử (tùy chọn); token chỉ dùng phía máy chủ.
+      CITIZEN_RESULTS_ENDPOINT: ${CITIZEN_RESULTS_ENDPOINT:-}
+      CITIZEN_RESULTS_TOKEN: ${CITIZEN_RESULTS_TOKEN:-}
+      # Nitro runtimeConfig: bảo đảm cấu hình khả dụng khi chạy container.
+      NUXT_RESULT_ENDPOINT: ${CITIZEN_RESULTS_ENDPOINT:-}
+      NUXT_RESULT_TOKEN: ${CITIZEN_RESULTS_TOKEN:-}
+      CITIZEN_OCR_ENDPOINT: ${CITIZEN_OCR_ENDPOINT:-}
+      CITIZEN_REMINDERS_ENABLED: ${CITIZEN_REMINDERS_ENABLED:-false}
+      CITIZEN_OCR_TOKEN: ${CITIZEN_OCR_TOKEN:-}
+      # Disabled by default: only for authorized OIDC attribute contracts + explicit opt-in.
+      CITIZEN_OIDC_PERSONAL_DATA_APPROVED: ${CITIZEN_OIDC_PERSONAL_DATA_APPROVED:-false}
+      CITIZEN_OIDC_PERSONAL_DATA_SCOPE: ${CITIZEN_OIDC_PERSONAL_DATA_SCOPE:-}
+      CITIZEN_OIDC_NAME_CLAIM: ${CITIZEN_OIDC_NAME_CLAIM:-}
+      CITIZEN_OIDC_BIRTH_DATE_CLAIM: ${CITIZEN_OIDC_BIRTH_DATE_CLAIM:-}
+      CITIZEN_OIDC_IDENTIFIER_CLAIM: ${CITIZEN_OIDC_IDENTIFIER_CLAIM:-}
+      CITIZEN_OIDC_PHONE_CLAIM: ${CITIZEN_OIDC_PHONE_CLAIM:-}
+      CITIZEN_OIDC_ADDRESS_CLAIM: ${CITIZEN_OIDC_ADDRESS_CLAIM:-}
       CITIZEN_VNEID_INTEGRATION_APPROVED: ${CITIZEN_VNEID_INTEGRATION_APPROVED:-false}
       CITIZEN_OIDC_ISSUER: ${CITIZEN_OIDC_ISSUER:-}
       CITIZEN_OIDC_AUTHORIZE_URL: ${CITIZEN_OIDC_AUTHORIZE_URL:-}
@@ -317,10 +341,10 @@ services:
     ports:
       - "127.0.0.1:${COMMUNE_PORT:-3002}:3000"
 
-  # Bảng quản trị hệ thống của lõi. Chỉ tài khoản có vai trò sys_admin đăng nhập được.
+  # Bảng quản trị hệ thống (Tầng 2, gọi lõi qua cổng API). Chỉ tài khoản có vai trò sys_admin đăng nhập được.
   admin:
     build:
-      context: ./core/admin
+      context: ./apps/admin
       dockerfile: Dockerfile
     restart: unless-stopped
     depends_on:

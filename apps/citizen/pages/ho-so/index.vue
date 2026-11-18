@@ -38,9 +38,9 @@ watch(status, () => { page.value = 1 })
   <div class="space-y-4">
     <div class="flex flex-wrap items-center justify-between gap-2">
       <div><h2 class="text-xl font-black">Hồ sơ của tôi</h2><p class="text-sm text-muted">Tìm kiếm và theo dõi toàn bộ hồ sơ thuộc tài khoản của bạn.</p></div>
-      <NuxtLink to="/thu-tuc" class="btn-primary"><FilePlus2 :size="16" />Nộp hồ sơ mới</NuxtLink>
+      <div class="flex flex-wrap gap-2"><NuxtLink to="/so-giao-dich" class="btn-outline">Sổ giao dịch / Xuất CSV</NuxtLink><NuxtLink to="/thu-tuc" class="btn-primary"><FilePlus2 :size="16" />Nộp hồ sơ mới</NuxtLink></div>
     </div>
-    <div class="grid grid-cols-2 gap-3 lg:grid-cols-4">
+    <div class="grid grid-cols-1 min-[420px]:grid-cols-2 gap-3 lg:grid-cols-4">
       <MetricCard label="Tổng hồ sơ" :value="Object.values(casesPage?.counts || {}).reduce((a, b) => a + b, 0)" icon="files" />
       <MetricCard label="Đang xử lý" :value="count('processing') + count('submitted')" icon="clock" />
       <MetricCard label="Cần bổ sung" :value="count('supplement')" tone="orange" icon="alert" />

@@ -29,23 +29,27 @@ thuộc danh sách OSI (https://opensource.org/licenses).
 
 ## Thư viện (trình quản lý gói)
 
-| Thư viện              | Phiên bản | Giấy phép  | Nơi dùng                      |
-| --------------------- | --------- | ---------- | ----------------------------- |
-| Nuxt                  | 4.6.4     | MIT        | `core/admin`                  |
-| Nuxt                  | ^3.17.5   | MIT        | `apps/citizen`                |
-| Vue                   | 3.5.45    | MIT        | `core/admin`                  |
-| Vue                   | ^3.5.13   | MIT        | `apps/citizen`                |
-| Vue Router            | 5.5.1     | MIT        | `core/admin`                  |
-| Vue Router            | ^4.5.1    | MIT        | `apps/citizen`                |
-| Tailwind CSS          | 3.4.x     | MIT        | `core/admin`, `apps/citizen`  |
-| `@nuxtjs/tailwindcss` | 6.14.0    | MIT        | `core/admin`, `apps/citizen`  |
-| `lucide-vue-next`     | 1.0.0     | ISC        | `core/admin`, bộ biểu tượng   |
-| `lucide-vue-next`     | ^0.468.0  | ISC        | `apps/citizen`, bộ biểu tượng |
-| `pg`                  | ^8.16.0   | MIT        | `apps/citizen`                |
-| `zod`                 | ^3.25.0   | MIT        | `apps/citizen`                |
-| TypeScript            | ^5.8.0    | Apache-2.0 | `apps/citizen`                |
-| `@types/pg`           | ^8.15.0   | MIT        | `apps/citizen`                |
-| `@types/node`         | ^22.15.0  | MIT        | `apps/citizen`                |
+| Thư viện              | Phiên bản | Giấy phép  | Nơi dùng                                       |
+| --------------------- | --------- | ---------- | ---------------------------------------------- |
+| Nuxt                  | ^4.6.4    | MIT        | `apps/admin`                                   |
+| Nuxt                  | ^3.17.5   | MIT        | `apps/citizen`, `apps/commune`                 |
+| Vue                   | ^3.5.45   | MIT        | `apps/admin`                                   |
+| Vue                   | ^3.5.13   | MIT        | `apps/citizen`, `apps/commune`                 |
+| Vue Router            | ^5.4.0    | MIT        | `apps/admin`                                   |
+| Vue Router            | ^4.5.1    | MIT        | `apps/citizen`, `apps/commune`                 |
+| Tailwind CSS          | ^3.4.17   | MIT        | `apps/admin`, `apps/citizen`, `apps/commune`   |
+| `@nuxtjs/tailwindcss` | ^6.14.0   | MIT        | `apps/admin`, `apps/citizen`, `apps/commune`   |
+| `lucide-vue-next`     | ^1.0.0    | ISC        | `apps/admin`, bộ biểu tượng                    |
+| `lucide-vue-next`     | ^0.468.0  | ISC        | `apps/citizen`, `apps/commune`, bộ biểu tượng  |
+| `pg`                  | ^8.16.0   | MIT        | `apps/citizen`, `apps/commune`                 |
+| `zod`                 | ^3.25.0   | MIT        | `apps/citizen`, `apps/commune`                 |
+| TypeScript            | ^5.8.0    | Apache-2.0 | `apps/citizen`, `apps/commune`                 |
+| `vue-tsc`             | ^2.2.12   | MIT        | `apps/commune`, kiểm tra kiểu                  |
+| `@types/pg`           | ^8.15.0   | MIT        | `apps/citizen`, `apps/commune`                 |
+| `@types/node`         | ^22.15.0  | MIT        | `apps/citizen`, `apps/commune`                 |
+| `@playwright/test`    | ^1.56.1   | Apache-2.0 | `apps/citizen`, kiểm thử giao diện             |
+
+Các dịch vụ của lõi (`core/orchestrator`, `core/files`) chỉ dùng Node.js, không có thư viện ngoài.
 
 Các phiên bản có dấu `^` lấy từ `package.json` và là ràng buộc semver, không
 phải phiên bản cài đặt chính xác. Trước khi phát hành cần xác minh giấy phép
@@ -53,8 +57,6 @@ theo phiên bản thực tế trong `package-lock.json`.
 
 ## Mô hình AI
 
-Trọng số mô hình không nằm trong kho mã; chúng được tải về khi cài đặt.
-
-| Mô hình | Giấy phép | Dùng để |
-| ------- | --------- | ------- |
-|         |           |         |
+Kho mã không đi kèm mô hình AI nào. Trợ lý thủ tục mặc định trả lời bằng tìm kiếm toàn văn
+trên dữ liệu thủ tục (PostgreSQL). Có thể tùy chọn nối một mô hình tương thích OpenAI qua biến
+`CITIZEN_AI_ENDPOINT`; người triển khai tự chọn mô hình và tự kiểm tra giấy phép của mô hình đó.

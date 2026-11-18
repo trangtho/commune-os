@@ -22,7 +22,7 @@ SPDX-License-Identifier: Apache-2.0
 
 ## Môi trường
 
-- Phần: core / core/admin / apps/commune / apps/citizen
+- Phần: core / apps/admin / apps/commune / apps/citizen
 - Phiên bản hoặc commit:
 - Hệ điều hành, trình duyệt:
 

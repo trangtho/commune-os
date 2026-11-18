@@ -3,6 +3,7 @@
 import { z } from 'zod'
 import { validateProcedureForm, sanitizeProcedureForm } from '../../../shared/procedure-forms'
 import { citizenTx } from '../../utils/database'
+import {latestProcedureVersion} from '../../utils/procedure-version'
 import { permittedReceivingTenant } from '../../utils/citizen-preferences'
 import { applicationSchema,validate } from '../../utils/validation'
 import {requireApprovedRepresentation,requireOwnApplicant,auditRepresentativeAction} from '../../utils/representations'
@@ -15,9 +16,11 @@ export default defineEventHandler(async(event)=>{
       throw createError({ statusCode: 422, statusMessage: 'Địa phương tiếp nhận chưa được cho phép đối với thủ tục này' })
     const procedure=(await client.query('SELECT id FROM procedures WHERE id=$1 AND published=true',[body.procedureId])).rows[0]
     if(!procedure)throw createError({statusCode:400,statusMessage:'Thủ tục không tồn tại'})
-    // Xã tiếp nhận phải đã mở thủ tục này (cơ sở dữ liệu cũng tự chặn).
+    // Giữ kiểm tra xã tiếp nhận có mở thủ tục từ nhánh hiện tại.
     const enabled=(await client.query('SELECT public.procedure_enabled_for($1::uuid,$2) AS ok',[receivingTenantId,body.procedureId])).rows[0]?.ok
     if(!enabled)throw createError({statusCode:422,statusMessage:'Xã tiếp nhận chưa mở thủ tục này. Vui lòng chọn thủ tục khác hoặc liên hệ UBND xã.'})
+    // Gắn bản nháp với phiên bản thủ tục đang hiệu lực tại thời điểm tạo.
+    const procedureVersion=await latestProcedureVersion(client,body.procedureId)
     if (body.representationId) {
       await requireApprovedRepresentation(client,body.representationId,body.procedureId,body.applicantName)
     } else {
@@ -29,8 +32,9 @@ export default defineEventHandler(async(event)=>{
     const num=Number((await client.query("SELECT nextval('citizen_case_number') AS number")).rows[0].number)
     const id=`HS-${new Date().getFullYear()}-${String(num).padStart(6,'0')}`
     await client.query(`INSERT INTO applications(id,citizen_id,tenant_id,procedure_id,status,applicant_name,
-      applicant_phone,description,form_data,submitted_at,due_at,receiving_tenant_id,representation_id) VALUES($1,$2,$3,$4,'draft',$5,$6,$7,$8::jsonb,NULL,NULL,$9,$10)`,
-      [id,actor.id,actor.tenantId,body.procedureId,body.applicantName,body.phone,body.description,JSON.stringify(sanitizeProcedureForm(body.procedureId, body.formData)),receivingTenantId,body.representationId || null])
+      applicant_phone,description,form_data,submitted_at,due_at,receiving_tenant_id,representation_id,
+      procedure_version_id,acknowledged_procedure_version_id) VALUES($1,$2,$3,$4,'draft',$5,$6,$7,$8::jsonb,NULL,NULL,$9,$10,$11,$11)`,
+      [id,actor.id,actor.tenantId,body.procedureId,body.applicantName,body.phone,body.description,JSON.stringify(sanitizeProcedureForm(body.procedureId, body.formData)),receivingTenantId,body.representationId || null,procedureVersion.id])
     if (body.batchId) {
       // Validate the owner, tenant, and selected procedure before linking the new draft.
       const linked=await client.query(`UPDATE citizen_service_batch_items i SET application_id=$1

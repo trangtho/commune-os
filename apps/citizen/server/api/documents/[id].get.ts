@@ -2,11 +2,13 @@
 // SPDX-License-Identifier: Apache-2.0
 import { getObject } from '../../utils/object-store'
 import { citizenTx } from '../../utils/database'
+import {recordPersonalDataUse} from '../../utils/privacy-events'
 export default defineEventHandler(async(event)=>{
   const id=getRouterParam(event,'id')
-  const doc=await citizenTx(event,async(client)=>{
+  const doc=await citizenTx(event,async(client,actor)=>{
     const row=(await client.query('SELECT storage_key,original_name,mime_type FROM application_documents WHERE id=$1',[id])).rows[0]
     if(!row)throw createError({statusCode:404,statusMessage:'Không tìm thấy tệp có quyền truy cập'})
+    await recordPersonalDataUse(client,actor,{action:'download_case_attachment',purpose:'Xem tài liệu hồ sơ',resourceKind:'application_document',resourceReference:String(id)})
     return row
   })
   const buffer=await getObject(doc.storage_key)

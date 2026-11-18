@@ -357,3 +357,8 @@ phân quyền và kiểm thử; không dùng mã chuyển tiếp thay cho xác m
 ### Kiểm tra hồ sơ, số tại quầy, công đoạn xử lý và bổ sung theo mục
 
 Xem [tài liệu triển khai](docs/PREFLIGHT_COUNTER_STAGES_SUPPLEMENTS.md). Các API dành cho công dân và PostgREST RPC có phân quyền dành cho cán bộ được mô tả tại đó; không tự coi trạng thái lịch/quy trình là đã được cán bộ xác nhận khi chưa có dữ liệu thực.
+
+
+## Kho giấy tờ số và tự điền có nguồn dữ liệu
+
+Xem [docs/VAULT_AND_AUTOFILL.md](docs/VAULT_AND_AUTOFILL.md) để biết giao diện `/kho-giay-to`, API, RLS, cập nhật PostgreSQL và quy tắc chỉ đánh dấu dữ liệu OIDC là xác minh khi được phê duyệt + công dân đồng ý.

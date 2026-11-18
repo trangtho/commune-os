@@ -128,3 +128,202 @@ html.citizen-access-contrast .hero-gradient { background: #05336f !important; }
     transition-duration: 0.01ms !important; animation-duration: 0.01ms !important;
   }
 }
+
+/* RESPONSIVE-2026: fluid layout on phones/tablets, dashboard viewport on wide desktop.
+   Mobile browsers resize the visual viewport when their keyboard opens. Allowing the
+   document to scroll (rather than clipping a fixed-height shell) keeps fields reachable.
+   The >=1280px dashboard and print presentation retain their existing behaviour. */
+*, *::before, *::after { box-sizing: border-box; }
+:where(.citizen-app-shell) { max-width: 100%; min-width: 0; }
+:where(.citizen-app-shell) :is(.panel, .stat-tile, section, article, form, fieldset, dl, .grid > *, .flex > *) { min-width: 0; }
+:where(.citizen-app-shell) :is(h1,h2,h3,h4,p,dd,dt,label) { overflow-wrap: anywhere; }
+:where(.citizen-app-shell) :is(input,select,textarea) { max-width: 100%; }
+:where(.citizen-app-shell) :is(table) { border-collapse: collapse; }
+:where(.citizen-app-shell) :is(img,svg,video,canvas,iframe) { max-width: 100%; }
+/* Wide, data-heavy tables keep their own horizontal scroller without widening the page. */
+:where(.citizen-app-shell) .overflow-x-auto { max-width: 100%; -webkit-overflow-scrolling: touch; overscroll-behavior-x: contain; }
+/* Small touch targets and text fields are easier to use without accidental browser zoom. */
+@media (max-width: 767px) {
+ .citizen-app-shell :is(input:not([type=checkbox]):not([type=radio]):not([type=range]),textarea,select) { font-size: 16px; }
+ .citizen-app-shell :is(.btn-primary,.btn-outline,.field) { min-height: 44px; }
+ .citizen-app-shell :is(.panel,.stat-tile) { max-width: 100%; }
+ .citizen-app-shell > section .citizen-hero-title { font-size: clamp(1.12rem, 5.2vw, 1.7rem); line-height: 1.28; }
+ .citizen-app-shell > section .hero-building { opacity: .45; }
+}
+@media (max-width: 359px) {
+ .citizen-brand-logo { width: 30px; height: 30px; }
+ .citizen-app-shell > header > div:first-child { gap: .25rem; padding-inline: .4rem; }
+ .citizen-app-shell > section .citizen-hero-title { font-size: 1.14rem; }
+}
+/* Large enough touch targets in the collapsible navigation. */
+.citizen-app-shell > header nav[id="citizen-mobile-menu"] .side-link { min-height: 44px; }
+/* Natural page scrolling from 320px phones through landscape tablets and narrow laptops. */
+@media (max-width: 1279px) {
+ html,body,#__nuxt { height: auto; min-height: 100%; overflow-x: clip; overflow-y: auto; overscroll-behavior-y: auto; }
+ body { max-width: 100%; }
+ .citizen-app-shell { height: auto !important; min-height: 100vh; min-height: 100dvh; overflow: visible !important; }
+ .citizen-app-shell > header { position: sticky; top: 0; z-index: 60; }
+ .citizen-workspace { display: block !important; height: auto !important; min-height: 0 !important; overflow: visible !important; padding-bottom: calc(1.5rem + env(safe-area-inset-bottom, 0px)); }
+ .citizen-workspace > main { display: block; height: auto !important; min-height: 0 !important; overflow: visible !important; padding-right: 0 !important; padding-bottom: .5rem; }
+ .citizen-app-shell > footer { display: none !important; }
+}
+/* Short landscape displays need the same accessible document-scrolling mode. */
+@media (min-width: 1280px) and (max-height: 660px) {
+ html,body,#__nuxt { height: auto; min-height: 100%; overflow-x: clip; overflow-y: auto; overscroll-behavior-y: auto; }
+ .citizen-app-shell { height: auto !important; min-height: 100dvh; overflow: visible !important; }
+ .citizen-app-shell > header { position: sticky; top: 0; z-index: 60; }
+ .citizen-workspace { height: auto !important; min-height: 0 !important; grid-template-rows: auto !important; overflow: visible !important; }
+ .citizen-workspace > main { height: auto !important; overflow: visible !important; }
+ .citizen-workspace > aside { position: sticky; top: 80px; align-self: start; max-height: calc(100dvh - 94px); overflow-y: auto; }
+}
+@media (max-width: 639px) {
+ .citizen-app-shell > section > div:last-child { padding: .75rem .75rem 1rem; }
+ .citizen-app-shell > section h1 { max-width: 100%; }
+ .citizen-workspace { padding-inline: .75rem; padding-top: .75rem; }
+ .citizen-workspace .section-label { line-height: 1.45; }
+}
+/* Do not change the full-page print flow. */
+@media print {
+ html,body,#__nuxt { height: auto !important; overflow: visible !important; }
+ .citizen-app-shell > header { position: static !important; }
+}
+
+/* Keep the accessibility menu entirely inside a 320px-wide display. */
+@media (max-width: 639px) {
+ #citizen-accessibility-options { position: fixed; inset: calc(64px + .5rem) .75rem auto .75rem; width: auto; max-height: calc(100dvh - 84px); overflow-y: auto; }
+ /* Chat messages scroll independently but must leave space for the keyboard. */
+ #citizen-main [role="log"] { min-height: min(260px, 38dvh); max-height: min(50dvh, 500px); }
+}
+
+
+/* 2K / 16:9 desktop workspace (e.g. 2048x1152 and 2560x1440).
+   Keep the original 1850px layout below this breakpoint; scale the usable
+   canvas without stretching forms into unreadably long lines. The independent
+   workspace scroll containers remain intact, including for keyboard users. */
+@media screen and (min-width: 1920px) and (min-height: 800px) {
+  .citizen-wide-container { max-width: 2480px; }
+  .citizen-app-shell > header > .citizen-wide-container {
+    height: clamp(72px, 5.6vh, 84px);
+    padding-inline: clamp(26px, 2vw, 52px);
+    gap: clamp(.65rem, 1vw, 1.25rem);
+  }
+  .citizen-app-shell > header .citizen-brand-logo {
+    width: clamp(44px, 2.2vw, 56px);
+    height: clamp(44px, 2.2vw, 56px);
+  }
+  .citizen-app-shell > header .nav-link {
+    font-size: clamp(.86rem, .58vw, 1rem);
+    padding: .72rem .82rem;
+  }
+  .citizen-app-shell > section > .citizen-wide-container {
+    padding: clamp(20px, 1.5vh, 28px) clamp(28px, 2vw, 52px) clamp(16px, 1.3vh, 24px);
+  }
+  .citizen-app-shell > section > .citizen-wide-container > div:first-child {
+    max-width: 1080px;
+    margin-bottom: 1.1rem;
+  }
+  .citizen-app-shell > section .citizen-hero-title {
+    font-size: clamp(2.15rem, 1.72vw, 2.85rem);
+    line-height: 1.18;
+  }
+  .citizen-app-shell > section .citizen-hero-description {
+    max-width: 1000px;
+    font-size: clamp(.96rem, .72vw, 1.06rem);
+    line-height: 1.5;
+  }
+  .citizen-workspace {
+    grid-template-columns: minmax(258px, 288px) minmax(0, 1fr) minmax(300px, 338px);
+    gap: clamp(20px, 1.15vw, 30px);
+    padding: clamp(18px, 1.45vh, 26px) clamp(28px, 2vw, 52px) clamp(20px, 1.65vh, 30px);
+  }
+  .citizen-workspace > main {
+    min-width: 0;
+    padding-right: .3rem;
+    scrollbar-width: thin;
+    scrollbar-color: #c3cfdd transparent;
+  }
+  .citizen-workspace > aside:first-child {
+    padding: clamp(15px, .9vw, 21px);
+  }
+  .citizen-workspace > aside.citizen-inner-scroll {
+    scrollbar-width: thin;
+    scrollbar-color: #c3cfdd transparent;
+  }
+  .citizen-workspace > :is(main, aside)::-webkit-scrollbar { display: block; width: 7px; }
+  .citizen-workspace > :is(main, aside)::-webkit-scrollbar-thumb { background: #c3cfdd; border-radius: 20px; }
+  .citizen-workspace .side-link {
+    min-height: 43px;
+    padding: .7rem .85rem;
+    font-size: .925rem;
+    line-height: 1.35;
+    white-space: normal;
+  }
+  .citizen-workspace .section-label { font-size: 1.24rem; line-height: 1.45; }
+  .citizen-workspace .panel-title { font-size: 1.25rem; }
+  .citizen-workspace .panel { border-radius: 18px; }
+  .citizen-workspace .panel .text-xs { font-size: .84rem; line-height: 1.45; }
+  .citizen-workspace .panel .text-sm { font-size: .975rem; line-height: 1.55; }
+  .citizen-workspace .field {
+    min-height: 44px;
+    font-size: .98rem;
+  }
+  .citizen-workspace :is(.btn-primary, .btn-outline) { font-size: .925rem; }
+  .citizen-workspace .stat-tile {
+    min-height: 112px;
+    gap: 1rem;
+    padding: 1.1rem 1.15rem !important;
+  }
+  .citizen-workspace .stat-tile > span {
+    width: 54px;
+    height: 54px;
+  }
+  .citizen-workspace .stat-tile > div { min-width: 0; }
+  .citizen-workspace .stat-tile p:first-child { font-size: .9rem; line-height: 1.35; }
+  .citizen-workspace .stat-tile p:last-child { font-size: 1.75rem; line-height: 1.15; }
+  .citizen-workspace .panel table { width: 100%; font-size: .94rem; }
+  .citizen-workspace .panel table th {
+    padding: .9rem 1.05rem;
+    font-size: .85rem;
+    line-height: 1.4;
+    vertical-align: middle;
+  }
+  .citizen-workspace .panel table td {
+    padding: 1rem 1.05rem;
+    line-height: 1.5;
+    vertical-align: middle;
+  }
+  .citizen-workspace > aside:last-child .panel > img { height: 175px; }
+  .citizen-app-shell > footer { font-size: .75rem; padding-block: .35rem; }
+}
+/* Larger 2K desktops can show one additional catalog card per row; the
+   narrower 2048px viewport retains three columns for readable descriptions. */
+@media screen and (min-width: 2400px) and (min-height: 900px) {
+  .citizen-workspace .citizen-catalog-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    gap: 1.15rem;
+  }
+}
+/* Shorter desktop windows (and browser toolbars) should not lose the
+   workspace to an oversized hero. */
+@media screen and (min-width: 1920px) and (max-height: 999px) {
+  .citizen-app-shell > section > .citizen-wide-container { padding-block: .9rem; }
+  .citizen-app-shell > section .citizen-hero-title { font-size: 2rem; }
+  .citizen-workspace { padding-block: .85rem; }
+}
+
+/* The process ribbon and main actions take advantage of 2K without adding
+   a second vertical scroll area to each step. */
+@media screen and (min-width: 1920px) and (min-height: 800px) {
+  .citizen-steps { padding: .75rem; gap: .65rem; }
+  .citizen-steps > div { padding: .8rem 1rem; gap: .75rem; }
+  .citizen-steps > div > span:first-child { width: 46px; height: 46px; }
+  .citizen-steps > div p:first-child { font-size: .94rem; }
+  .citizen-steps > div p:nth-child(2) { font-size: .78rem; line-height: 1.4; }
+  .citizen-workspace .citizen-dashboard-bottom-grid {
+    grid-template-columns: minmax(0, 1.1fr) minmax(0, .9fr);
+    gap: 1.2rem;
+  }
+  /* Keep each AI answer to a readable line length on a 2K monitor. */
+  .citizen-workspace [role="log"] article > div:last-child { max-width: min(88%, 1060px); }
+  .citizen-workspace [role="log"] { max-height: min(62svh, 780px); }
+}

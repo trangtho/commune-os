@@ -3,5 +3,5 @@
 import { configOidc } from '../../utils/oidc'
 export default defineEventHandler(() => {
   const oidc=configOidc()
-  return { demo: useRuntimeConfig().public.demoMode, oidc: oidc.configured, vneid: oidc.vneid }
+  return { demo: useRuntimeConfig().public.demoMode, oidc: oidc.configured, vneid: oidc.vneid, verifiedFacts: oidc.verifiedFacts }
 })
