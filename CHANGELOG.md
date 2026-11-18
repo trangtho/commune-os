@@ -29,7 +29,7 @@ Mọi thay đổi đáng chú ý của dự án được ghi tại đây.
 - Nhật ký `staff_audit` (chỉ thêm), xem qua `GET /rest/staff_audit`.
 - Màn hình cán bộ: trang Nhân viên dùng dữ liệu thật, chỉ hiện với lãnh đạo.
 - Cán bộ đổi mật khẩu tạm ngay trên trang đăng nhập (`POST /accounts/first-password`, không cần token, giới hạn số lần thử).
-- Biến mới `KEYCLOAK_ACCOUNTS_SECRET`; `make test` thêm 4 kiểm tra (#N).
+- Biến mới `KEYCLOAK_ACCOUNTS_SECRET`; `make test` thêm 4 kiểm tra (#57).
 
 ### Bảo mật (quản lý cán bộ xã, 2026-11-16)
 
