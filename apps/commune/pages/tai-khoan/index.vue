@@ -3,6 +3,7 @@
 <script setup lang="ts">
 import { Users, UserPlus, Lock, Unlock, KeyRound, History, Pencil, Trash2 } from 'lucide-vue-next'
 import type { Staff, StaffAudit } from '~/types/models'
+import { PROFILE_FIELDS } from '~/types/staff'
 
 // Lãnh đạo xã quản lý tài khoản cán bộ xử lý của xã mình.
 // Tài khoản nằm ở Keycloak; trang này gọi dịch vụ tài khoản của lõi qua /api/staff.
@@ -14,6 +15,9 @@ const { data: audit, refresh: refreshAudit } = await useFetch<StaffAudit[]>('/ap
 const { dateTime } = useFormat()
 
 const form = reactive({ username: '', lastName: '', firstName: '', email: '' })
+// Thông tin công vụ ban đầu (không bắt buộc), lưu vào hồ sơ nhân viên ngay sau khi tạo tài khoản.
+const work = reactive({ staff_code: '', position: '', department: '', phone: '' })
+const workFields = PROFILE_FIELDS.filter((f) => ['staff_code', 'position', 'department', 'phone'].includes(f.key))
 const busy = ref('')
 const message = ref('')
 // Mật khẩu tạm chỉ hiện một lần, ngay sau khi tạo hoặc cấp lại.
@@ -39,10 +43,22 @@ async function createStaff() {
   message.value = ''
   secret.value = null
   try {
-    const r = await $fetch<{ username: string; temporaryPassword: string }>('/api/staff', { method: 'POST', body: { ...form } })
+    const r = await $fetch<{ id: string; username: string; temporaryPassword: string }>('/api/staff', { method: 'POST', body: { ...form } })
     secret.value = { username: r.username, password: r.temporaryPassword }
+    let note = ''
+    if (Object.values(work).some((v) => v.trim())) {
+      try {
+        await $fetch(`/api/management/profiles/${r.id}`, {
+          method: 'PUT',
+          body: { ...work, full_name: `${form.lastName} ${form.firstName}`.trim(), work_email: form.email },
+        })
+      } catch {
+        note = ' Chưa lưu được thông tin công vụ, hãy nhập lại ở mục Hồ sơ nhân viên.'
+      }
+    }
     Object.assign(form, { username: '', lastName: '', firstName: '', email: '' })
-    await done(`Đã tạo tài khoản ${r.username}.`)
+    Object.assign(work, { staff_code: '', position: '', department: '', phone: '' })
+    await done(`Đã tạo tài khoản ${r.username}.${note}`)
   } catch (e) {
     message.value = readableError(e)
   } finally {
@@ -239,6 +255,11 @@ async function resetPassword(s: Staff) {
               <label class="field-label" for="st-email">Email công vụ (không bắt buộc)</label>
               <input id="st-email" v-model="form.email" type="email" class="field" />
             </div>
+            <template v-if="!editId">
+              <p class="text-xs font-semibold uppercase text-muted">Thông tin công vụ (không bắt buộc)</p>
+              <ProfileFieldInput v-for="f in workFields" :key="f.key" v-model="work[f.key as keyof typeof work]" :field="f" id-prefix="st" />
+              <p class="text-xs text-muted">Các thông tin khác (giới tính, ngày sinh, trình độ, lĩnh vực phụ trách...) nhập ở mục Hồ sơ nhân viên.</p>
+            </template>
             <button type="submit" class="btn-primary w-full" :disabled="busy === 'create'">
               {{ busy === 'create' ? 'Đang lưu...' : editId ? 'Lưu thay đổi' : 'Tạo tài khoản' }}
             </button>

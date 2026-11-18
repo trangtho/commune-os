@@ -14,13 +14,13 @@ watch(()=>auth.value?.authenticated,(loggedIn)=>{
   if(loggedIn) void refreshHeaderNotices()
   else clearHeaderNotices()
 })
-const nav=[{to:'/',name:'Tổng quan',icon:Home},{to:'/ho-so',name:'Quản lý hồ sơ',icon:FolderOpen},{to:'/thu-tuc',name:'Danh mục thủ tục',icon:ClipboardList},{to:'/thong-bao',name:'Thông báo',icon:Bell},{to:'/bao-cao',name:'Báo cáo',icon:BarChart3},{to:'/tai-khoan',name:'Nhân viên',icon:Users,leaderOnly:true}]
+const nav=[{to:'/',name:'Tổng quan',icon:Home},{to:'/ho-so',name:'Quản lý hồ sơ',icon:FolderOpen},{to:'/thu-tuc',name:'Danh mục thủ tục',icon:ClipboardList},{to:'/thong-bao',name:'Thông báo',icon:Bell},{to:'/bao-cao',name:'Báo cáo',icon:BarChart3},{to:'/ho-so-ca-nhan',name:'Hồ sơ cá nhân',icon:UserRound},{to:'/tai-khoan',name:'Nhân viên',icon:Users,leaderOnly:true}]
 // Menu Nhân viên chỉ hiện với lãnh đạo xã; quyền thật do dịch vụ tài khoản của lõi kiểm tra.
 const menu=computed(()=>nav.filter(item=>!item.leaderOnly||auth.value?.role==='admin'))
 const header=computed(()=>({
   '/':'Tổng quan hoạt động','/ho-so':'Quản lý hồ sơ hành chính','/thu-tuc':'Danh mục thủ tục hành chính',
-  '/thong-bao':'Thông báo & công khai','/bao-cao':'Báo cáo thống kê','/tai-khoan':'Quản lý nhân viên'
-})[route.path]||(route.path.startsWith('/ho-so/')?'Chi tiết hồ sơ':route.path.startsWith('/thu-tuc/')?'Chi tiết thủ tục':'Bảng quản trị cán bộ'))
+  '/thong-bao':'Thông báo & công khai','/bao-cao':'Báo cáo thống kê','/tai-khoan':'Quản lý nhân viên','/ho-so-ca-nhan':'Hồ sơ cá nhân'
+})[route.path]||(route.path.startsWith('/tai-khoan/')?'Quản lý nhân viên':route.path.startsWith('/ho-so/')?'Chi tiết hồ sơ':route.path.startsWith('/thu-tuc/')?'Chi tiết thủ tục':'Bảng quản trị cán bộ'))
 const description=computed(()=>route.path==='/'?'Theo dõi tình trạng hồ sơ, duyệt và giải quyết đơn từ công dân.':route.path.startsWith('/ho-so/')?'Xem chi tiết, cập nhật tiến độ và xử lý hồ sơ.':'Quản trị minh bạch, an toàn với dữ liệu mô phỏng.')
 function isActive(path:string){return path==='/'?route.path==='/':route.path===path||route.path.startsWith(`${path}/`)}
 watch(()=>route.path,async()=>{
