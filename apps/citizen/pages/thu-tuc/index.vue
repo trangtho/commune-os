@@ -1,7 +1,7 @@
 <!-- SPDX-FileCopyrightText: 2026 CommuneOS Contributors -->
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 <script setup lang="ts">
-import { Search, RefreshCw, Sparkles, ListFilter, Settings2 } from 'lucide-vue-next'
+import { Search, RefreshCw, Sparkles, ListFilter, Settings2, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight } from 'lucide-vue-next'
 import type { Procedure } from '~/types/models'
 import { normalizeSearch } from '~/utils/search'
 const route=useRoute()
@@ -12,16 +12,52 @@ const {data:recommendations,error:recommendError,refresh:refreshRecommendations}
 }>('/api/procedures/recommended',{key:'citizen-procedure-recommendations'})
 const q=ref(String(route.query.q||''))
 const category=ref(String(route.query.category||''))
-const showRecommended=ref(true)
+const showRecommended=ref(false)
 watch(()=>route.query.category, value=>category.value=String(value||''))
 watch(()=>route.query.q, value=>q.value=String(value||''))
-const categories=computed(()=>[...new Set((procedures.value||[]).map(p=>p.category))])
+const categories=computed(()=>[...new Set((procedures.value||[]).map(p=>p.category))].sort((a,b)=>a.localeCompare(b,'vi')))
 const isFiltering=computed(()=>Boolean(q.value.trim()||category.value))
 const ranked=computed(()=>recommendations.value?.personalized&&!isFiltering.value&&showRecommended.value)
 const list=computed(()=>{
   const base=ranked.value?(recommendations.value?.items||[]):(procedures.value||[])
   return base.filter(p=>(!category.value||p.category===category.value)&&normalizeSearch(`${p.title} ${p.summary} ${p.category}`).includes(normalizeSearch(q.value)))
 })
+// Phân trang sau khi tìm kiếm/lọc: chỉ hiển thị thủ tục trong trang hiện tại.
+// Với danh mục demo 42 thủ tục, phân trang trên trình duyệt giữ nguyên API đang dùng.
+const page=ref(1)
+const pageSize=ref(12)
+const catalogTop=ref<HTMLElement|null>(null)
+const totalPages=computed(()=>Math.max(1,Math.ceil(list.value.length/pageSize.value)))
+const firstIndex=computed(()=>(page.value-1)*pageSize.value)
+const lastIndex=computed(()=>Math.min(firstIndex.value+pageSize.value,list.value.length))
+const paginated=computed(()=>list.value.slice(firstIndex.value,lastIndex.value))
+// Hiển thị tối đa 5-7 nút số trang và dấu … khi danh mục dài.
+const visiblePages=computed<(number|string)[]>(()=>{
+  const total=totalPages.value
+  if(total<=7)return Array.from({length:total},(_,i)=>i+1)
+  const selected=new Set([1,total,page.value-1,page.value,page.value+1].filter(n=>n>=1&&n<=total))
+  const sorted=[...selected].sort((a,b)=>a-b)
+  const result:(number|string)[]=[]
+  for(let i=0;i<sorted.length;i++){
+    const current=sorted[i]
+    const previous=sorted[i-1]
+    if(previous!==undefined){
+      if(current-previous===2)result.push(previous+1)
+      else if(current-previous>2)result.push(`gap-${previous}-${current}`)
+    }
+    result.push(current)
+  }
+  return result
+})
+watch([q,category,showRecommended,ranked,pageSize],()=>{page.value=1})
+watch(totalPages,n=>{if(page.value>n)page.value=n})
+async function goToPage(next:number){
+  const target=Math.max(1,Math.min(totalPages.value,next))
+  if(target===page.value)return
+  page.value=target
+  await nextTick()
+  catalogTop.value?.scrollIntoView({behavior:'smooth',block:'start'})
+}
 const reasons=(id:string)=>ranked.value?recommendations.value?.items.find(p=>p.id===id)?.reasons:undefined
 function reset(){q.value='';category.value='';showRecommended.value=false}
 </script>
@@ -47,8 +83,33 @@ function reset(){q.value='';category.value='';showRecommended.value=false}
   </div>
   <div v-if="error" class="panel space-y-2 border border-rose-200 bg-rose-50 p-5 text-rose-800" role="alert"><p class="font-bold">Không tải được danh mục thủ tục.</p><p class="text-sm">Kiểm tra kết nối PostgreSQL và thử lại.</p><button class="btn-outline" @click="refresh()"><RefreshCw :size="16"/>Thử lại</button></div>
   <div v-else-if="recommendError&&showRecommended" class="rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800" role="status">Không tải được gợi ý cá nhân. Danh mục chung vẫn có thể sử dụng. <button class="font-bold underline" @click="refreshRecommendations()">Thử lại</button></div>
+  <div ref="catalogTop" class="scroll-mt-24" aria-hidden="true"></div>
   <div v-if="!error&&!list.length" class="panel p-8 text-center text-sm text-muted">Không tìm thấy thủ tục phù hợp. Hãy chuyển sang “Tất cả thủ tục” hoặc bỏ bộ lọc.</div>
-  <div v-else-if="!error" class="citizen-catalog-grid grid gap-3 md:grid-cols-2 2xl:grid-cols-3"><ProcedureCard v-for="p in list" :key="p.id" :procedure="p" :reasons="reasons(p.id)"/></div>
+  <div v-else-if="!error" class="citizen-catalog-grid grid gap-3 md:grid-cols-2 2xl:grid-cols-3"><ProcedureCard v-for="p in paginated" :key="p.id" :procedure="p" :reasons="reasons(p.id)"/></div>
+  <nav v-if="!error&&list.length" class="panel flex flex-col gap-3 p-3 sm:p-4" aria-label="Phân trang danh mục thủ tục">
+    <div class="flex flex-wrap items-center justify-between gap-3">
+      <p class="text-xs text-muted" aria-live="polite">Hiển thị <strong>{{firstIndex+1}}–{{lastIndex}}</strong> trong <strong>{{list.length}}</strong> thủ tục</p>
+      <label for="catalog-page-size" class="flex items-center gap-2 text-xs font-medium text-slate-700">
+        Số thủ tục/trang
+        <select id="catalog-page-size" v-model.number="pageSize" class="field !w-auto !min-w-16 !py-2" aria-label="Số thủ tục hiển thị trên mỗi trang">
+          <option :value="6">6</option>
+          <option :value="12">12</option>
+          <option :value="24">24</option>
+        </select>
+      </label>
+    </div>
+    <div v-if="totalPages>1" class="flex w-full items-center justify-center gap-1 overflow-x-auto pb-1 sm:gap-2" role="group" :aria-label="`Trang ${page} trên ${totalPages}`">
+      <button type="button" class="btn-outline !min-h-10 !min-w-10 !p-2" aria-label="Trang đầu" :disabled="page===1" @click="goToPage(1)"><ChevronsLeft :size="16"/></button>
+      <button type="button" class="btn-outline !min-h-10 !min-w-10 !p-2" aria-label="Trang trước" :disabled="page===1" @click="goToPage(page-1)"><ChevronLeft :size="16"/></button>
+      <template v-for="entry in visiblePages" :key="entry">
+        <button v-if="typeof entry==='number'" type="button" :aria-label="`Trang ${entry}`" :aria-current="entry===page?'page':undefined" :class="['!min-h-10 !min-w-10 items-center justify-center rounded-lg border px-2 text-sm font-semibold transition-colors',Math.abs(entry-page)>1?'hidden sm:inline-flex':'inline-flex',entry===page?'border-brand-700 bg-brand-700 text-white':'border-slate-200 bg-white text-slate-700 hover:bg-slate-50']" @click="goToPage(entry)">{{entry}}</button>
+        <span v-else class="hidden min-w-5 items-center justify-center text-sm text-muted sm:flex" aria-hidden="true">…</span>
+      </template>
+      <button type="button" class="btn-outline !min-h-10 !min-w-10 !p-2" aria-label="Trang sau" :disabled="page===totalPages" @click="goToPage(page+1)"><ChevronRight :size="16"/></button>
+      <button type="button" class="btn-outline !min-h-10 !min-w-10 !p-2" aria-label="Trang cuối" :disabled="page===totalPages" @click="goToPage(totalPages)"><ChevronsRight :size="16"/></button>
+    </div>
+    <p v-if="totalPages>1" class="text-center text-xs text-muted">Trang {{page}} / {{totalPages}}</p>
+  </nav>
   <p class="text-xs text-muted">* Thời hạn, lệ phí và thông tin thủ tục hiện là dữ liệu minh họa; cần đối chiếu quy định chính thức trước khi nộp.</p>
 </div>
 </template>

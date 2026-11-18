@@ -43,7 +43,7 @@ export default defineEventHandler(async(event)=>citizenTx(event,async(client,act
   // Re-evaluate the persisted draft and its documents inside this same transaction.
   const preflight=await reviewStoredDraft(client,actor,String(id))
   if(!preflight.ready)throw createError({statusCode:422,statusMessage:preflight.blocking.map(x=>x.message).join('; ').slice(0,400)})
-  await client.query("UPDATE applications SET status='submitted',submitted_at=now(),updated_at=now(),due_at=CURRENT_DATE+(SELECT sla_days FROM procedures WHERE id=$2),submitted_procedure_version_id=$3 WHERE id=$1",[id,row.procedure_id,version.id])
+  await client.query("UPDATE applications SET status='submitted',submitted_at=now(),updated_at=now(),due_at=(SELECT CASE WHEN sla_days > 0 THEN CURRENT_DATE + sla_days ELSE NULL END FROM procedures WHERE id=$2),submitted_procedure_version_id=$3 WHERE id=$1",[id,row.procedure_id,version.id])
   await client.query("INSERT INTO application_events(application_id,event_type,note,actor_name) VALUES($1,'submitted','Công dân đã nộp hồ sơ và xác nhận đầy đủ giấy tờ.',$2)",[id,actor.name])
   if(row.representation_id)await auditRepresentativeAction(client,row.representation_id,actor,'application_submitted',id)
   await client.query("INSERT INTO citizen_notifications(citizen_id,tenant_id,application_id,title,body) VALUES($1,$2,$3,'Nộp hồ sơ thành công','Hồ sơ '||$3||' đã được ghi nhận.')",[actor.id,actor.tenantId,id])

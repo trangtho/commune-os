@@ -17,7 +17,7 @@ test('Database migration grants the minimum UPDATE columns needed for editing an
   const create = read('apps/citizen/server/api/applications/index.post.ts')
   assert.match(create, /'draft',[^\n]*NULL,NULL/)
   const submit = read('apps/citizen/server/api/applications/[id]/submit.post.ts')
-  assert.match(submit, /submitted_at=now\(\),updated_at=now\(\),due_at=CURRENT_DATE/)
+  assert.match(submit, /submitted_at=now\(\),updated_at=now\(\),due_at=/)
 })
 
 test('Draft editor loads saved state before rendering and prevents direct step bypass', () => {
