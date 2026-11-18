@@ -131,6 +131,7 @@ services:
         psql -v ON_ERROR_STOP=1 -f /setup/init/17-citizen-intelligent-services.sql
         psql -v ON_ERROR_STOP=1 -f /setup/init/18-citizen-life-journeys.sql
         psql -v ON_ERROR_STOP=1 -f /setup/init/16-nhat-ky-can-bo.sql
+        psql -v ON_ERROR_STOP=1 -f /setup/init/17-nhan-vien.sql
         psql -v ON_ERROR_STOP=1 -c "SELECT count(*) AS published_procedures FROM procedures WHERE published = true"
         echo 'PostgreSQL setup finished successfully.'
 

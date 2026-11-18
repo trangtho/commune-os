@@ -175,6 +175,10 @@ async function sendMessage() {
           </div>
         </div>
       </section>
+      <DossierStaffPanel
+        :dossier-id="c.id"
+        :status="c.status"
+        @changed="refresh" />
       <div class="grid min-w-0 gap-4 lg:grid-cols-2">
         <section class="panel p-4">
           <h3 class="section-label">
