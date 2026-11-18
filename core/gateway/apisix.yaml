@@ -63,4 +63,34 @@ routes:
       type: roundrobin
       nodes:
         "files:3000": 1
+  # Dịch vụ tài khoản cán bộ: cổng kiểm tra token, dịch vụ kiểm tra vai trò và xã.
+  - id: accounts
+    uri: /accounts/*
+    plugins:
+      openid-connect:
+        client_id: commune-app
+        client_secret: khong-dung
+        discovery: http://identity:8080/realms/communeos/.well-known/openid-configuration
+        bearer_only: true
+        use_jwks: true
+    upstream:
+      type: roundrobin
+      nodes:
+        "accounts:3000": 1
+  # Đổi mật khẩu tạm lần đầu (chưa có token). Mật khẩu tạm do dịch vụ kiểm tra bằng Keycloak.
+  - id: accounts-first-password
+    uri: /accounts/first-password
+    methods: ["POST"]
+    priority: 10
+    plugins:
+      limit-count:
+        count: 20
+        time_window: 60
+        key_type: var
+        key: remote_addr
+        rejected_code: 429
+    upstream:
+      type: roundrobin
+      nodes:
+        "accounts:3000": 1
 #END

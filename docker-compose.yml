@@ -47,6 +47,7 @@ services:
       KC_DB_PASSWORD: ${POSTGRES_PASSWORD}
       KC_HOSTNAME: ${KEYCLOAK_PUBLIC_URL}
       KC_HOSTNAME_BACKCHANNEL_DYNAMIC: "true"
+      KEYCLOAK_ACCOUNTS_SECRET: ${KEYCLOAK_ACCOUNTS_SECRET}
     volumes:
       - ./core/identity/realm:/opt/keycloak/data/import:ro
     depends_on:
@@ -129,6 +130,7 @@ services:
         psql -v ON_ERROR_STOP=1 -f /setup/init/16-citizen-procedure-privacy.sql
         psql -v ON_ERROR_STOP=1 -f /setup/init/17-citizen-intelligent-services.sql
         psql -v ON_ERROR_STOP=1 -f /setup/init/18-citizen-life-journeys.sql
+        psql -v ON_ERROR_STOP=1 -f /setup/init/16-nhat-ky-can-bo.sql
         psql -v ON_ERROR_STOP=1 -c "SELECT count(*) AS published_procedures FROM procedures WHERE published = true"
         echo 'PostgreSQL setup finished successfully.'
 
@@ -193,7 +195,24 @@ services:
       - workflow-engine
       - rest
 
-      # Kho đối tượng chuẩn S3 cho dữ liệu phi cấu trúc (SeaweedFS, Apache-2.0). Không mở cổng ra ngoài.
+  # Dịch vụ tài khoản cán bộ: lãnh đạo xã quản lý cán bộ xử lý của xã mình qua Keycloak Admin API.
+  accounts:
+    image: node:22-alpine
+    restart: unless-stopped
+    working_dir: /app
+    command: ["node", "server.mjs"]
+    environment:
+      KEYCLOAK_URL: http://identity:8080
+      ACCOUNTS_CLIENT_SECRET: ${KEYCLOAK_ACCOUNTS_SECRET}
+      REST_URL: http://rest:3000
+      WORKFLOW_TOKEN: ${WORKFLOW_TOKEN}
+    volumes:
+      - ./core/accounts:/app:ro
+    depends_on:
+      - identity
+      - rest
+
+  # Kho đối tượng chuẩn S3 cho dữ liệu phi cấu trúc (SeaweedFS, Apache-2.0). Không mở cổng ra ngoài.
   storage:
     image: chrislusf/seaweedfs:4.53
     restart: unless-stopped

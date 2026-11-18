@@ -112,6 +112,29 @@ code=$(curl -s -o /dev/null -w '%{http_code}' -X POST -H "Authorization: Bearer 
   -d '{"tenant_code":"xa-a","procedure_id":"khai-sinh","enabled":false}' "$GW/rest/rpc/set_tenant_procedure")
 [ "$code" = "403" ] && ok "Cán bộ xã không tự bật/tắt thủ tục được (403)" || fail "Cán bộ bật/tắt thủ tục phải 403, nhận $code"
 
+# Quản lý cán bộ: chỉ lãnh đạo xã, chỉ cán bộ xử lý cùng xã (chỉ thử các trường hợp bị từ chối).
+LA=$(token lanhdao.xa-a); LB=$(token lanhdao.xa-b)
+staff_ids() {
+  curl -s -H "Authorization: Bearer $1" "$GW/accounts/staff" |
+    python3 -c 'import json,sys; print(" ".join("%s=%s" % (u["username"], u["id"]) for u in json.load(sys.stdin)))'
+}
+code=$(curl -s -o /dev/null -w '%{http_code}' -H "Authorization: Bearer $TA" "$GW/accounts/staff")
+[ "$code" = "403" ] && ok "Cán bộ xử lý không vào được quản lý cán bộ (403)" || fail "Cán bộ xem danh sách cán bộ phải 403, nhận $code"
+
+SA=$(staff_ids "$LA"); SB=$(staff_ids "$LB")
+case "$SA" in *canbo.xa-a=*) case "$SA" in *xa-b*) fail "Lãnh đạo xã A thấy người xã B: $SA";; *) ok "Lãnh đạo xã A thấy cán bộ xã mình, không thấy xã B";; esac;;
+  *) fail "Lãnh đạo xã A không thấy canbo.xa-a: '$SA'";; esac
+
+idb=$(echo "$SB" | tr ' ' '\n' | sed -n 's/^canbo\.xa-b=//p')
+code=$(curl -s -o /dev/null -w '%{http_code}' -X PATCH -H "Authorization: Bearer $LA" -H 'Content-Type: application/json' \
+  -d '{"enabled":false}' "$GW/accounts/staff/$idb/status")
+[ "$code" = "404" ] && ok "Lãnh đạo xã A không khóa được cán bộ xã B (404)" || fail "Khóa cán bộ xã khác phải 404, nhận $code"
+
+ida=$(echo "$SA" | tr ' ' '\n' | sed -n 's/^lanhdao\.xa-a=//p')
+code=$(curl -s -o /dev/null -w '%{http_code}' -X PATCH -H "Authorization: Bearer $LA" -H 'Content-Type: application/json' \
+  -d '{"enabled":false}' "$GW/accounts/staff/$ida/status")
+[ "$code" = "403" ] && ok "Lãnh đạo không tự khóa được chính mình (403)" || fail "Tự khóa mình phải 403, nhận $code"
+
 code=$(curl -s -o /dev/null -w '%{http_code}' -H "Authorization: Bearer ${TA}sai" "$GW/rest/dossiers")
 [ "$code" = "401" ] && ok "Token bị sửa → 401" || fail "Token bị sửa phải 401, nhận $code"
 
