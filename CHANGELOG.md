@@ -11,6 +11,21 @@ Mọi thay đổi đáng chú ý của dự án được ghi tại đây.
 
 ## [Chưa phát hành]
 
+### Thêm mới (quản lý cán bộ xã, 2026-11-16)
+
+- Mỗi xã có hai vai trò: `leader` (lãnh đạo) và `officer` (cán bộ xử lý); thêm tài khoản thử `lanhdao.xa-a`, `lanhdao.xa-b`.
+- Dịch vụ tài khoản của lõi `core/accounts` sau cổng `/accounts/*`: lãnh đạo tạo, sửa, khóa, mở, cấp lại mật khẩu, xóa
+  cho cán bộ xử lý cùng xã qua Keycloak Admin API; xã và vai trò do lõi tự gán.
+- Nhật ký `staff_audit` (chỉ thêm), xem qua `GET /rest/staff_audit`.
+- Màn hình cán bộ: trang Nhân viên dùng dữ liệu thật, chỉ hiện với lãnh đạo.
+- Cán bộ đổi mật khẩu tạm ngay trên trang đăng nhập (`POST /accounts/first-password`, không cần token, giới hạn số lần thử).
+- Biến mới `KEYCLOAK_ACCOUNTS_SECRET`; `make test` thêm 4 kiểm tra (#N).
+
+### Bảo mật (quản lý cán bộ xã, 2026-11-16)
+
+- Người dùng không còn tự sửa được `tenant_id` ở trang tài khoản Keycloak (trước đây có thể tự chuyển sang xã khác).
+- Bỏ bảng `staff` và dữ liệu giả ở `apps/commune`; tài khoản cán bộ chỉ nằm ở Keycloak.
+
 ### Thay đổi (lõi không giao diện, 2026-11-16)
 
 - Chuyển bảng quản trị hệ thống từ `core/admin` sang `apps/admin`: thư mục `core/` chỉ còn dịch vụ và API.
