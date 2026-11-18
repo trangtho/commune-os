@@ -5,12 +5,21 @@ import { citizenTx } from '../../../utils/database'
 import { permittedReceivingTenant } from '../../../utils/citizen-preferences'
 import { requireApprovedRepresentation,requireOwnApplicant,auditRepresentativeAction } from '../../../utils/representations'
 import { reviewStoredDraft } from '../../../utils/preflight'
+import {latestProcedureVersion} from '../../../utils/procedure-version'
 export default defineEventHandler(async(event)=>citizenTx(event,async(client,actor)=>{
   const id=getRouterParam(event,'id')
   const body=await readBody(event)
   if(body?.confirmed!==true)throw createError({statusCode:400,statusMessage:'Bạn phải xác nhận thông tin trước khi nộp'})
+  // Lock procedure first, matching the staff publication lock order, to prevent
+  // a revision being committed between version verification and final submission.
+  const reference=(await client.query('SELECT procedure_id FROM applications WHERE id=$1',[id])).rows[0]
+  if(!reference)throw createError({statusCode:404,statusMessage:'Không tìm thấy hồ sơ'})
+  await client.query('SELECT id FROM procedures WHERE id=$1 FOR SHARE',[reference.procedure_id])
   const row=(await client.query('SELECT * FROM applications WHERE id=$1 FOR UPDATE',[id])).rows[0]
   if(!row||row.status!=='draft')throw createError({statusCode:409,statusMessage:'Hồ sơ không ở trạng thái bản nháp'})
+  const version=await latestProcedureVersion(client,row.procedure_id)
+  if(row.acknowledged_procedure_version_id!==version.id)
+    throw createError({statusCode:409,statusMessage:'Quy định thủ tục đã thay đổi. Vui lòng xem nội dung thay đổi và xác nhận phiên bản mới trước khi nộp.'})
   // A published procedure might have been withdrawn while the user edited the draft.
   const active=(await client.query('SELECT 1 FROM procedures WHERE id=$1 AND published',[row.procedure_id])).rowCount
   if(!active)throw createError({statusCode:409,statusMessage:'Thủ tục không còn được công bố; vui lòng chọn thủ tục khác'})
@@ -34,7 +43,7 @@ export default defineEventHandler(async(event)=>citizenTx(event,async(client,act
   // Re-evaluate the persisted draft and its documents inside this same transaction.
   const preflight=await reviewStoredDraft(client,actor,String(id))
   if(!preflight.ready)throw createError({statusCode:422,statusMessage:preflight.blocking.map(x=>x.message).join('; ').slice(0,400)})
-  await client.query("UPDATE applications SET status='submitted',submitted_at=now(),updated_at=now(),due_at=CURRENT_DATE+(SELECT sla_days FROM procedures WHERE id=$2) WHERE id=$1",[id,row.procedure_id])
+  await client.query("UPDATE applications SET status='submitted',submitted_at=now(),updated_at=now(),due_at=CURRENT_DATE+(SELECT sla_days FROM procedures WHERE id=$2),submitted_procedure_version_id=$3 WHERE id=$1",[id,row.procedure_id,version.id])
   await client.query("INSERT INTO application_events(application_id,event_type,note,actor_name) VALUES($1,'submitted','Công dân đã nộp hồ sơ và xác nhận đầy đủ giấy tờ.',$2)",[id,actor.name])
   if(row.representation_id)await auditRepresentativeAction(client,row.representation_id,actor,'application_submitted',id)
   await client.query("INSERT INTO citizen_notifications(citizen_id,tenant_id,application_id,title,body) VALUES($1,$2,$3,'Nộp hồ sơ thành công','Hồ sơ '||$3||' đã được ghi nhận.')",[actor.id,actor.tenantId,id])

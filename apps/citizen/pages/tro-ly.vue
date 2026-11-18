@@ -9,7 +9,8 @@ import type { CitizenChatThread, CitizenChatThreadPage, CitizenChatThreadDetail,
 interface ChatMessage {
   id: number; who: 'assistant' | 'citizen'; content: string;
   mode?: GroundedAnswer['mode']; sources?: SourceCitation[];
-  suggestions?: ProcedureSuggestion[]; notice?: string; revision?: string; isGreeting?: boolean
+  suggestions?: ProcedureSuggestion[]; notice?: string; revision?: string; isGreeting?: boolean;
+  sourceEvidence?: {procedureId:string;sourceTitle:string|null;sourceReference:string|null;sourceUrl:string|null;scope:string|null;effectiveFrom:string|null;provenance:string;independentlyVerified:boolean}[]
 }
 const route = useRoute()
 const {data: procedures, error: proceduresError, refresh: refreshProcedures} = await useFetch<Procedure[]>('/api/procedures', {key: 'citizen-procedures', default: () => []})
@@ -162,7 +163,7 @@ async function send(question = prompt.value) {
   prompt.value = ''
   busy.value = true
   try {
-    const reply = await $fetch<GroundedAnswer & {revision: string; conversationId: string | null; saved: boolean}>('/api/chat', {
+    const reply = await $fetch<GroundedAnswer & {revision: string; conversationId: string | null; saved: boolean; sourceEvidence?:ChatMessage['sourceEvidence']}> ('/api/chat', {
       method: 'POST', body: {message: text, ...(contextId ? {procedureId: contextId} : {}),
         ...(activeConversationId.value ? {conversationId: activeConversationId.value} : {})}
     })
@@ -172,7 +173,7 @@ async function send(question = prompt.value) {
     }
     history.value.push({
       id: sequence++, who: 'assistant', content: reply.answer, mode: reply.mode,
-      sources: reply.sources, suggestions: reply.suggestions, notice: reply.notice,
+      sources: reply.sources, suggestions: reply.suggestions, notice: reply.notice, sourceEvidence:reply.sourceEvidence,
       revision: reply.revision
     })
     if (!contextId && reply.mode !== 'INSUFFICIENT' && reply.sources?.length === 1) {
@@ -247,6 +248,7 @@ async function copyAnswer(message: ChatMessage) {
                 <div v-if="message.sources?.length" class="mt-3 space-y-2 border-t border-slate-100 pt-3"><p class="flex items-center gap-1 text-xs font-bold text-slate-700"><BookOpen :size="14"/> Nguồn trích dẫn trong hệ thống ({{message.sources.length}})</p>
                   <NuxtLink v-for="source in message.sources.slice(0,6)" :key="source.id" :to="source.url" class="block rounded-lg border border-blue-100 bg-blue-50/50 p-2 text-xs text-brand-800 hover:bg-blue-100"><span class="flex items-center gap-1 font-bold"><FileText :size="13"/>{{source.title}}<ArrowRight class="ml-auto shrink-0" :size="13"/></span><small v-if="source.excerpt" class="mt-1 block break-words text-slate-600">{{source.excerpt}}</small></NuxtLink>
                   <p v-if="message.sources.length>6" class="text-[11px] text-slate-500">Hiển thị 6 nguồn đầu tiên. Bạn có thể xem toàn bộ danh mục thủ tục.</p>
+                  <div v-for="proof in message.sourceEvidence||[]" :key="proof.procedureId" class="rounded-lg border border-amber-200 bg-amber-50 p-2 text-[11px] text-amber-900"><b>{{proof.sourceTitle||proof.sourceReference||proof.procedureId}}</b> · {{proof.provenance==='staff_declared'?'Đơn vị khai báo':'Nguồn demo chưa xác minh'}}<p v-if="proof.scope">Phạm vi: {{proof.scope}}</p><p v-if="proof.effectiveFrom">Hiệu lực khai báo: {{String(proof.effectiveFrom).slice(0,10)}}</p><a v-if="proof.sourceUrl" :href="proof.sourceUrl" target="_blank" rel="noopener noreferrer" class="underline">Mở nguồn đã khai báo</a><p>Chưa xác nhận độc lập tình trạng pháp lý của văn bản này.</p></div>
                 </div>
                 <div v-if="message.suggestions?.length" class="mt-3 border-t border-slate-100 pt-3"><p class="mb-2 text-xs font-bold text-slate-600">Thủ tục liên quan</p><div class="flex flex-wrap gap-2"><button v-for="item in message.suggestions" :key="item.id" class="rounded-full border border-blue-200 bg-white px-2.5 py-1 text-left text-xs font-bold text-brand-700 hover:bg-blue-50" @click="selectProcedure(item.id)">{{item.title}}</button></div></div>
                 <p v-if="message.notice" class="mt-3 text-[11px] leading-5 text-slate-500">{{message.notice}}</p>

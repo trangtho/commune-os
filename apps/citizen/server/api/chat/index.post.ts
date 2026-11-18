@@ -2,12 +2,13 @@
 // SPDX-License-Identifier: Apache-2.0
 import { getRequestIP, setHeader } from 'h3'
 import { readSession } from '../../utils/session'
-import { citizenTx } from '../../utils/database'
+import { citizenTx, publicQuery } from '../../utils/database'
 import { messageSchema, validate } from '../../utils/validation'
 import { loadPublishedKnowledge } from '../../utils/procedure-knowledge'
 import { classifyWithRagService } from '../../utils/ai-classifier'
 import { retrieveKnowledge } from '../../utils/knowledge-index'
 import { answerWithIndexedRag } from '../../utils/rag-answer'
+import {groupQuestionTopic} from '../../../shared/citizen-intelligence.mjs'
 import { buildGroundedAnswer, detectAnswerFields, isCatalogQuestion, isOutOfScope, rankProcedures } from '../../../shared/ai-knowledge'
 
 // A modest in-process limit to reduce public endpoint abuse; for multi-instance
@@ -105,11 +106,28 @@ export default defineEventHandler(async event => {
           [id, owner.id, owner.tenantId, result.answer, result.mode,
             JSON.stringify(result.sources ?? []), JSON.stringify(result.suggestions ?? []),
             result.notice ?? null, revision])
+        if (result.mode === 'INSUFFICIENT') {
+          await client.query('INSERT INTO citizen_unanswered_topics(tenant_id,topic) VALUES($1,$2)',
+            [owner.tenantId,groupQuestionTopic(body.message)])
+        }
         await client.query('UPDATE citizen_ai_conversations SET updated_at = now() WHERE id = $1', [id])
         return id
       })
     }
-    return {...result, revision, knowledgeSource: 'published_procedures', updatedOn: 'per_request', indexReady,
+    // A published catalog row is not necessarily an independently verified legal source.
+    // Associate citations with versioned provenance; do not promote staff claims to official facts.
+    const citedIds=[...new Set(result.sources.map(source=>source.id.startsWith('procedure:')?source.id.slice('procedure:'.length):'').filter(Boolean))]
+    const provenance=citedIds.length?await publicQuery<{procedure_id:string;source_url:string|null;source_title:string|null;
+      source_reference:string|null;scope_note:string|null;effective_from:string|null;provenance_status:string}>(
+      `SELECT DISTINCT ON (procedure_id) procedure_id,source_url,source_title,source_reference,scope_note,effective_from,provenance_status
+       FROM citizen_procedure_versions WHERE procedure_id=ANY($1::text[]) ORDER BY procedure_id,version_no DESC`,[citedIds]):[]
+    const sourceEvidence=citedIds.map(id=>{
+      const p=provenance.find(item=>item.procedure_id===id)
+      return {procedureId:id,sourceTitle:p?.source_title||null,sourceReference:p?.source_reference||null,
+       sourceUrl:p?.source_url?.startsWith('https://')?p.source_url:null,scope:p?.scope_note||null,
+       effectiveFrom:p?.effective_from||null,provenance:p?.provenance_status||'unverified_demo',independentlyVerified:false}
+    })
+    return {...result, revision, sourceEvidence, sourceVerification:'not_independently_verified', knowledgeSource: 'published_procedures', updatedOn: 'per_request', indexReady,
       conversationId: savedConversationId, saved: !!savedConversationId}
   } catch(error) {
     if (error && typeof error === 'object' && 'statusCode' in error) throw error

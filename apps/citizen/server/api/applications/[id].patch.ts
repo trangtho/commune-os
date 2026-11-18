@@ -25,6 +25,7 @@ export default defineEventHandler(async(event)=>{
     await client.query(`UPDATE applications SET applicant_name=$1,applicant_phone=$2,description=$3,
        form_data=$4::jsonb,receiving_tenant_id=$6,representation_id=$7,updated_at=now() WHERE id=$5`,
        [body.applicantName,body.phone,body.description,JSON.stringify(sanitizeProcedureForm(body.procedureId, body.formData)),id,receivingTenantId,body.representationId || null])
+    await client.query('UPDATE citizen_draft_cursors SET revision=revision+1,updated_at=now() WHERE application_id=$1',[id])
     return {id,status:'draft'}
   })
 })

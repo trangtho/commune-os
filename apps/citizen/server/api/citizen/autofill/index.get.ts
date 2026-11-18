@@ -1,6 +1,7 @@
 // SPDX-FileCopyrightText: 2026 CommuneOS Contributors
 // SPDX-License-Identifier: Apache-2.0
 import { citizenTx } from '../../../utils/database'
+import {recordPersonalDataUse} from '../../../utils/privacy-events'
 import { autofillSuggestions, type CitizenFact, type FactKey } from '../../../../shared/citizen-autofill'
 export default defineEventHandler(event=>citizenTx(event,async(client,actor)=>{
  const profile=(await client.query('SELECT display_name,phone,address FROM citizens WHERE id=$1',[actor.id])).rows[0]
@@ -16,6 +17,7 @@ export default defineEventHandler(event=>citizenTx(event,async(client,actor)=>{
   if(index>=0)facts[index]=fact
   else facts.push(fact)
  }
+ await recordPersonalDataUse(client,actor,{action:'read_autofill',purpose:'Đề xuất dữ liệu kê khai theo yêu cầu công dân',resourceKind:'autofill'})
  const procedureId=typeof getQuery(event).procedureId==='string'?String(getQuery(event).procedureId):''
  return {facts, suggestions:procedureId?autofillSuggestions(procedureId,facts):[],self:{birthDate:raw.birthDate,citizenIdentifier:raw.citizenIdentifier}}
 }))

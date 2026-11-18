@@ -23,7 +23,7 @@ const list=computed(()=>{
   return base.filter(p=>(!category.value||p.category===category.value)&&normalizeSearch(`${p.title} ${p.summary} ${p.category}`).includes(normalizeSearch(q.value)))
 })
 const reasons=(id:string)=>ranked.value?recommendations.value?.items.find(p=>p.id===id)?.reasons:undefined
-function reset(){q.value='';category.value='';showRecommended=false}
+function reset(){q.value='';category.value='';showRecommended.value=false}
 </script>
 <template>
 <div class="space-y-4">
@@ -48,7 +48,7 @@ function reset(){q.value='';category.value='';showRecommended=false}
   <div v-if="error" class="panel space-y-2 border border-rose-200 bg-rose-50 p-5 text-rose-800" role="alert"><p class="font-bold">Không tải được danh mục thủ tục.</p><p class="text-sm">Kiểm tra kết nối PostgreSQL và thử lại.</p><button class="btn-outline" @click="refresh()"><RefreshCw :size="16"/>Thử lại</button></div>
   <div v-else-if="recommendError&&showRecommended" class="rounded-xl border border-amber-200 bg-amber-50 p-3 text-xs text-amber-800" role="status">Không tải được gợi ý cá nhân. Danh mục chung vẫn có thể sử dụng. <button class="font-bold underline" @click="refreshRecommendations()">Thử lại</button></div>
   <div v-if="!error&&!list.length" class="panel p-8 text-center text-sm text-muted">Không tìm thấy thủ tục phù hợp. Hãy chuyển sang “Tất cả thủ tục” hoặc bỏ bộ lọc.</div>
-  <div v-else-if="!error" class="grid gap-3 md:grid-cols-2 2xl:grid-cols-3"><ProcedureCard v-for="p in list" :key="p.id" :procedure="p" :reasons="reasons(p.id)"/></div>
+  <div v-else-if="!error" class="citizen-catalog-grid grid gap-3 md:grid-cols-2 2xl:grid-cols-3"><ProcedureCard v-for="p in list" :key="p.id" :procedure="p" :reasons="reasons(p.id)"/></div>
   <p class="text-xs text-muted">* Thời hạn, lệ phí và thông tin thủ tục hiện là dữ liệu minh họa; cần đối chiếu quy định chính thức trước khi nộp.</p>
 </div>
 </template>

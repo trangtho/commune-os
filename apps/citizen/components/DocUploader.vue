@@ -10,6 +10,7 @@ const busy = ref('')
 const errorText = ref('')
 const successText = ref('')
 const pending = ref<{ code: string; file: File; url: string } | null>(null)
+const reviewedFields=ref<Record<string,string>>({})
 const reuseCode=ref('')
 const reuseVersionId=ref('')
 const reuseConfirmed=ref(false)
@@ -43,6 +44,7 @@ const done = (code: string) => Boolean(latest(code))
 function cancelSelection() {
   if (pending.value) URL.revokeObjectURL(pending.value.url)
   pending.value = null
+  reviewedFields.value = {}
 }
 onBeforeUnmount(cancelSelection)
 function onFile(event: Event, code: string) {
@@ -70,7 +72,12 @@ async function uploadSelected() {
     data.set('documentCode', code)
     const result = await $fetch<CaseDocument>(`/api/applications/${encodeURIComponent(props.applicationId)}/documents`, { method: 'POST', body: data })
     emit('uploaded', result)
-    successText.value = 'Tài liệu đã tải lên. Nếu đã có phiên bản cũ, phiên bản mới sẽ được ưu tiên.'
+    if (Object.keys(reviewedFields.value).length) {
+      try { await $fetch(`/api/applications/${encodeURIComponent(props.applicationId)}/observations`,{
+       method:'POST',body:{documentId:result.id,fields:reviewedFields.value,confirmed:true}}) }
+      catch { successText.value='Giấy tờ đã tải lên nhưng chưa thể lưu dữ liệu OCR để đối chiếu.' }
+    }
+    successText.value ||= 'Tài liệu đã tải lên. Nếu đã có phiên bản cũ, phiên bản mới sẽ được ưu tiên.'
     cancelSelection()
   } catch (error) { errorText.value = readableError(error) }
   finally { busy.value = '' }
@@ -114,6 +121,7 @@ async function deleteDoc(doc: CaseDocument) {
         <p v-else-if="vaultError" role="alert" class="text-xs text-rose-700">Không thể lấy danh sách giấy tờ. Thử lại.</p>
         <template v-else><select v-model="reuseVersionId" class="field" :aria-label="`Chọn giấy tờ từ kho cho ${req.document_name}`"><option value="">-- Chọn giấy tờ và phiên bản --</option><option v-for="item in reuseChoices" :key="item.id" :value="item.id">{{item.label}}</option></select>
           <NuxtLink to="/kho-giay-to" class="inline-block text-xs font-semibold text-brand-700 underline">Quản lý kho giấy tờ số</NuxtLink>
+          <p class="text-xs text-amber-800">Trước khi tái sử dụng, hãy <NuxtLink to="/quyen-chia-se" class="font-bold underline">cấp quyền tại Trung tâm chia sẻ</NuxtLink>. Bạn vẫn phải xác nhận riêng mỗi lần chọn giấy tờ cho một hồ sơ.</p>
           <p v-if="!reuseChoices.length" class="text-xs text-amber-800">Kho chưa có giấy tờ hợp lệ, vui lòng thêm tài liệu trước.</p>
           <label class="flex items-start gap-2 text-xs text-slate-700"><input v-model="reuseConfirmed" type="checkbox" class="mt-0.5 accent-blue-700"/><span>Tôi đã xem xét phiên bản được chọn, xác nhận phù hợp với hồ sơ này và <b>đồng ý chia sẻ riêng lần này</b>.</span></label>
           <button type="button" class="btn-primary !text-xs" :disabled="!!busy||!reuseVersionId||!reuseConfirmed" @click="attachFromVault(req.document_code)"><ShieldCheck :size="15"/>Xác nhận dùng giấy tờ</button>
@@ -126,6 +134,7 @@ async function deleteDoc(doc: CaseDocument) {
         </div>
         <img v-if="pending.file.type.startsWith('image/')" :src="pending.url" alt="Xem trước giấy tờ đã chọn" class="max-h-52 rounded-md border bg-white object-contain" />
         <a v-else :href="pending.url" target="_blank" rel="noopener noreferrer" class="inline-flex items-center gap-2 text-xs font-bold text-brand-700"><Eye :size="15" />Xem trước PDF trong thẻ mới</a>
+        <CitizenDocumentReview :file="pending.file" :application-id="applicationId" @confirm="reviewedFields=$event" />
         <button class="btn-primary w-full sm:w-auto" type="button" :disabled="!!busy" @click="uploadSelected">
           <LoaderCircle v-if="busy" :size="15" class="animate-spin" /><UploadCloud v-else :size="15" />
           {{ busy ? 'Đang tải lên...' : 'Xác nhận tải tài liệu' }}

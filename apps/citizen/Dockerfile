@@ -8,6 +8,8 @@ COPY . .
 RUN npm run build
 
 FROM node:22-alpine
+# Local QR encoder; no verification token is sent to a third-party QR service.
+RUN apk add --no-cache libqrencode-tools
 ENV NODE_ENV=production HOST=0.0.0.0 PORT=3000
 WORKDIR /app
 COPY --from=builder /app/.output ./.output

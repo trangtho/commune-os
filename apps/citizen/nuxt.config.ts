@@ -1,8 +1,16 @@
 // SPDX-FileCopyrightText: 2026 CommuneOS Contributors
 // SPDX-License-Identifier: Apache-2.0
+import {fileURLToPath} from 'node:url'
 export default defineNuxtConfig({
   compatibilityDate: '2025-05-01',
   devtools: { enabled: false },
+  // pg uses its JavaScript driver; the optional pg-native binding must not be
+  // bundled into Cloudflare Workers. Nitro aliases it to an explicit guard.
+  nitro: {
+    alias: {
+      'pg-native': fileURLToPath(new URL('./server/shims/pg-native-unavailable.mjs', import.meta.url))
+    }
+  },
   modules: ['@nuxtjs/tailwindcss'],
   tailwindcss: { cssPath: '~/assets/css/main.css' },
   app: {
@@ -34,6 +42,7 @@ export default defineNuxtConfig({
     ragToken: process.env.CITIZEN_RAG_TOKEN || '',
     resultEndpoint: process.env.CITIZEN_RESULTS_ENDPOINT || '',
     resultToken: process.env.CITIZEN_RESULTS_TOKEN || '',
+    ocrEndpoint: process.env.CITIZEN_OCR_ENDPOINT || '',
     supportEndpoint: process.env.CITIZEN_SUPPORT_ENDPOINT || '',
     staffBridgeToken: process.env.CITIZEN_STAFF_BRIDGE_TOKEN || '',
     supportToken: process.env.CITIZEN_SUPPORT_TOKEN || '',
