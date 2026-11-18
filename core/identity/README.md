@@ -11,7 +11,9 @@ Dịch vụ định danh của lõi, dùng Keycloak.
 
 - Realm `communeos` nằm trong `realm/communeos-realm.json` và được nạp tự động
   khi khởi động (`start-dev --import-realm`).
-- Realm có 5 vai: `sys_admin`, `receptionist`, `officer`, `leader`, `supervisor`.
+- Vai trò: `sys_admin` (quản trị hệ thống), `leader` (lãnh đạo xã), `officer` (cán bộ xử lý), `supervisor` (cấp trên). Mỗi xã chỉ dùng `leader` và `officer`; `receptionist` còn trong realm để tương thích, không gán cho ai.
+- Client `accounts-service`: tài khoản dịch vụ cho `core/accounts`, bí mật lấy từ biến `KEYCLOAK_ACCOUNTS_SECRET` khi nạp realm.
+- Thuộc tính `tenant_id`: người dùng chỉ xem, chỉ quản trị sửa được.
 - Mỗi người dùng có thuộc tính `tenant_id` (mã xã). Mapper trong client
   `commune-app` đưa thuộc tính này vào access token.
 

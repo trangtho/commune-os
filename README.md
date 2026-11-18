@@ -44,15 +44,16 @@ Mỗi xã tự có danh sách thủ tục được mở. Cán bộ và người 
 
 ### Dịch vụ của lõi
 
-| Dịch vụ (docker compose)          | Thành phần            | Vai trò                                                                         |
-| --------------------------------- | --------------------- | ------------------------------------------------------------------------------- |
-| `identity`                        | Keycloak              | Đăng nhập một lần, cấp token có `tenant_id`                                     |
-| `gateway`                         | Apache APISIX         | Cửa ngõ API: `/rest`, `/workflow`, `/files`, kiểm tra token                     |
-| `db`, `rest`                      | PostgreSQL, PostgREST | Dữ liệu có cấu trúc, API tự sinh, cách ly xã bằng RLS                           |
-| `workflow-engine`, `orchestrator` | Flowable, Node.js     | Quy trình xử lý hồ sơ theo sơ đồ BPMN                                           |
-| `storage`                         | SeaweedFS             | Kho đối tượng chuẩn S3 cho giấy tờ (dữ liệu phi cấu trúc)                       |
-| `files`                           | Node.js               | Dịch vụ tệp: kiểm tra, lưu, mã băm SHA-256 ([core/files](core/files/README.md)) |
-| `antivirus` (tùy chọn)            | ClamAV                | Quét mã độc tệp tải lên                                                         |
+| Dịch vụ (docker compose)          | Thành phần            | Vai trò                                                                                      |
+| --------------------------------- | --------------------- | -------------------------------------------------------------------------------------------- |
+| `identity`                        | Keycloak              | Đăng nhập một lần, cấp token có `tenant_id`                                                  |
+| `gateway`                         | Apache APISIX         | Cửa ngõ API: `/rest`, `/workflow`, `/files`, kiểm tra token                                  |
+| `db`, `rest`                      | PostgreSQL, PostgREST | Dữ liệu có cấu trúc, API tự sinh, cách ly xã bằng RLS                                        |
+| `workflow-engine`, `orchestrator` | Flowable, Node.js     | Quy trình xử lý hồ sơ theo sơ đồ BPMN                                                        |
+| `storage`                         | SeaweedFS             | Kho đối tượng chuẩn S3 cho giấy tờ (dữ liệu phi cấu trúc)                                    |
+| `files`                           | Node.js               | Dịch vụ tệp: kiểm tra, lưu, mã băm SHA-256 ([core/files](core/files/README.md))              |
+| `antivirus` (tùy chọn)            | ClamAV                | Quét mã độc tệp tải lên                                                                      |
+| `accounts`                        | Node.js               | Lãnh đạo xã quản lý tài khoản cán bộ qua Keycloak ([core/accounts](core/accounts/README.md)) |
 
 Chi tiết: [docs/](docs/).
 
@@ -96,11 +97,13 @@ rồi đặt `CLAMAV_HOST=antivirus`.
 
 Các tài khoản dưới đây là dữ liệu giả lập, chỉ dùng trên máy phát triển.
 
-| Tên đăng nhập | Mật khẩu | Xã (`tenant_id`) | Vai          | Dùng ở đâu                         |
-| ------------- | -------- | ---------------- | ------------ | ---------------------------------- |
-| `canbo.xa-a`  | `12345`  | `xa-a`           | receptionist | API `/rest`, màn hình cán bộ xã    |
-| `canbo.xa-b`  | `12345`  | `xa-b`           | receptionist | API `/rest`, màn hình cán bộ xã    |
-| `quantri`     | `12345`  | (để trống)       | sys_admin    | Bảng quản trị hệ thống (cổng 3001) |
+| Tên đăng nhập  | Mật khẩu | Xã (`tenant_id`) | Vai trò   | Dùng ở đâu                              |
+| -------------- | -------- | ---------------- | --------- | --------------------------------------- |
+| `canbo.xa-a`   | `12345`  | `xa-a`           | officer   | Màn hình cán bộ xã, API `/rest`         |
+| `canbo.xa-b`   | `12345`  | `xa-b`           | officer   | Màn hình cán bộ xã, API `/rest`         |
+| `lanhdao.xa-a` | `12345`  | `xa-a`           | leader    | Màn hình cán bộ xã, quản lý cán bộ xã A |
+| `lanhdao.xa-b` | `12345`  | `xa-b`           | leader    | Màn hình cán bộ xã, quản lý cán bộ xã B |
+| `quantri`      | `12345`  | (để trống)       | sys_admin | Bảng quản trị hệ thống (cổng 3001)      |
 
 Cả ba tài khoản có sẵn trong tệp realm và được nạp tự động khi dựng lần đầu.
 

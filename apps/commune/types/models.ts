@@ -8,4 +8,5 @@ export interface CaseDocument { id:string; document_code:string; original_name:s
 export interface CaseEvent { id:number; event_type:string; note:string; actor_name:string; created_at:string }
 export interface Notice { id:string; application_id:string|null; title:string; body:string; category:string; is_read:boolean; created_at:string; recipient_role?:string }
 export interface Profile { id:string; display_name:string; email:string; phone:string; address:string; tenant_name:string }
-export interface Staff { id:string; username:string; display_name:string; role:'officer'|'admin'; tenant_id:string; is_active:boolean; created_at:string }
+export interface Staff { id:string; username:string; firstName:string; lastName:string; email:string|null; role:'leader'|'officer'; enabled:boolean; createdAt:string; isMe:boolean; manageable:boolean }
+export interface StaffAudit { actor:string; action:'create'|'update'|'lock'|'unlock'|'reset_password'|'delete'; target_username:string; created_at:string }

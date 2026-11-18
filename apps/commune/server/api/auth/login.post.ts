@@ -37,7 +37,18 @@ export default defineEventHandler(async (event) => {
       },
     )
     token = res.access_token
-  } catch {
+  } catch (e: any) {
+    // Tài khoản mới tạo hoặc vừa được cấp lại mật khẩu tạm: Keycloak bắt đổi mật khẩu trước.
+    if (String(e?.data?.error_description || '').includes('not fully set up')) {
+      throw createError({
+        statusCode: 403,
+        statusMessage: 'Bạn cần đặt mật khẩu mới trước khi dùng hệ thống',
+        data: { code: 'password_change_required' },
+      })
+    }
+    if (String(e?.data?.error_description || '').includes('disabled')) {
+      throw createError({ statusCode: 403, statusMessage: 'Tài khoản đang bị khóa. Liên hệ lãnh đạo xã.' })
+    }
     throw createError({ statusCode: 401, statusMessage: 'Tên đăng nhập hoặc mật khẩu không đúng' })
   }
 
