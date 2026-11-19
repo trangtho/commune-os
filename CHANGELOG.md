@@ -11,6 +11,16 @@ Mọi thay đổi đáng chú ý của dự án được ghi tại đây.
 
 ## [Chưa phát hành]
 
+### Thêm mới (hồ sơ cá nhân và điều hành cán bộ, 2026-11-19)
+
+- Hồ sơ cá nhân cho mọi cán bộ (`/ho-so-ca-nhan`): thông tin, giấy tờ, yêu cầu, việc được giao.
+  Mọi thay đổi do cán bộ đề nghị chỉ áp dụng khi lãnh đạo duyệt.
+- Khu Nhân viên cho lãnh đạo: hồ sơ nhân viên, hàng chờ duyệt, giao việc, giám sát khối lượng công việc.
+- Phân công hồ sơ của dân cho cán bộ; hai cấp duyệt: cán bộ xử lý phải trình lãnh đạo trước khi trả kết quả,
+  được ép bằng trigger trong cơ sở dữ liệu.
+- Dịch vụ tệp thêm `/files/staff-documents` (giấy tờ cá nhân, có SHA-256).
+- `core/db/init/17-nhan-vien.sql`; tài liệu `docs/QUAN_LY_NHAN_VIEN.md`; `make test` thêm 3 kiểm tra (#58).
+
 ### Thêm mới (quản lý cán bộ xã, 2026-11-16)
 
 - Mỗi xã có hai vai trò: `leader` (lãnh đạo) và `officer` (cán bộ xử lý); thêm tài khoản thử `lanhdao.xa-a`, `lanhdao.xa-b`.
@@ -19,7 +29,7 @@ Mọi thay đổi đáng chú ý của dự án được ghi tại đây.
 - Nhật ký `staff_audit` (chỉ thêm), xem qua `GET /rest/staff_audit`.
 - Màn hình cán bộ: trang Nhân viên dùng dữ liệu thật, chỉ hiện với lãnh đạo.
 - Cán bộ đổi mật khẩu tạm ngay trên trang đăng nhập (`POST /accounts/first-password`, không cần token, giới hạn số lần thử).
-- Biến mới `KEYCLOAK_ACCOUNTS_SECRET`; `make test` thêm 4 kiểm tra (#N).
+- Biến mới `KEYCLOAK_ACCOUNTS_SECRET`; `make test` thêm 4 kiểm tra (#57).
 
 ### Bảo mật (quản lý cán bộ xã, 2026-11-16)
 

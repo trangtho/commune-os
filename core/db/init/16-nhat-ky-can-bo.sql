@@ -14,6 +14,11 @@ CREATE TABLE IF NOT EXISTS staff_audit (
   created_at timestamptz NOT NULL DEFAULT now()
 );
 
+-- Máy đã tạo bảng bằng bản cũ (chỉ 4 thao tác): cập nhật ràng buộc cho đủ 6 thao tác.
+ALTER TABLE staff_audit DROP CONSTRAINT IF EXISTS staff_audit_action_check;
+ALTER TABLE staff_audit ADD CONSTRAINT staff_audit_action_check
+  CHECK (action IN ('create', 'update', 'lock', 'unlock', 'reset_password', 'delete'));
+
 CREATE OR REPLACE FUNCTION public.staff_audit_block_change() RETURNS trigger
 LANGUAGE plpgsql AS $$
 BEGIN

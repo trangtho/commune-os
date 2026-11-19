@@ -135,6 +135,18 @@ code=$(curl -s -o /dev/null -w '%{http_code}' -X PATCH -H "Authorization: Bearer
   -d '{"enabled":false}' "$GW/accounts/staff/$ida/status")
 [ "$code" = "403" ] && ok "Lãnh đạo không tự khóa được chính mình (403)" || fail "Tự khóa mình phải 403, nhận $code"
 
+# Hồ sơ cá nhân và hai cấp duyệt.
+n=$(curl -s -H "Authorization: Bearer $TA" "$GW/rest/staff_requests" |
+  python3 -c 'import json,sys; print(len(json.load(sys.stdin)))')
+[ "$n" = "0" ] && ok "Cán bộ xử lý không xem được yêu cầu của người khác" || fail "Cán bộ xử lý thấy $n yêu cầu của cả xã"
+
+code=$(curl -s -o /dev/null -w '%{http_code}' -X POST -H "Authorization: Bearer $TA" -H 'Content-Type: application/json' \
+  -d '{"request_id":"00000000-0000-0000-0000-000000000000","approve":true}' "$GW/rest/rpc/decide_staff_request")
+[ "$code" = "403" ] && ok "Cán bộ xử lý không duyệt được yêu cầu (403)" || fail "Cán bộ duyệt yêu cầu phải 403, nhận $code"
+
+code=$(wf "$TA" HS-2026-001197 '{"action":"completed","note":"kiem thu"}')
+[ "$code" = "400" ] && ok "Cán bộ xử lý không tự trả kết quả khi lãnh đạo chưa duyệt (400)" || fail "Trả kết quả chưa duyệt phải 400, nhận $code"
+
 code=$(curl -s -o /dev/null -w '%{http_code}' -H "Authorization: Bearer ${TA}sai" "$GW/rest/dossiers")
 [ "$code" = "401" ] && ok "Token bị sửa → 401" || fail "Token bị sửa phải 401, nhận $code"
 
