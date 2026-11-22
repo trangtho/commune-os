@@ -16,6 +16,8 @@ Bảng quản trị cán bộ (Nuxt) cho CommuneOS. Dùng để duyệt, giải 
 - Thông báo (`/thong-bao`): thông báo cho cán bộ do lõi tự sinh (hồ sơ mới, được giao hồ sơ, hồ sơ đã bổ sung,
   yêu cầu và kết quả duyệt), đọc qua `/rest/staff_notifications`; trạng thái đã đọc tính riêng từng cán bộ.
   Chỉ lãnh đạo xã gửi được thông báo cho công dân của xã.
+- Trợ lý AI nghiệp vụ: nút nổi trên mọi trang (`components/StaffAssistant.vue`, `server/api/tro-ly.post.ts`), gọi cổng AI
+  của lõi bằng token cán bộ; chỉ dùng thủ tục xã đang mở và hướng dẫn nghiệp vụ, không truy cập hồ sơ hay dữ liệu công dân.
 - `types/models.ts` – TypeScript interfaces chia sẻ với cổng Công dân
 
 ## Cài đặt và chạy

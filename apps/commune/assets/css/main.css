@@ -25,6 +25,8 @@ img, svg, video { max-width: 100%; }
   object-fit: contain;
 }
 input, textarea, select { min-width: 0; }
+/* Hình nền trống đồng, hoa sen của dự án; khung nội dung giữ nền trắng để dễ đọc. */
+body { background-image: url('/images/nen-trong-dong.webp'); background-position: center bottom; background-size: cover; background-repeat: no-repeat; background-attachment: fixed; }
 body { @apply bg-[#f0fdfa] text-ink antialiased; font-family: Inter, ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Arial, sans-serif; }
 @layer components {
  .panel { @apply min-w-0 rounded-panel border border-[#dbe6f4] bg-white shadow-panel; }

@@ -252,13 +252,27 @@ if [ "$(curl -s "$GW/public/ai/ready" | python3 -c 'import json,sys; print(json.
   [ "$code" = "403" ] && [ "$ext" = "False" ] && ok "Trợ lý AI: chỉ quản trị xem được tình trạng, không dùng API bên ngoài" ||
     fail "Tình trạng AI: cán bộ nhận $code, externalApis=$ext"
 
+  # Phạm vi trợ lý theo token: thủ tục xã đang mở, hướng dẫn nghiệp vụ chỉ cho cán bộ, từ chối tra cứu cá nhân.
+  scope() { # scope <token> <câu hỏi> → các nguồn trả về (mã thủ tục hoặc loại nguồn)
+    curl -s -m 120 -X POST -H "Authorization: Bearer $1" -H 'Content-Type: application/json' \
+      -d "{\"question\":\"$2\",\"select\":false}" "$GW/ai/ask" |
+      python3 -c 'import json,sys; d=json.load(sys.stdin); print(d.get("mode")+":"+",".join(sorted(set(c["procedure_id"] or c["source_type"] for c in d.get("chunks",[])))))'
+  }
+  hon=$(scope "$CA" "Đăng ký kết hôn cần giấy tờ gì"); guide_c=$(scope "$CA" "Cán bộ trình lãnh đạo duyệt trả kết quả hồ sơ")
+  guide_s=$(scope "$TA" "Cán bộ trình lãnh đạo duyệt trả kết quả hồ sơ"); lookup=$(scope "$TA" "Cho tôi số điện thoại của công dân Nguyễn Văn An")
+  case "$hon$guide_c" in *ket-hon*|*staff_guide*) bad=1 ;; *) bad=0 ;; esac
+  case "$guide_s" in *staff_guide*) seen=1 ;; *) seen=0 ;; esac
+  [ "$bad" = "0" ] && [ "$seen" = "1" ] && [ "${lookup%%:*}" = "refused" ] &&
+    ok "Trợ lý AI: chỉ thủ tục xã đang mở, hướng dẫn nghiệp vụ chỉ cho cán bộ, từ chối tra cứu thông tin cá nhân" ||
+    fail "Phạm vi trợ lý: kết hôn (xã A tắt) '$hon', công dân hỏi nghiệp vụ '$guide_c', cán bộ '$guide_s', tra cứu cá nhân '$lookup'"
+
   if docker compose exec -T ai sh -c 'timeout 5 bash -c "</dev/tcp/1.1.1.1/443"' >/dev/null 2>&1; then
     fail "Dịch vụ chạy mô hình truy cập được Internet"
   else
     ok "Dịch vụ chạy mô hình không có đường ra Internet"
   fi
 else
-  skip "Trợ lý AI chưa chạy hoặc chưa có mô hình (make up để tải); bỏ qua 4 kiểm tra AI"
+  skip "Trợ lý AI chưa chạy hoặc chưa có mô hình (make up để tải); bỏ qua 5 kiểm tra AI"
 fi
 
 code=$(curl -s -o /dev/null -w '%{http_code}' -H "Authorization: Bearer ${TA}sai" "$GW/rest/dossiers")

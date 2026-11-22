@@ -47,7 +47,12 @@ export default defineEventHandler(async event => {
   }
 
   try {
-    const {catalog, faq, revision} = await loadPublishedKnowledge()
+    const published = await loadPublishedKnowledge()
+    const {faq, revision} = published
+    // Công dân đã đăng nhập chỉ được trả lời về thủ tục xã mình đang mở; khách xem danh mục đã công bố.
+    const enabledIds = actor ? new Set((await publicQuery<{id:string}>(
+      'SELECT p.id FROM procedures p WHERE p.published AND public.procedure_enabled_for($1::uuid, p.id)', [actor.tenantId])).map(row => row.id)) : null
+    const catalog = enabledIds ? published.catalog.filter(p => enabledIds.has(p.id)) : published.catalog
     // If a context is provided it MUST still be a published procedure; no guessing.
     if (contextId && !catalog.some(p => p.id === contextId)) throw createError({statusCode:404,statusMessage:'Thủ tục không có trong danh mục đang công bố'})
     const generalQuestion = isCatalogQuestion(body.message) || isOutOfScope(body.message)
@@ -58,11 +63,14 @@ export default defineEventHandler(async event => {
     const semanticId = semanticProcedure(ai, new Set(catalog.map(p => p.id)))
     // Thủ tục do tìm kiếm ngữ nghĩa chỉ ra được ưu tiên hơn xếp hạng theo từ khóa (từ khóa bỏ dấu dễ khớp nhầm,
     // ví dụ "đại học" với "đất đai"); câu trả lời vẫn chỉ dựng từ dữ liệu thủ tục đã công bố.
-    let result = buildGroundedAnswer(body.message, catalog, {
-      contextId: contextId || semanticId, faq,
-      selectedIds: semanticId ? [semanticId] : undefined,
-      aiUsed: !!semanticId
-    })
+    // Lõi từ chối câu hỏi tra cứu thông tin cá nhân hay hồ sơ cụ thể: trả lời từ chối, không tra cứu thêm.
+    let result = ai?.mode === 'refused'
+      ? {answer: ai.refusal || 'Trợ lý không tra cứu thông tin cá nhân hay hồ sơ cụ thể.', sources: [], suggestions: [], mode: 'INSUFFICIENT' as const, notice: ''}
+      : buildGroundedAnswer(body.message, catalog, {
+        contextId: contextId || semanticId, faq,
+        selectedIds: semanticId ? [semanticId] : undefined,
+        aiUsed: !!semanticId
+      })
     // The index is an acceleration and retrieval layer only. Its citations
     // must agree with the canonical, freshly loaded catalog response.
     let indexReady = false

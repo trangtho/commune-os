@@ -12,6 +12,8 @@
 //   GET  /ai/status         (chỉ sys_admin) mô hình, chỉ mục vector, thời gian phản hồi
 //   GET  /health
 //
+// Phạm vi: chỉ thủ tục xã của người hỏi đang mở (xã lấy từ token); hướng dẫn nghiệp vụ chỉ cho cán bộ.
+// Không truy cập hồ sơ, giấy tờ, thông báo hay bất kỳ dữ liệu cá nhân nào.
 // /ai/ask: che số định danh, số điện thoại, email trong câu hỏi → tạo vector câu hỏi → tìm kiếm lai
 // trên chỉ mục tri thức (thủ tục đã công bố, câu hỏi thường gặp) → nguồn được tách thành câu đánh số,
 // mô hình ngôn ngữ CHỈ trả số thứ tự câu trả lời được câu hỏi; trích dẫn lấy nguyên văn từ nguồn theo số đó,
@@ -73,7 +75,8 @@ async function caller(req) {
   const citizen = claims.azp === 'citizen-app' && roles.includes('citizen') && claims.citizen_id
   const staff = claims.azp === 'commune-app' && (claims.tenant_id || roles.includes('sys_admin'))
   if (!citizen && !staff) throw new HttpError(403, 'Tài khoản không được dùng trợ lý AI')
-  return { sub: claims.sub, roles, kind: citizen ? 'citizen' : 'staff' }
+  // Phạm vi tri thức lấy từ token đã ký: xã của người hỏi; cán bộ thấy thêm hướng dẫn nghiệp vụ.
+  return { sub: claims.sub, roles, kind: citizen ? 'citizen' : 'staff', tenant: citizen ? claims.citizen_tenant : (claims.tenant_id || '') }
 }
 
 // ---------- Giới hạn số lần gọi (theo người dùng hoặc địa chỉ IP) ----------
@@ -98,6 +101,17 @@ export function maskPersonalData(text) {
     .replace(/\b\d{9,12}\b/g, () => { masked = true; return '[số định danh]' })
   return { text: out, masked }
 }
+
+// Câu hỏi tra cứu thông tin của một người cụ thể hoặc một hồ sơ cụ thể: từ chối trước khi tìm kiếm.
+// Trợ lý không có quyền đọc hồ sơ; việc tra cứu hồ sơ làm trên màn hình nghiệp vụ, theo đúng phân quyền.
+export function personalLookup(text) {
+  const t = text.normalize('NFC').toLowerCase()
+  return /\bhs-\d{4}-\d{3,}\b/.test(t)
+    || /\b(của|cua)\s+(công dân|cong dan|người dân|nguoi dan|người khác|nguoi khac|ông|ong|bà|ba|anh|chị|chi|cán bộ|can bo)\b/.test(t)
+    || /(danh sách|thông tin|số điện thoại|địa chỉ|căn cước|ngày sinh)\s+(các\s+)?(công dân|người dân|người nộp)/.test(t)
+}
+const REFUSAL = 'Trợ lý chỉ trả lời về thủ tục và hướng dẫn chung, không tra cứu thông tin cá nhân hay hồ sơ cụ thể. '
+  + 'Hồ sơ của bạn xem ở mục Hồ sơ của tôi; cán bộ xem hồ sơ trên màn hình nghiệp vụ theo phân quyền của xã.'
 
 // ---------- Ollama và PostgREST ----------
 async function ollama(path, body, timeout) {
@@ -193,13 +207,20 @@ const recordError = (where, e) => {
   console.error(`[ai] ${where}: ${stats.lastError.message}`)
 }
 
-async function ask(body, who) {
+// who: 'guest' | 'citizen' | 'staff'; tenant: mã xã từ token ('' với khách và quản trị hệ thống).
+async function ask(body, who, tenant = '') {
   const question = typeof body.question === 'string' ? body.question.trim() : ''
   if (question.length < 2 || question.length > 500) throw new HttpError(400, 'Câu hỏi phải từ 2 đến 500 ký tự')
   const procedureId = typeof body.procedureId === 'string' && /^[a-z0-9-]{2,80}$/.test(body.procedureId) ? body.procedureId : ''
   const started = Date.now()
   const timings = {}
   const { text, masked } = maskPersonalData(question)
+  if (personalLookup(question)) {
+    stats.asks += 1
+    console.log(`[ai] ask ${who} từ chối: tra cứu thông tin cá nhân hoặc hồ sơ cụ thể`)
+    return { mode: 'refused', refusal: REFUSAL, chunks: [], selections: [], masked,
+      models: { chat: CHAT_MODEL, embed: EMBED_MODEL }, timings: { totalMs: Date.now() - started } }
+  }
 
   let vector = null
   try {
@@ -212,6 +233,8 @@ async function ask(body, who) {
   const chunks = await rpc('knowledge_search', {
     p_query: text, p_embedding: vector ? `[${vector.join(',')}]` : null, p_procedure_id: procedureId, p_limit: 8,
     p_min_similarity: MIN_SIMILARITY,
+    // Công dân, khách không bao giờ thấy hướng dẫn nghiệp vụ nội bộ; người đăng nhập chỉ thấy thủ tục xã mình mở.
+    p_audience: who === 'staff' ? 'staff' : 'citizen', p_tenant_code: tenant || '',
   })
   timings.searchMs = Date.now() - t1
 
@@ -321,7 +344,7 @@ async function handle(req, res) {
   if (req.method === 'POST' && url.pathname === '/ai/ask') {
     const me = await caller(req)
     if (limited(`sub:${me.sub}`, 30)) throw new HttpError(429, 'Bạn đang hỏi quá nhiều. Vui lòng thử lại sau một phút.')
-    return json(res, 200, await ask(await readJson(req), me.kind))
+    return json(res, 200, await ask(await readJson(req), me.kind, me.tenant))
   }
   if (req.method === 'GET' && url.pathname === '/ai/status') {
     const me = await caller(req)

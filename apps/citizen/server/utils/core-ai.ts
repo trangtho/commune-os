@@ -10,7 +10,8 @@ import { citizenGateway } from './identity'
 import { readSession } from './session'
 
 export type CoreAiResult = {
-  mode: 'model' | 'semantic' | 'text'
+  mode: 'model' | 'semantic' | 'text' | 'refused'
+  refusal?: string
   chunks: Array<IndexedChunk & { similarity: number | null; matched: 'text' | 'vector' | 'both' }>
   selections: ModelSelection[]
   masked: boolean
