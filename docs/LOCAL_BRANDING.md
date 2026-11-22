@@ -3,27 +3,31 @@ SPDX-FileCopyrightText: 2026 CommuneOS Contributors
 SPDX-License-Identifier: Apache-2.0
 -->
 
-# CommuneOS – cập nhật hai logo (bản mô phỏng)
+# CommuneOS – biểu trưng (bản mô phỏng)
 
-## Thay đổi
+## Hiện trạng
 
-- Thay biểu tượng ngôi sao tròn tự tạo trong header của cổng công dân bằng hai logo cạnh nhau: Bộ Công an (bên trái) và Học viện Kỹ thuật và Công nghệ An ninh (bên phải).
-- Logo hiển thị tại mọi kích thước màn hình. Trên điện thoại hẹp, nhãn đăng nhập thu gọn thành biểu tượng, còn ở chiều rộng dưới 360px thì ẩn chữ CommuneOS để ưu tiên hai logo và điều hướng.
-- Thiết lập biểu tượng tab trình duyệt (favicon) theo logo Học viện.
+- Header của Kênh người dân, màn hình cán bộ và bảng quản trị dùng biểu trưng CommuneOS do nhóm tự vẽ
+  (hình trụ sở cách điệu trên nền màu chủ đạo của từng ứng dụng), kèm chữ CommuneOS. Biểu tượng tab trình duyệt
+  (favicon) dùng cùng tệp này.
+- Ở chiều rộng dưới 360px, Kênh người dân ẩn chữ CommuneOS, chỉ giữ biểu trưng và điều hướng.
+- Dự án không dùng logo của cơ quan, tổ chức nào; hai logo trước đây đã được gỡ vì không có quyền sử dụng.
 
 ## Tệp ảnh
 
-- `apps/citizen/public/images/logo-bo-cong-an.png`
-- `apps/citizen/public/images/logo-hoc-vien-ky-thuat-cong-nghe-an-ninh.png`
+- `apps/citizen/public/images/logo-communeos.svg` (xanh dương)
+- `apps/commune/public/images/logo-communeos.svg` (xanh ngọc)
+- `apps/admin/public/images/logo-communeos.svg` (chàm)
 
-**Lưu ý:** Hai hình ảnh đã được vẽ lại từ ảnh tham chiếu do người dùng cung cấp, không phải tệp logo chính thức được xác minh. Nếu cần sử dụng nhận diện chính thức, hãy thay bằng tệp chuẩn do cơ quan chủ quản cung cấp (giữ nguyên tên tệp), và chỉ dùng khi được phép. Dự án CommuneOS vẫn là bản mô phỏng.
+Ba tệp SVG có tiêu đề SPDX Apache-2.0. Muốn đổi màu hay hình, sửa trực tiếp tệp SVG (giữ nguyên tên tệp).
 
 ## Xem kết quả trên máy local
 
 Tại thư mục dự án:
 
 ```bash
-docker compose -f docker-compose.yml up -d --build citizen
+docker compose up -d --build citizen commune admin
 ```
 
-Truy cập `http://localhost:3000` và tải lại trang (Cmd+Shift+R nếu favicon hoặc logo còn lưu trong cache). Không cần chỉnh sửa cơ sở dữ liệu.
+Truy cập `http://localhost:3000`, `http://localhost:3002`, `http://localhost:3001` và tải lại trang (Ctrl+Shift+R nếu
+favicon còn lưu trong cache). Không cần chỉnh sửa cơ sở dữ liệu.
