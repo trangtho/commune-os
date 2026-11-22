@@ -1080,7 +1080,7 @@
       "id": "3b8e1f6a-9d2c-4e57-8a10-6c4d2e9f7b02",
       "clientId": "citizen-app",
       "name": "Kênh người dân",
-      "description": "Máy chủ Kênh người dân đổi tên đăng nhập và mật khẩu của công dân lấy token",
+      "description": "Máy chủ Kênh người dân (giữ client secret) đổi tên đăng nhập và mật khẩu của công dân lấy token",
       "rootUrl": "",
       "adminUrl": "",
       "baseUrl": "",
@@ -1097,7 +1097,7 @@
       "implicitFlowEnabled": false,
       "directAccessGrantsEnabled": true,
       "serviceAccountsEnabled": false,
-      "publicClient": true,
+      "publicClient": false,
       "frontchannelLogout": true,
       "protocol": "openid-connect",
       "attributes": {
@@ -1158,7 +1158,8 @@
         "profile",
         "basic"
       ],
-      "optionalClientScopes": []
+      "optionalClientScopes": [],
+      "secret": "${CITIZEN_KEYCLOAK_SECRET}"
     },
     {
       "id": "c5c108d1-7f5e-4d31-87b6-8933aacf3b14",

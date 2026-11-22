@@ -48,9 +48,24 @@ vai trò `citizen-app`; hàm `public.rest_pre_request()` (biến `PGRST_DB_PRE_R
 `app.citizen_id`, `app.tenant_id` để chính sách RLS của các bảng công dân áp dụng
 (`core/db/init/19-citizen-rest-api.sql`). Token công dân không đọc được các API của cán bộ ở trên (403).
 
+Luồng chính của Kênh người dân là các hàm trong `core/db/init/21-citizen-api-core-flow.sql`, gọi bằng
+`POST /rest/rpc/<tên hàm>` với tham số JSON (tên bắt đầu bằng `p_`). Hàm chạy bằng quyền người gọi nên RLS
+áp dụng; ràng buộc nghiệp vụ kiểm tra lại khi ghi. Lỗi nghiệp vụ trả mã HTTP tương ứng (mã `PTxyz`) kèm
+lời nhắn tiếng Việt.
+
 | Muốn | Gọi |
 | --- | --- |
 | Thông tin của công dân đang đăng nhập | `GET /rest/my_citizen_profile` |
+| Danh mục, chi tiết thủ tục (công dân thấy thủ tục xã mình mở) | `procedure_catalog`, `procedure_detail` |
+| Hồ sơ cá nhân: xem, sửa | `citizen_profile`, `citizen_profile_update` |
+| Hồ sơ của tôi, một hồ sơ, dữ liệu bản nháp | `citizen_applications`, `citizen_application`, `citizen_application_draft` |
+| Tạo, sửa, tự lưu bản nháp | `citizen_application_create`, `citizen_application_update`, `citizen_application_autosave` |
+| Nộp hồ sơ (chặn nếu thiếu giấy tờ bắt buộc) | `citizen_application_submit` |
+| Giấy tờ: ghi, xóa, lấy để tải | `citizen_document_add`, `citizen_document_remove`, `citizen_document_file` |
+| Thông báo: xem, đọc một, đọc tất cả | `citizen_notifications`, `citizen_notification_read`, `citizen_notifications_read_all` |
+
+Khách chưa đăng nhập gọi `procedure_catalog`, `procedure_detail` qua `POST /public/rpc/...` (không token,
+PostgREST dùng vai trò `web_anon` chỉ được gọi hai hàm này).
 
 Hồ sơ thuộc về xã tiếp nhận: `tenant_code` là xã xử lý hồ sơ, `home_tenant_code` là xã của người nộp.
 

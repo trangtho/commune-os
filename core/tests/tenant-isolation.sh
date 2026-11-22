@@ -12,6 +12,8 @@ KC="${KEYCLOAK_URL:-http://localhost:8080}"
 GW="${GATEWAY_URL:-http://localhost:${GATEWAY_PORT:-9080}}"
 PASS="${DEMO_PASSWORD:-12345}"
 CITIZEN_PASS="${CITIZEN_DEMO_PASSWORD:-Demo@2026!}"
+# Bí mật của client citizen-app: lấy từ biến môi trường, không có thì đọc tệp .env.
+CITIZEN_SECRET="${CITIZEN_KEYCLOAK_SECRET:-$(sed -n 's/^CITIZEN_KEYCLOAK_SECRET=//p' .env 2>/dev/null | tail -1)}"
 FAIL=0
 
 ok()   { echo "  ĐẠT  $1"; }
@@ -149,11 +151,20 @@ code=$(curl -s -o /dev/null -w '%{http_code}' -X POST -H "Authorization: Bearer 
 code=$(wf "$TA" HS-2026-001197 '{"action":"completed","note":"kiem thu"}')
 [ "$code" = "400" ] && ok "Cán bộ xử lý không tự trả kết quả khi lãnh đạo chưa duyệt (400)" || fail "Trả kết quả chưa duyệt phải 400, nhận $code"
 
-# Công dân: token của client citizen-app, RLS theo công dân qua cổng /rest.
+# Công dân: token của client bí mật citizen-app, RLS theo công dân qua cổng /rest.
 citizen_token() {
+  secret=""; [ "$1" = "citizen-app" ] && secret="$CITIZEN_SECRET"
   curl -s -X POST "$KC/realms/communeos/protocol/openid-connect/token" \
-    -d grant_type=password -d client_id="$1" -d username="$2" --data-urlencode password="$3" |
+    -d grant_type=password -d client_id="$1" --data-urlencode client_secret="$secret" \
+    -d username="$2" --data-urlencode password="$3" |
     python3 -c 'import json,sys; print(json.load(sys.stdin).get("access_token",""))'
+}
+rpc() { # rpc <token|-> <tên hàm> <json>  → in mã HTTP; "-" là khách, gọi qua /public
+  if [ "$1" = "-" ]; then
+    curl -s -o /dev/null -w '%{http_code}' -X POST -H 'Content-Type: application/json' -d "$3" "$GW/public/rpc/$2"
+  else
+    curl -s -o /dev/null -w '%{http_code}' -X POST -H "Authorization: Bearer $1" -H 'Content-Type: application/json' -d "$3" "$GW/rest/rpc/$2"
+  fi
 }
 logins() {
   curl -s -H "Authorization: Bearer $1" "$GW/rest/my_citizen_profile?select=login_name" |
@@ -176,6 +187,30 @@ SC=$(citizen_token citizen-app canbo.xa-a "$PASS")
 code=$(curl -s -o /dev/null -w '%{http_code}' -X POST -H "Authorization: Bearer $CA" -H 'Content-Type: application/json' \
   -d '{"currentPassword":"sai-mat-khau","newPassword":"MatKhauMoi2026"}' "$GW/accounts/me/password")
 [ "$code" = "403" ] && ok "Đổi mật khẩu với mật khẩu hiện tại sai bị từ chối (403)" || fail "Đổi mật khẩu sai mật khẩu cũ phải 403, nhận $code"
+
+nosecret=$(curl -s -X POST "$KC/realms/communeos/protocol/openid-connect/token" -d grant_type=password -d client_id=citizen-app \
+  -d username=congdan.demo --data-urlencode password="$CITIZEN_PASS" | python3 -c 'import json,sys; print(json.load(sys.stdin).get("access_token",""))')
+[ -z "$nosecret" ] && ok "Không có client secret thì không xin được token công dân" || fail "Xin được token công dân mà không cần client secret"
+
+# Kênh người dân qua API của lõi.
+n=$(curl -s -X POST -H 'Content-Type: application/json' -d '{}' "$GW/public/rpc/procedure_catalog" |
+  python3 -c 'import json,sys; d=json.load(sys.stdin); print(len(d) if isinstance(d,list) else -1)')
+code=$(rpc - citizen_profile '{}')
+[ "$n" -gt 0 ] && [ "$code" = "404" ] && ok "Khách xem được danh mục thủ tục qua /public, không gọi được hàm của công dân" ||
+  fail "Danh mục công khai trả $n thủ tục, hàm công dân qua /public trả $code"
+
+APP_A=$(curl -s -X POST -H "Authorization: Bearer $CA" -H 'Content-Type: application/json' -d '{}' "$GW/rest/rpc/citizen_applications" |
+  python3 -c 'import json,sys; d=json.load(sys.stdin); print(d[0]["id"] if isinstance(d,list) and d else "")')
+codeA=$(rpc "$CA" citizen_application "{\"p_application_id\":\"$APP_A\"}")
+codeB=$(rpc "$CB" citizen_application "{\"p_application_id\":\"$APP_A\"}")
+[ -n "$APP_A" ] && [ "$codeA" = "200" ] && [ "$codeB" = "404" ] && ok "Công dân B không đọc được hồ sơ của công dân A qua API lõi (404)" ||
+  fail "Đọc hồ sơ $APP_A: chủ hồ sơ $codeA, người khác $codeB"
+
+code=$(rpc "$CB" citizen_application_submit "{\"p_application_id\":\"$APP_A\",\"p_expected_updated_at\":\"2026-01-01T00:00:00Z\"}")
+[ "$code" = "404" ] && ok "Công dân B không nộp được hồ sơ của công dân A (404)" || fail "Nộp hồ sơ của người khác phải 404, nhận $code"
+
+code=$(rpc "$TA" citizen_applications '{}')
+[ "$code" = "403" ] && ok "Token cán bộ không gọi được API của công dân (403)" || fail "Cán bộ gọi API công dân phải 403, nhận $code"
 
 code=$(curl -s -o /dev/null -w '%{http_code}' -H "Authorization: Bearer ${TA}sai" "$GW/rest/dossiers")
 [ "$code" = "401" ] && ok "Token bị sửa → 401" || fail "Token bị sửa phải 401, nhận $code"

@@ -42,7 +42,8 @@ Keycloak (`/realms/communeos/account`) rồi mới đăng nhập được màn h
 
 `KEYCLOAK_URL`, `KEYCLOAK_REALM` (mặc định `communeos`), `ACCOUNTS_CLIENT_ID`
 (mặc định `accounts-service`), `ACCOUNTS_CLIENT_SECRET`, `TOKEN_AZP` (mặc định `commune-app`),
-`REST_URL`, `WORKFLOW_TOKEN` (khóa nội bộ của lõi), `PORT` (mặc định 3000).
+`REST_URL`, `WORKFLOW_TOKEN` (khóa nội bộ của lõi), `PORT` (mặc định 3000),
+`CITIZEN_CLIENT_ID` (mặc định `citizen-app`), `CITIZEN_CLIENT_SECRET` (để kiểm tra mật khẩu công dân).
 
 Lưu ý Keycloak 26.8: Admin API chỉ nhận token có client scope `kc-admin-api`, nên client
 `accounts-service` có scope này trong tệp realm.

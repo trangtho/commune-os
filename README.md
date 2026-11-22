@@ -40,8 +40,9 @@ Giấy phép của các thành phần bên thứ ba được liệt kê trong
 
 Lõi hoàn toàn không có giao diện: chỉ có dịch vụ và API. Bảng quản trị (`apps/admin`) và
 phần xử lý hồ sơ của màn hình cán bộ (`apps/commune`) gọi lõi qua cửa ngõ API.
-Kênh người dân (`apps/citizen`) đăng nhập qua Keycloak và cửa ngõ; phần lớn chức năng còn lại vẫn
-đọc ghi PostgreSQL trực tiếp bằng vai trò `communeos_app` (có RLS), chưa đi qua cửa ngõ.
+Kênh người dân (`apps/citizen`) đăng nhập qua Keycloak; luồng chính (thủ tục, bản nháp, nộp hồ sơ,
+giấy tờ, hồ sơ của tôi, thông báo, hồ sơ cá nhân) gọi lõi qua cửa ngõ. Các chức năng phụ còn lại vẫn
+đọc ghi PostgreSQL trực tiếp bằng vai trò `communeos_app` (có RLS).
 Mỗi xã tự có danh sách thủ tục được mở. Cán bộ và người dân chỉ thấy, chỉ nộp được thủ tục xã mình đang mở; cơ sở dữ liệu tự chặn nếu ai đó vượt qua giao diện. Quản trị hệ thống cấu hình xã và thủ tục nhưng không đọc được nội dung hồ sơ.
 
 ### Dịch vụ của lõi
@@ -49,7 +50,7 @@ Mỗi xã tự có danh sách thủ tục được mở. Cán bộ và người 
 | Dịch vụ (docker compose)          | Thành phần            | Vai trò                                                                                      |
 | --------------------------------- | --------------------- | -------------------------------------------------------------------------------------------- |
 | `identity`, `identity-setup`      | Keycloak              | Đăng nhập một lần cho cán bộ và công dân; `identity-setup` bổ sung mục mới vào realm đã có  |
-| `gateway`                         | Apache APISIX         | Cửa ngõ API: `/rest`, `/workflow`, `/files`, `/accounts`, kiểm tra token                     |
+| `gateway`                         | Apache APISIX         | Cửa ngõ API: `/rest`, `/workflow`, `/files`, `/accounts` (kiểm tra token), `/public` (khách) |
 | `db`, `rest`                      | PostgreSQL, PostgREST | Dữ liệu có cấu trúc, API tự sinh, cách ly xã bằng RLS                                        |
 | `workflow-engine`, `orchestrator` | Flowable, Node.js     | Quy trình xử lý hồ sơ theo sơ đồ BPMN                                                        |
 | `storage`                         | SeaweedFS             | Kho đối tượng chuẩn S3 cho giấy tờ (dữ liệu phi cấu trúc)                                    |
@@ -76,7 +77,7 @@ git clone https://github.com/trangtho/commune-os.git
 cd commune-os
 cp .env.example .env      # sửa mật khẩu trong .env
 make up                   # dựng, khởi động toàn bộ dịch vụ và tự nạp dữ liệu mẫu (db-setup)
-make test                 # 33 kiểm tra qua gateway: cách ly xã, quy trình, tệp, tài khoản, công dân (xem core/tests)
+make test                 # 38 kiểm tra qua gateway: cách ly xã, quy trình, tệp, tài khoản, công dân (xem core/tests)
 make test-citizen         # kiểm thử đơn vị Kênh người dân
 ```
 
@@ -98,6 +99,8 @@ Sau khi `make up` chạy xong, mở trình duyệt:
 
 Xem chú thích từng biến trong [.env.example](.env.example).
 Với kho lưu trữ tệp, cần đặt `S3_SECRET_KEY` và `FILES_SERVICE_TOKEN` bằng giá trị ngẫu nhiên
+(`openssl rand -hex 24`); tương tự với `CITIZEN_KEYCLOAK_SECRET`, bí mật của client `citizen-app`
+mà chỉ máy chủ Kênh người dân giữ. Giá trị trong `.env.example` chỉ dùng trên máy phát triển.
 (`openssl rand -hex 24`). Bật quét mã độc: `docker compose --profile antivirus up -d antivirus`
 rồi đặt `CLAMAV_HOST=antivirus`.
 
@@ -148,10 +151,13 @@ Poka-yoke, kho giấy tờ cá nhân, tự điền biểu mẫu, theo dõi tiế
 
 Hiện trạng cần biết (chi tiết trong [docs/CITIZEN_SETUP.md](docs/CITIZEN_SETUP.md)):
 
-- Đăng nhập công dân qua Keycloak (client `citizen-app`); hồ sơ công dân khi đăng nhập được đọc qua cổng
-  `/rest`, đổi mật khẩu qua `/accounts/me/password`. Kết nối OIDC bên ngoài là tùy chọn, tắt mặc định.
-- Các chức năng còn lại đọc ghi PostgreSQL trực tiếp (vai trò `communeos_app`, RLS theo công dân và xã),
-  lưu giấy tờ qua dịch vụ tệp `files` của lõi (SeaweedFS, SHA-256, ClamAV tùy chọn).
+- Đăng nhập công dân qua Keycloak (client bí mật `citizen-app`); đổi mật khẩu qua `/accounts/me/password`.
+  Kết nối OIDC bên ngoài là tùy chọn, tắt mặc định.
+- Luồng chính gọi các hàm `api.*` của lõi qua cổng `/rest` (khách xem thủ tục qua `/public`); lõi kiểm tra
+  lại mọi ràng buộc khi ghi, kể cả đủ giấy tờ bắt buộc. Giấy tờ lưu qua dịch vụ tệp `files` của lõi
+  (SeaweedFS, SHA-256, ClamAV tùy chọn).
+- Các chức năng phụ còn lại (kho giấy tờ, đại diện, lịch hẹn, lộ trình, trợ lý...) vẫn đọc ghi
+  PostgreSQL trực tiếp (vai trò `communeos_app`, RLS theo công dân và xã).
 - Trợ lý hỏi đáp là tìm kiếm toàn văn trên chỉ mục thủ tục đã công bố, **không dùng mô hình ngôn ngữ**.
 - Kết quả giải quyết là phiếu mô phỏng, chưa ký số.
 

@@ -1,22 +1,9 @@
 // SPDX-FileCopyrightText: 2026 CommuneOS Contributors
 // SPDX-License-Identifier: Apache-2.0
-import { publicQuery } from '../../utils/database'
-import { dbIssue } from '../../utils/db-diagnostics'
-import { readSession } from '../../utils/session'
-export default defineEventHandler(async(event)=>{
-  const id=getRouterParam(event,'id')
-  try {
-    const procedure=(await publicQuery('SELECT * FROM procedures WHERE id=$1 AND published=true',[id]))[0]
-    if(!procedure)throw createError({statusCode:404,statusMessage:'Không tìm thấy thủ tục'})
-    const documents=await publicQuery('SELECT document_code,document_name,is_required FROM procedure_documents WHERE procedure_id=$1 ORDER BY document_code',[id])
-    // available_in_my_commune: xã của người dân đang đăng nhập có mở thủ tục này không (null nếu chưa đăng nhập).
-    const tenantId=readSession(event)?.tenantId
-    const available=tenantId?(await publicQuery('SELECT public.procedure_enabled_for($1::uuid,$2) AS ok',[tenantId,id]))[0]?.ok:null
-    return {...procedure,documents,available_in_my_commune:available}
-  } catch (error) {
-    if ((error as {statusCode?:number})?.statusCode===404) throw error
-    const issue=dbIssue(error)
-    console.error('[procedure-detail] Database query failed, reason:',issue.code)
-    throw createError({ statusCode:503, statusMessage:issue.message, data:{errorCode:issue.code} })
-  }
+// Chi tiết thủ tục; available_in_my_commune: xã của công dân có mở thủ tục này không (null nếu là khách).
+import { catalogRpc } from '../../utils/identity'
+export default defineEventHandler(async (event) => {
+  const id = String(getRouterParam(event, 'id') || '')
+  if (!/^[a-z0-9-]{2,80}$/.test(id)) throw createError({ statusCode: 404, statusMessage: 'Không tìm thấy thủ tục' })
+  return catalogRpc(event, 'procedure_detail', { p_procedure_id: id })
 })

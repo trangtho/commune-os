@@ -20,10 +20,11 @@ test('Database has policies and required citizen entities',()=>{
  assert.match(sql,/citizen_login_lookup/)
 })
 test('Poka-yoke is enforced by the API, not only the button',()=>{
- const submit=get('apps/citizen/server/api/applications/[id]/submit.post.ts')
- assert.match(submit,/NOT EXISTS/)
- assert.match(submit,/missing\.length/)
- assert.match(submit,/422/)
+ // Poka-yoke nằm trong lõi (api.citizen_application_submit): thiếu giấy tờ bắt buộc thì không nộp được.
+ assert.match(get('apps/citizen/server/api/applications/[id]/submit.post.ts'),/citizen_application_submit/)
+ const core=get('core/db/init/21-citizen-api-core-flow.sql')
+ assert.match(core,/AND d\.is_required AND NOT EXISTS/)
+ assert.match(core,/citizen_fail\(422, 'Thiếu giấy tờ: '/)
 })
 test('No real ID data in seed and files are validated',()=>{
  const seed=get('core/db/seed/seed.sql')

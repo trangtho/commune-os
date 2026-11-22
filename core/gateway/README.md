@@ -18,6 +18,7 @@ Cửa ngõ API của lõi, dùng Apache APISIX ở chế độ đọc cấu hìn
 | `/files/*` | Dịch vụ tệp (`core/files`) | Bắt buộc JWT |
 | `/accounts/*` | Dịch vụ tài khoản (`core/accounts`) | Bắt buộc JWT |
 | `/accounts/first-password` | Dịch vụ tài khoản | Không cần token, giới hạn số lần thử |
+| `/public/rpc/procedure_catalog`, `/public/rpc/procedure_detail` | PostgREST, vai trò `web_anon` | Không cần token (header `Authorization` bị bỏ), giới hạn 120 lần/phút; khách xem danh mục thủ tục |
 | `/api/ping` | Keycloak | Tuyến thử |
 
 Các tuyến bắt buộc JWT dùng plugin `openid-connect` (kiểm chữ ký bằng JWKS và kiểm nơi cấp);

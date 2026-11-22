@@ -49,6 +49,7 @@ services:
       KC_HOSTNAME: ${KEYCLOAK_PUBLIC_URL}
       KC_HOSTNAME_BACKCHANNEL_DYNAMIC: "true"
       KEYCLOAK_ACCOUNTS_SECRET: ${KEYCLOAK_ACCOUNTS_SECRET}
+      CITIZEN_KEYCLOAK_SECRET: ${CITIZEN_KEYCLOAK_SECRET}
     volumes:
       - ./core/identity/realm:/opt/keycloak/data/import:ro
     depends_on:
@@ -67,6 +68,7 @@ services:
       KEYCLOAK_URL: http://identity:8080
       KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN}
       KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD}
+      CITIZEN_KEYCLOAK_SECRET: ${CITIZEN_KEYCLOAK_SECRET}
     volumes:
       - ./core/identity:/app:ro
     depends_on:
@@ -151,6 +153,7 @@ services:
         psql -v ON_ERROR_STOP=1 -f /setup/init/17-nhan-vien.sql
         psql -v ON_ERROR_STOP=1 -f /setup/init/19-citizen-rest-api.sql
         psql -v ON_ERROR_STOP=1 -f /setup/init/20-citizen-procedure-lock.sql
+        psql -v ON_ERROR_STOP=1 -f /setup/init/21-citizen-api-core-flow.sql
         psql -v ON_ERROR_STOP=1 -c "SELECT count(*) AS published_procedures FROM procedures WHERE published = true"
         echo 'PostgreSQL setup finished successfully.'
 
@@ -172,11 +175,12 @@ services:
     environment:
       PGRST_DB_URI: postgres://authenticator:${POSTGRES_REST_PASSWORD}@db:5432/${POSTGRES_DB}
       PGRST_DB_SCHEMAS: api
-      PGRST_DB_ANON_ROLE: ""
       PGRST_JWT_SECRET: "@/keys/jwks.json"
       PGRST_JWT_ROLE_CLAIM_KEY: ".azp"
       # Đặt biến RLS của công dân từ token (core/db/init/19-citizen-rest-api.sql).
       PGRST_DB_PRE_REQUEST: public.rest_pre_request
+      # Khách chưa đăng nhập: chỉ gọi được hàm cấp cho web_anon (danh mục thủ tục), qua cổng /public/rpc.
+      PGRST_DB_ANON_ROLE: web_anon
       PGRST_SERVER_PORT: "3000"
     volumes:
       - rest-keys:/keys:ro
@@ -226,6 +230,7 @@ services:
     environment:
       KEYCLOAK_URL: http://identity:8080
       ACCOUNTS_CLIENT_SECRET: ${KEYCLOAK_ACCOUNTS_SECRET}
+      CITIZEN_CLIENT_SECRET: ${CITIZEN_KEYCLOAK_SECRET}
       REST_URL: http://rest:3000
       WORKFLOW_TOKEN: ${WORKFLOW_TOKEN}
     volumes:
@@ -311,6 +316,7 @@ services:
       # Đăng nhập công dân bằng Keycloak (client citizen-app), gọi lõi qua cổng APISIX.
       NUXT_KEYCLOAK_URL: http://identity:8080
       NUXT_GATEWAY_URL: http://gateway:9080
+      NUXT_KEYCLOAK_CLIENT_SECRET: ${CITIZEN_KEYCLOAK_SECRET}
       CITIZEN_OIDC_PROVIDER: ${CITIZEN_OIDC_PROVIDER:-identity}
       CITIZEN_OIDC_RESIDENCE_TENANT_CLAIM: ${CITIZEN_OIDC_RESIDENCE_TENANT_CLAIM:-}
       CITIZEN_OIDC_TEMPORARY_TENANT_CLAIM: ${CITIZEN_OIDC_TEMPORARY_TENANT_CLAIM:-}

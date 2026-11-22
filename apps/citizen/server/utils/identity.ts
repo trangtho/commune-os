@@ -1,12 +1,13 @@
 // SPDX-FileCopyrightText: 2026 CommuneOS Contributors
 // SPDX-License-Identifier: Apache-2.0
 //
-// Đăng nhập công dân bằng Keycloak (client citizen-app) và gọi lõi qua cổng APISIX.
+// Đăng nhập công dân bằng Keycloak (client bí mật citizen-app) và gọi lõi qua cổng APISIX.
+// Chỉ máy chủ Kênh người dân giữ client secret, nên công dân không tự xin token để gọi thẳng API lõi.
 // Token Keycloak giữ trong cookie HttpOnly, mã hóa AES-256-GCM bằng khóa suy ra từ SESSION_SECRET;
 // trình duyệt không đọc được token. Token truy cập hết hạn thì tự gia hạn bằng refresh token.
 import { createCipheriv, createDecipheriv, createHash, randomBytes } from 'node:crypto'
 import { getCookie, setCookie, deleteCookie, createError, type H3Event } from 'h3'
-import { signOut } from './session'
+import { readSession, signOut } from './session'
 
 const REALM = 'communeos'
 const CLIENT_ID = 'citizen-app'
@@ -22,6 +23,7 @@ function settings() {
     keycloak: String(c.keycloakUrl || '').replace(/\/$/, ''),
     gateway: String(c.gatewayUrl || '').replace(/\/$/, ''),
     secret: String(c.sessionSecret || ''),
+    clientSecret: String(c.keycloakClientSecret || ''),
   }
 }
 const tokenUrl = () => `${settings().keycloak}/realms/${REALM}/protocol/openid-connect/token`
@@ -58,6 +60,9 @@ export function tokenClaims(token: string): Record<string, any> {
 }
 
 async function requestToken(body: URLSearchParams): Promise<TokenResponse> {
+  const clientSecret = settings().clientSecret
+  if (!clientSecret) throw createError({ statusCode: 503, statusMessage: 'Chưa cấu hình CITIZEN_KEYCLOAK_SECRET cho Kênh người dân' })
+  body.set('client_secret', clientSecret)
   let response: Response
   try {
     response = await fetch(tokenUrl(), {
@@ -141,7 +146,44 @@ export async function revokeTokens(event: H3Event) {
   if (!refresh) return
   await fetch(`${settings().keycloak}/realms/${REALM}/protocol/openid-connect/logout`, {
     method: 'POST', headers: { 'content-type': 'application/x-www-form-urlencoded' },
-    body: new URLSearchParams({ client_id: CLIENT_ID, refresh_token: refresh.t }),
+    body: new URLSearchParams({ client_id: CLIENT_ID, client_secret: settings().clientSecret, refresh_token: refresh.t }),
     redirect: 'error', signal: AbortSignal.timeout(5000),
   }).catch(() => undefined)
+}
+
+/** Đổi lỗi từ cổng API (PostgREST, dịch vụ lõi) thành lỗi trả cho trình duyệt, không lộ chi tiết nội bộ. */
+export function coreError(error: any) {
+  if (error?.statusCode && !error?.status) return error
+  const status = Number(error?.status) || 0
+  const code = String(error?.data?.code || '')
+  if (!status || status >= 500) {
+    console.error('[core] Lời gọi lõi thất bại:', status || 'không kết nối được', code)
+    return createError({ statusCode: 503, statusMessage: 'Chưa kết nối được máy chủ dữ liệu, vui lòng thử lại sau' })
+  }
+  // Lỗi nghiệp vụ của lõi có mã PTxyz và lời nhắn tiếng Việt; lỗi khác không trả nguyên văn.
+  const message = code.startsWith('PT') && error?.data?.message ? String(error.data.message)
+    : status === 401 ? 'Vui lòng đăng nhập tài khoản Công dân'
+    : status === 403 ? 'Bạn không có quyền thực hiện thao tác này'
+    : status === 404 ? 'Không tìm thấy dữ liệu'
+    : 'Yêu cầu không hợp lệ'
+  return createError({ statusCode: status, statusMessage: message })
+}
+
+/** Gọi một hàm API của lõi (POST /rest/rpc/<tên>) thay mặt công dân đang đăng nhập. */
+export async function citizenRpc<T = any>(event: H3Event, name: string, args: Record<string, unknown> = {}): Promise<T> {
+  try {
+    return await citizenGateway<T>(event, `/rest/rpc/${name}`, { method: 'POST', body: args })
+  } catch (error) { throw coreError(error) }
+}
+
+/** Gọi hàm API công khai của lõi (POST /public/rpc/<tên>), dành cho khách chưa đăng nhập. */
+export async function publicRpc<T = any>(name: string, args: Record<string, unknown> = {}): Promise<T> {
+  try {
+    return await $fetch<T>(`${settings().gateway}/public/rpc/${name}`, { method: 'POST', body: args, timeout: 8000 })
+  } catch (error) { throw coreError(error) }
+}
+
+/** Công dân đã đăng nhập bằng Keycloak thì gọi bằng token (lọc theo xã), còn lại gọi API công khai. */
+export function catalogRpc<T = any>(event: H3Event, name: string, args: Record<string, unknown> = {}): Promise<T> {
+  return readSession(event)?.authMethod === 'keycloak' ? citizenRpc<T>(event, name, args) : publicRpc<T>(name, args)
 }

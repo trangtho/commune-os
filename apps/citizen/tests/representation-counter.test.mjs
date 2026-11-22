@@ -4,6 +4,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import {readFileSync} from 'node:fs'
 const read = path => readFileSync(new URL(path,import.meta.url),'utf8')
+const core=read('../../../core/db/init/21-citizen-api-core-flow.sql')
 const sql=read('../../../core/db/init/05-citizen-representation-counter.sql')
 const compose=read('../../../docker-compose.yml')
 const create=read('../server/api/applications/index.post.ts')
@@ -32,16 +33,17 @@ test('Representation tables have owner-tenant RLS, append-only audit and separat
 })
 
 test('Application draft, edit and submit validate approved scoped authority with final recheck',()=>{
-  for(const f of [create,update,submit]){
-    assert.match(f,/requireApprovedRepresentation/)
-    assert.match(f,/representation_id|representationId/)
-  }
+  for(const f of [create,update]) assert.match(f,/representationId/)
+  // Tạo, sửa bản nháp và nộp hồ sơ đều kiểm tra lại quyền đại diện trong lõi.
+  assert.match(core,/citizen_check_applicant\(p_representation_id, p_procedure_id, p_applicant_name\)/)
+  assert.match(core,/citizen_check_applicant\(r\.representation_id, r\.procedure_id, r\.applicant_name\)/)
+  assert.match(core,/status = 'verified' AND evidence_key IS NOT NULL\s*AND valid_until >= CURRENT_DATE/)
   assert.match(helper,/status='verified'/)
   assert.match(helper,/valid_until >= CURRENT_DATE/)
   assert.match(helper,/procedure_id=\$2/)
   assert.match(helper,/represented_name/)
-  assert.match(submit,/application_submitted/)
-  assert.match(create,/application_created/)
+  assert.match(core,/'application_submitted'/)
+  assert.match(core,/'application_created'/)
   assert.match(read('../pages/nop-ho-so/[slug].vue'),/Đại diện người thân/)
 })
 

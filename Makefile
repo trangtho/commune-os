@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 COMPOSE ?= docker compose
 .DEFAULT_GOAL := help
-.PHONY: procedure-privacy-test help up down logs ps seed test test-citizen citizen-dev reset-demo rls-test rag-test chat-history-test personalization-test representation-test citizen-experience-test handoff-support-test guidance-batches-test preflight-counter-test repair-db doctor
+.PHONY: citizen-api-test procedure-privacy-test help up down logs ps seed test test-citizen citizen-dev reset-demo rls-test rag-test chat-history-test personalization-test representation-test citizen-experience-test handoff-support-test guidance-batches-test preflight-counter-test repair-db doctor
 help: ## Liệt kê lệnh
 	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*## "}; {printf "  make %-14s %s\n", $$1, $$2}'
 .env:
@@ -75,6 +75,9 @@ life-journey-test: .env ## Kiểm thử lộ trình, lịch và phân quyền (R
 
 intelligent-services-test: .env ## Kiểm tra bảo vệ dữ liệu, mã kết quả và đồng bộ (ROLLBACK)
 	$(COMPOSE) exec -T db sh -c 'psql -v ON_ERROR_STOP=1 -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"' < core/db/tests/citizen-intelligent-services.sql
+
+citizen-api-test: .env ## Kiểm thử API luồng chính của công dân trong lõi: nộp hồ sơ, Poka-yoke, RLS (ROLLBACK)
+	$(COMPOSE) exec -T db sh -c 'psql -v ON_ERROR_STOP=1 -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"' < core/db/tests/citizen-core-api.sql
 
 repair-db: .env ## Khởi tạo/sửa schema và seed trên volume hiện tại; không xóa dữ liệu
 	$(COMPOSE) up -d db

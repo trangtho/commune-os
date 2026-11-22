@@ -5,6 +5,7 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { matchGuidance } from '../shared/procedure-wizard.mjs'
 const read=file=>readFileSync(new URL(file,import.meta.url),'utf8')
+const core=read('../../../core/db/init/21-citizen-api-core-flow.sql')
 const migration=read('../../../core/db/init/11-citizen-guidance-batches.sql')
 const draft=read('../server/api/applications/index.post.ts')
 const createBatch=read('../server/api/service-batches/index.post.ts')
@@ -52,9 +53,10 @@ test('Batch preparation is private, consented, owner-scoped and never self-submi
  assert.match(createBatch,/new Set\(input.procedureIds\)/)
  assert.match(createBatch,/published=true/)
  assert.match(createBatch,/citizenTx\(event/)
- assert.match(draft,/b\.citizen_id=\$3 AND b\.tenant_id=\$4/)
- assert.match(draft,/i\.procedure_id=\$5 AND i\.application_id IS NULL/)
- assert.match(draft,/throw createError\(\{statusCode:409/)
+ assert.match(draft,/p_batch_id/)
+ assert.match(core,/b\.citizen_id = a\.citizen_id AND b\.tenant_id = a\.tenant_id/)
+ assert.match(core,/i\.procedure_id = p_procedure_id AND i\.application_id IS NULL/)
+ assert.match(core,/citizen_fail\(409, 'Nhóm thủ tục không hợp lệ/)
  assert.match(read('../pages/lien-thong.vue'),/không phải quy trình liên thông chính thức/)
  assert.match(read('../pages/lien-thong/[id].vue'),/bundle=\$\{encodeURIComponent\(id\)\}/)
  assert.match(read('../pages/nop-ho-so/[slug].vue'),/batchId/)

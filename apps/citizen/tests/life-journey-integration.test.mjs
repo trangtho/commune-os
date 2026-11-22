@@ -4,6 +4,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import {readFileSync} from 'node:fs'
 const read=path=>readFileSync(new URL(path,import.meta.url),'utf8')
+const core=read('../../../core/db/init/21-citizen-api-core-flow.sql')
 test('incremental migration is ordered after existing 18 features',()=>{
  const compose=read('../../../docker-compose.yml')
  assert(compose.indexOf('18-citizen-life-journeys.sql')>compose.indexOf('17-citizen-intelligent-services.sql'))
@@ -18,10 +19,11 @@ test('incremental migration is ordered after existing 18 features',()=>{
 })
 test('draft autosave checks optimistic revision and citizen RLS and respects server submission checks',()=>{
  const autosave=read('../server/api/applications/[id]/autosave.put.ts')
- assert.match(autosave,/expectedRevision/);assert.match(autosave,/status!=='draft'/)
- assert.match(autosave,/citizenTx/);assert.match(autosave,/409/)
+ assert.match(autosave,/expectedRevision/);assert.match(autosave,/status !== 'draft'/)
+ assert.match(autosave,/citizenRpc/);assert.match(autosave,/409/)
+ assert.match(core,/coalesce\(v_revision, 0\) <> p_expected_revision/)
  assert.match(read('../pages/nop-ho-so/[slug].vue'),/CitizenFilingCompanion/)
- assert.match(read('../server/api/applications/[id]/submit.post.ts'),/reviewStoredDraft/)
+ assert.match(read('../server/api/applications/[id]/submit.post.ts'),/validateProcedureForm[\s\S]*citizen_application_submit/)
 })
 test('plans and tasks remain opt-in; no background administrative submissions',()=>{
  const journey=read('../server/api/citizen/journeys/index.post.ts')

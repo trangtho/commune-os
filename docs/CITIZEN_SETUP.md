@@ -46,10 +46,12 @@ khi đã sao lưu hoặc không còn cần dữ liệu.
 Khi chạy, PostgreSQL tạo role `communeos_app` không có quyền superuser.
 Nuxt Nitro kết nối bằng role này; mọi truy vấn dữ liệu Công dân chạy trong
 transaction có `set_config('app.citizen_id'...)` và `tenant_id` để áp RLS.
-Đăng nhập: máy chủ Công dân gửi tên đăng nhập và mật khẩu tới Keycloak (client `citizen-app`), đọc
+Đăng nhập: máy chủ Công dân gửi tên đăng nhập và mật khẩu tới Keycloak (client bí mật `citizen-app`), đọc
 hồ sơ công dân qua cổng APISIX (`/rest/my_citizen_profile`), rồi tạo cookie phiên ký HMAC. Token
 Keycloak giữ trong cookie HttpOnly mã hóa AES-256-GCM, tự gia hạn; trình duyệt không đọc được.
-Các chức năng còn lại vẫn kết nối PostgreSQL trực tiếp, chưa đi qua cửa ngõ APISIX.
+Luồng chính gọi các hàm `api.*` của lõi qua cổng APISIX (`/rest/rpc/...`, khách chưa đăng nhập dùng
+`/public/rpc/procedure_catalog` và `procedure_detail`); xem `core/db/init/21-citizen-api-core-flow.sql`.
+Các chức năng phụ còn lại vẫn kết nối PostgreSQL trực tiếp, chưa đi qua cửa ngõ APISIX.
 
 ### Sửa lỗi "Không tải được thủ tục từ PostgreSQL" (không mất dữ liệu)
 
@@ -142,12 +144,12 @@ một số bước dùng một trang wizard thay vì nhiều trang HTML lặp l�
 | `/api/auth/login` | POST | Đăng nhập qua Keycloak, đọc hồ sơ qua `/rest` |
 | `/api/auth/me` | GET | Tình trạng phiên và vai trò |
 | `/api/auth/logout` | POST | Thu hồi phiên Keycloak, xóa cookie |
-| `/api/procedures` | GET | Danh sách thủ tục |
-| `/api/procedures/:id` | GET | Chi tiết thủ tục và giấy tờ |
-| `/api/applications` | GET/POST | Danh sách, tạo bản nháp |
+| `/api/procedures` | GET | Danh sách thủ tục (`api.procedure_catalog`) |
+| `/api/procedures/:id` | GET | Chi tiết thủ tục và giấy tờ (`api.procedure_detail`) |
+| `/api/applications` | GET/POST | Danh sách, tạo bản nháp (`api.citizen_applications`, `api.citizen_application_create`) |
 | `/api/applications/:id` | GET | Hồ sơ đã giới hạn theo tài khoản |
 | `/api/applications/:id/documents` | POST multipart | Gửi tệp tới dịch vụ `files` của lõi (kho S3, SHA-256), lưu metadata PostgreSQL |
-| `/api/applications/:id/submit` | POST | Chặn nộp nếu thiếu giấy tờ |
+| `/api/applications/:id/submit` | POST | Nộp hồ sơ; lõi chặn nếu thiếu giấy tờ (`api.citizen_application_submit`) |
 | `/api/applications/:id/complete-supplement` | POST | Xác nhận bổ sung |
 | `/api/documents/:id` | GET | Tải tài liệu đã kiểm tra quyền |
 | `/api/notifications` | GET | Nhận thông báo |
@@ -191,15 +193,18 @@ Các lệnh kiểm thử liên quan:
 - `make test-citizen`: kiểm thử đơn vị và cấu trúc của `apps/citizen` (Node 22 trong Docker).
 - `make rls-test`, `make chat-history-test`, `make vault-autofill-test`, ...: kiểm thử RLS trên
   PostgreSQL thật, chạy trong transaction rồi `ROLLBACK` (`make help` để xem đủ).
-- `make test`: 33 kiểm tra của lõi qua gateway (cách ly xã, quy trình, tệp, tài khoản cán bộ, công dân).
+- `make test`: 38 kiểm tra của lõi qua gateway (cách ly xã, quy trình, tệp, tài khoản cán bộ, công dân).
+- `make citizen-api-test`: tạo, nộp hồ sơ qua API của lõi, Poka-yoke thiếu giấy tờ, chống sửa hồ sơ đã nộp (ROLLBACK).
 - `npm --prefix apps/citizen run test:e2e`: kiểm thử giao diện end-to-end bằng Playwright (cần ứng dụng đang chạy).
 
 ## 6. Giới hạn và yêu cầu trước production
 
 - Tài khoản công dân do quản trị tạo trong Keycloak, chưa có trang tự đăng ký, chưa xác minh căn cước.
   Kết nối OIDC tới nhà cung cấp định danh được phê duyệt có sẵn nhưng tắt mặc định.
-- Ngoài đăng nhập và đổi mật khẩu, ứng dụng chưa đi qua cửa ngõ APISIX; truy cập PostgreSQL
-  trực tiếp bằng vai trò có RLS. Cột `citizens.password_hash` không còn dùng để đăng nhập.
+- Các chức năng phụ ngoài luồng chính chưa đi qua cửa ngõ APISIX; truy cập PostgreSQL trực tiếp bằng
+  vai trò có RLS. Cột `citizens.password_hash` không còn dùng để đăng nhập.
+- Kiểm tra từng trường biểu mẫu (`shared/procedure-forms.ts`) chạy ở máy chủ Kênh người dân, chưa nằm
+  trong lõi; vì vậy `citizen-app` là client bí mật để công dân không tự xin token gọi thẳng API lõi.
 - Quét mã độc ClamAV là tùy chọn (`docker compose --profile antivirus up -d antivirus`,
   `CLAMAV_HOST=antivirus`). Chưa có OCR (biến `CITIZEN_OCR_ENDPOINT` để trống) và chưa có chữ ký số.
 - Trợ lý là tìm kiếm toàn văn có trích nguồn, **chưa dùng mô hình ngôn ngữ**. Mô hình, nếu có,

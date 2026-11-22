@@ -5,6 +5,7 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { execFileSync } from 'node:child_process'
 const read=file=>readFileSync(new URL(file, import.meta.url),'utf8')
+const core=read('../../../core/db/init/21-citizen-api-core-flow.sql')
 const migration=read('../../../core/db/init/04-citizen-personalization.sql')
 const api=read('../server/api/procedures/recommended.get.ts')
 const prefs=read('../server/api/citizen/preferences/index.patch.ts')
@@ -69,9 +70,9 @@ test('Personalization endpoints are owner-scoped with opt-in and server-side val
 test('Receiving locality is checked when drafting, editing and final submitting, including permission expiry',()=>{
   assert.match(routes,/approval_reference/)
   assert.match(routes,/valid_until > now\(\)/)
-  for(const source of ['../server/api/applications/index.post.ts','../server/api/applications/[id].patch.ts','../server/api/applications/[id]/submit.post.ts']){
-    assert.match(read(source),/permittedReceivingTenant/)
-  }
+  // Tạo, sửa bản nháp và nộp hồ sơ đều kiểm tra tuyến tiếp nhận trong lõi.
+  assert.match(core,/trim\(approval_reference\) <> '' AND valid_until > now\(\)/)
+  assert.equal((core.match(/NOT public\.citizen_receiver_permitted\(/g)||[]).length,3)
   assert.match(form,/localitySuggestion/)
   assert.match(form,/canReceive/)
   assert.match(form,/Cập nhật địa phương/)
