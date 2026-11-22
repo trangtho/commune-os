@@ -11,6 +11,15 @@ Mọi thay đổi đáng chú ý của dự án được ghi tại đây.
 
 ## [Chưa phát hành]
 
+### Sửa lỗi (thông báo cho cán bộ, 2026-11-22)
+
+- Trang thông báo của cán bộ luôn trống vì đọc nhầm bảng thông báo của công dân (RLS chặn). Thay bằng thông báo riêng cho
+  cán bộ (`core/db/init/23-staff-notifications.sql`), lõi tự sinh khi có hồ sơ mới, hồ sơ được giao, hồ sơ đã bổ sung,
+  cán bộ gửi yêu cầu, lãnh đạo duyệt hoặc từ chối; đọc qua `/rest/staff_notifications`, trạng thái đã đọc riêng từng cán bộ.
+- "Gửi thông báo chung" chèn thông báo không có người nhận và ai cũng gửi được: nay chỉ lãnh đạo xã gửi, tới từng công dân của xã.
+- "Đọc tất cả" không đánh dấu gì; nay đánh dấu đã đọc thật.
+- `make test` thêm 2 kiểm tra, tổng 45 (#73).
+
 ### Thêm mới (sao lưu và khôi phục, 2026-11-22)
 
 - `make backup`: sao lưu ba cơ sở dữ liệu (`pg_dump`), kho đối tượng SeaweedFS và tệp cũ của Kênh người dân vào
