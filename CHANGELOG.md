@@ -11,6 +11,30 @@ Mọi thay đổi đáng chú ý của dự án được ghi tại đây.
 
 ## [Chưa phát hành]
 
+### Thay đổi (làm mới giao diện ba ứng dụng, 2026-11-23)
+
+- Cùng một hệ thống giao diện cho ba ứng dụng, mỗi ứng dụng một màu chủ đạo (người dân xanh dương, cán bộ xanh ngọc,
+  quản trị chàm); phông Be Vietnam Pro đóng gói cùng ứng dụng (không tải từ máy chủ ngoài); chữ xám đậm hơn cho dễ đọc.
+- Nội dung luôn nằm trên tấm nền đặc, ảnh nền chỉ lộ ra hai bên, chữ không còn chìm vào ảnh.
+- Kênh người dân: bỏ cột trái, cột phải và chân trang; tiêu đề trang gọn; bốn bước nộp hồ sơ chỉ hiện khi đang nộp;
+  trang chủ có ô tìm thủ tục, ba việc chính và hồ sơ đang giải quyết; danh mục thủ tục lọc bằng nút chủ đề;
+  trang chi tiết thủ tục có tóm tắt giấy tờ, lệ phí, thời hạn và nút nộp cố định trên điện thoại;
+  trang mới `/tai-khoan` gom các chức năng phụ.
+- Màn hình cán bộ: bỏ ảnh tiêu đề, cột hướng dẫn bên phải và chân trang; ô tìm hồ sơ theo mã ở đầu trang;
+  trang tổng quan còn 4 ô số liệu bấm được và danh sách việc cần làm xếp theo hạn; danh sách hồ sơ lọc bằng nút trạng thái
+  (có lọc "Quá hạn"), mở được bằng đường dẫn `/ho-so?status=...`.
+- Bảng quản trị: trang Tổng quan mới (xã, thủ tục, tình trạng sổ ghi nhận); thanh bên sáng; sổ ghi nhận hiện tên xã và
+  tên tiếng Việt cho mọi loại thao tác.
+- Trợ lý AI nổi: tiêu đề một dòng, câu hỏi gợi ý, mở toàn màn hình trên điện thoại.
+- Gỡ hai logo cơ quan, tổ chức khỏi header và favicon vì không có quyền sử dụng; thay bằng biểu trưng CommuneOS do nhóm
+  tự vẽ (`public/images/logo-communeos.svg`, mỗi ứng dụng một màu).
+- Sửa lỗi trang bổ sung hồ sơ, xem kết quả, đánh giá, yêu cầu... của một hồ sơ chỉ hiện lại trang chi tiết: trang chi tiết
+  chuyển thành `pages/ho-so/[id]/index.vue` ở cả Kênh người dân và màn hình cán bộ, để các trang con hiển thị đúng.
+- Sửa lỗi trang Thông báo của cán bộ luôn trống dù có thông báo; trang làm gọn: khung gửi thông báo cho công dân thu gọn
+  (chỉ lãnh đạo xã thấy), bấm vào thông báo là đánh dấu đã đọc và mở hồ sơ liên quan.
+- Màn hình cán bộ, danh mục thủ tục: nút "Nộp thử" dẫn tới trang không tồn tại; bỏ nút này, thẻ thủ tục chỉ còn "Xem chi tiết"
+  (cán bộ tra cứu thủ tục, không nộp hồ sơ). Bỏ nút "Thêm thủ tục mới" không làm gì (danh mục do bảng quản trị quản lý).
+
 ### Thêm mới (trợ lý AI cho hai kênh, 2026-11-22)
 
 - Nút "Hỏi trợ lý AI" nổi trên mọi trang của Kênh người dân và màn hình cán bộ.
