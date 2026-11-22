@@ -42,7 +42,7 @@ async function setTenants(list: Tenant[], enabled: boolean) {
 
 <template>
   <section>
-    <NuxtLink to="/thu-tuc" class="inline-flex items-center gap-1 text-sm font-semibold text-blue-700 hover:underline">
+    <NuxtLink to="/thu-tuc" class="inline-flex items-center gap-1 text-sm font-semibold text-brand-700 hover:underline">
       <ArrowLeft class="h-4 w-4" aria-hidden="true" /> Danh mục thủ tục
     </NuxtLink>
 
