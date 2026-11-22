@@ -1,9 +1,9 @@
 <!-- SPDX-FileCopyrightText: 2026 CommuneOS Contributors -->
 <!-- SPDX-License-Identifier: Apache-2.0 -->
 <script setup lang="ts">
-import { UserRound, FileText, Send, ListChecks, Upload, Download, Trash2, Undo2, Pencil } from 'lucide-vue-next'
-import type { StaffProfile, StaffDocument, StaffRequest, StaffTask, DocType, TaskStatus } from '~/types/staff'
-import { DOC_TYPES, REQUEST_KINDS, REQUEST_STATUS, TASK_STATUS, PROFILE_FIELDS, showValue } from '~/types/staff'
+import { UserRound, FileText, Send, Upload, Download, Trash2, Undo2, Pencil } from 'lucide-vue-next'
+import type { StaffProfile, StaffDocument, StaffRequest, StaffTask, DocType } from '~/types/staff'
+import { DOC_TYPES, REQUEST_KINDS, REQUEST_STATUS, PROFILE_FIELDS, showValue } from '~/types/staff'
 
 // Hồ sơ cá nhân của cán bộ đang đăng nhập. Mọi thay đổi thành yêu cầu chờ lãnh đạo duyệt;
 // lõi (PostgreSQL) mới là nơi áp dụng thay đổi, sau khi lãnh đạo bấm duyệt.
@@ -15,12 +15,12 @@ const { data: auth } = await useAsyncData('staff-auth', () => useRequestFetch()<
 const isLeader = computed(() => auth.value?.role === 'admin')
 const editable = computed(() => PROFILE_FIELDS.filter((f) => isLeader.value || !f.leaderOnly))
 
-const tab = ref<'info' | 'docs' | 'requests' | 'tasks'>('info')
+// Việc được giao có trang riêng (/viec-duoc-giao) trên menu trái.
+const tab = ref<'info' | 'docs' | 'requests'>('info')
 const tabs = computed(() => [
   { id: 'info', name: 'Thông tin', icon: UserRound },
   { id: 'docs', name: `Giấy tờ (${data.value?.documents.length || 0})`, icon: FileText },
   { id: 'requests', name: `Yêu cầu của tôi (${data.value?.requests.filter((r) => r.status === 'pending').length || 0} chờ)`, icon: Send },
-  { id: 'tasks', name: `Việc được giao (${data.value?.tasks.filter((t) => t.status !== 'done').length || 0})`, icon: ListChecks },
 ] as const)
 
 const busy = ref('')
@@ -100,20 +100,11 @@ function describe(r: StaffRequest) {
   return ''
 }
 
-// --- Việc được giao ---
-const resultNotes = reactive<Record<string, string>>({})
-function setTask(t: StaffTask, status: TaskStatus) {
-  return run(t.id, () => $fetch(`/api/me/tasks/${t.id}`, { method: 'PATCH', body: { status, resultNote: resultNotes[t.id] } }),
-    status === 'done' ? 'Đã báo hoàn thành việc.' : 'Đã cập nhật tiến độ.')
-}
 </script>
 
 <template>
   <div class="space-y-4">
-    <div>
-      <h2 class="text-xl font-black">Hồ sơ cá nhân</h2>
-      <p class="text-sm text-muted">Thông tin công vụ và giấy tờ của bạn. Thay đổi của cán bộ xử lý được gửi lãnh đạo xã duyệt trước khi áp dụng.</p>
-    </div>
+    <p class="text-sm text-slate-600">Thông tin công vụ và giấy tờ của bạn. Thay đổi của cán bộ xử lý được gửi lãnh đạo xã duyệt trước khi áp dụng.</p>
 
     <div v-if="error" class="panel p-5 text-rose-700">{{ readableError(error) }}</div>
     <template v-else-if="data">
@@ -230,30 +221,6 @@ function setTask(t: StaffTask, status: TaskStatus) {
         </section>
       </div>
 
-      <!-- Việc được giao -->
-      <section v-if="tab === 'tasks'" class="panel p-5">
-        <h3 class="section-label"><ListChecks :size="20" class="text-brand-600" />Việc lãnh đạo giao</h3>
-        <p v-if="!data.tasks.length" class="text-sm text-muted">Chưa có việc nào.</p>
-        <ul class="space-y-3">
-          <li v-for="t in data.tasks" :key="t.id" :class="['rounded-lg border p-3', t.overdue ? 'border-rose-300 bg-rose-50/50' : 'border-[#dae7f7]']">
-            <div class="flex flex-wrap items-center justify-between gap-2">
-              <p class="font-bold">{{ t.title }}</p>
-              <span class="text-xs font-bold">{{ TASK_STATUS[t.status] }}<span v-if="t.overdue" class="text-rose-700"> · quá hạn</span></span>
-            </div>
-            <p v-if="t.description" class="text-sm">{{ t.description }}</p>
-            <p class="text-xs text-muted">
-              Giao bởi {{ t.created_by_name }} · {{ dateTime(t.created_at) }}<span v-if="t.due_date"> · hạn {{ date(t.due_date) }}</span>
-              <span v-if="t.dossier_id"> · hồ sơ <NuxtLink :to="`/ho-so/${t.dossier_id}`" class="font-semibold text-brand-700 underline">{{ t.dossier_id }}</NuxtLink></span>
-            </p>
-            <p v-if="t.result_note" class="text-sm">Kết quả: {{ t.result_note }}</p>
-            <div v-if="t.status !== 'done'" class="mt-2 flex flex-wrap gap-2">
-              <input v-model="resultNotes[t.id]" class="field max-w-md flex-1" maxlength="1000" placeholder="Ghi chú kết quả (khi báo xong)" :aria-label="`Ghi chú kết quả cho ${t.title}`" />
-              <button v-if="t.status === 'todo'" type="button" class="btn-outline" :disabled="busy === t.id" @click="setTask(t, 'doing')">Bắt đầu làm</button>
-              <button type="button" class="btn-primary" :disabled="busy === t.id" @click="setTask(t, 'done')">Báo đã xong</button>
-            </div>
-          </li>
-        </ul>
-      </section>
     </template>
   </div>
 </template>
