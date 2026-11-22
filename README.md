@@ -85,6 +85,7 @@ make test-citizen         # kiểm thử đơn vị Kênh người dân
 ```
 
 `make seed` chỉ cần khi muốn nạp lại dữ liệu mẫu bằng tay (idempotent).
+`make backup` / `make restore BACKUP=...` sao lưu và khôi phục cơ sở dữ liệu, kho tệp ([core/backup](core/backup/README.md)).
 `make help` liệt kê mọi lệnh, gồm các bài kiểm thử RLS của Kênh người dân (`make rls-test`, ...).
 
 Mọi cấu hình nằm trong tệp `.env`; không cần sửa tệp mã nguồn nào.

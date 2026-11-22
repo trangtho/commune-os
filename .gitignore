@@ -159,3 +159,6 @@ __pycache__/
 # Dữ liệu và mô hình tải về khi chạy
 data/
 models/
+
+# Bản sao lưu (make backup): chứa dữ liệu cá nhân, không đưa lên kho mã
+backups/
