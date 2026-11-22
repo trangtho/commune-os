@@ -80,7 +80,7 @@ git clone https://github.com/trangtho/commune-os.git
 cd commune-os
 cp .env.example .env      # sửa mật khẩu trong .env
 make up                   # dựng, khởi động toàn bộ dịch vụ và tự nạp dữ liệu mẫu (db-setup)
-make test                 # 45 kiểm tra qua gateway: cách ly xã, quy trình, tệp, tài khoản, công dân, AI (xem core/tests)
+make test                 # 46 kiểm tra qua gateway: cách ly xã, quy trình, tệp, tài khoản, công dân, AI (xem core/tests)
 make test-citizen         # kiểm thử đơn vị Kênh người dân
 ```
 
@@ -164,6 +164,8 @@ Hiện trạng cần biết (chi tiết trong [docs/CITIZEN_SETUP.md](docs/CITIZ
   PostgreSQL trực tiếp (vai trò `communeos_app`, RLS theo công dân và xã).
 - Trợ lý hỏi đáp dùng AI của lõi: tìm kiếm lai toàn văn + ngữ nghĩa trên thủ tục đã công bố, mô hình chỉ chọn
   câu trích dẫn nguyên văn; câu trả lời luôn có nguồn. AI chưa sẵn sàng thì dùng tìm kiếm toàn văn.
+  Nút "Hỏi trợ lý AI" có trên mọi trang, cả ở màn hình cán bộ (thêm hướng dẫn nghiệp vụ). Trợ lý chỉ dùng thủ tục
+  xã của người hỏi đang mở, không đọc hồ sơ hay dữ liệu cá nhân, từ chối câu hỏi tra cứu thông tin của người khác.
 - Kết quả giải quyết là phiếu mô phỏng, chưa ký số.
 
 Không nhập, tải lên hoặc đưa vào kho mã bất kỳ dữ liệu cá nhân thật nào.

@@ -23,7 +23,7 @@ async function submit() {
 </script>
 
 <template>
-  <main class="flex min-h-screen items-center justify-center bg-slate-50 p-4">
+  <main class="flex min-h-screen items-center justify-center p-4">
     <form
       class="w-full max-w-sm rounded-lg border border-slate-200 bg-white p-6"
       @submit.prevent="submit"

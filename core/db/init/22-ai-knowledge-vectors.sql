@@ -20,14 +20,25 @@ CREATE INDEX IF NOT EXISTS citizen_knowledge_chunks_embedding_idx
 -- ===== Tìm kiếm lai: toàn văn + vector, xếp hạng bằng Reciprocal Rank Fusion =====
 -- p_embedding: vector của câu hỏi dạng '[0.1,0.2,...]'; NULL thì chỉ tìm toàn văn.
 -- Kết quả vector chỉ được tính khi độ tương đồng cosine >= p_min_similarity.
+-- Phạm vi do cổng AI đặt từ token đã ký, không do người hỏi tự khai:
+--   p_tenant_code: chỉ trả thủ tục xã đó đang mở (rỗng: khách, mọi thủ tục đã công bố);
+--   p_audience: 'citizen' không bao giờ thấy hướng dẫn nghiệp vụ nội bộ của cán bộ (staff_guide).
+DROP FUNCTION IF EXISTS api.knowledge_search(text, text, text, int, real);
 CREATE OR REPLACE FUNCTION api.knowledge_search(p_query text, p_embedding text DEFAULT NULL,
-  p_procedure_id text DEFAULT '', p_limit int DEFAULT 8, p_min_similarity real DEFAULT 0.5) RETURNS json
+  p_procedure_id text DEFAULT '', p_limit int DEFAULT 8, p_min_similarity real DEFAULT 0.5,
+  p_tenant_code text DEFAULT '', p_audience text DEFAULT 'citizen') RETURNS json
 LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public AS $$
 DECLARE
   v_ts tsquery;
   v_vec vector(1024);
   v_limit int := least(greatest(coalesce(p_limit, 8), 1), 30);
+  v_tenant uuid;
 BEGIN
+  IF coalesce(p_tenant_code, '') <> '' THEN
+    SELECT id INTO v_tenant FROM tenants WHERE code = p_tenant_code;
+    -- Mã xã không tồn tại: không trả thủ tục nào (không rơi về toàn bộ danh mục).
+    IF v_tenant IS NULL THEN v_tenant := '00000000-0000-0000-0000-000000000000'; END IF;
+  END IF;
   -- Chỉ lấy các từ của câu hỏi (không nhận cú pháp tìm kiếm từ người dùng), nối bằng OR.
   SELECT to_tsquery('simple', string_agg(quote_literal(lexeme), ' | '))
   INTO v_ts
@@ -35,14 +46,18 @@ BEGIN
   WHERE length(lexeme) >= 2;
   IF p_embedding IS NOT NULL THEN v_vec := p_embedding::vector(1024); END IF;
   RETURN (
-    WITH fts AS (
+    WITH scope AS (
+      SELECT c.* FROM citizen_knowledge_chunks c
+      WHERE (c.source_type <> 'staff_guide' OR p_audience = 'staff')
+        AND (c.procedure_id IS NULL OR v_tenant IS NULL OR public.procedure_enabled_for(v_tenant, c.procedure_id))),
+    fts AS (
       SELECT id, row_number() OVER (ORDER BY ts_rank_cd(search_vector, v_ts) DESC, id) AS r
-      FROM citizen_knowledge_chunks
+      FROM scope
       WHERE v_ts IS NOT NULL AND search_vector @@ v_ts
       ORDER BY ts_rank_cd(search_vector, v_ts) DESC, id LIMIT 40),
     vec AS (
       SELECT id, sim, row_number() OVER (ORDER BY sim DESC, id) AS r FROM (
-        SELECT id, 1 - (embedding <=> v_vec) AS sim FROM citizen_knowledge_chunks
+        SELECT id, 1 - (embedding <=> v_vec) AS sim FROM scope
         WHERE v_vec IS NOT NULL AND embedding IS NOT NULL
         ORDER BY embedding <=> v_vec LIMIT 40) n
       WHERE sim >= coalesce(p_min_similarity, 0.5)),
@@ -52,7 +67,7 @@ BEGIN
           + CASE WHEN coalesce(p_procedure_id, '') <> '' AND c.procedure_id = p_procedure_id THEN 0.05 ELSE 0 END AS score,
         round(vec.sim::numeric, 4) AS similarity,
         CASE WHEN fts.id IS NOT NULL AND vec.id IS NOT NULL THEN 'both' WHEN vec.id IS NOT NULL THEN 'vector' ELSE 'text' END AS matched
-      FROM citizen_knowledge_chunks c
+      FROM scope c
       LEFT JOIN fts ON fts.id = c.id
       LEFT JOIN vec ON vec.id = c.id
       WHERE fts.id IS NOT NULL OR vec.id IS NOT NULL
@@ -105,12 +120,13 @@ BEGIN
     'lastEmbeddedAt', max(embedded_at)) FROM citizen_knowledge_chunks);
 END $$;
 
-REVOKE ALL ON FUNCTION api.knowledge_search(text, text, text, int, real) FROM PUBLIC;
+REVOKE ALL ON FUNCTION api.knowledge_search(text, text, text, int, real, text, text) FROM PUBLIC;
 REVOKE ALL ON FUNCTION api.ai_pending_chunks(text, int) FROM PUBLIC;
 REVOKE ALL ON FUNCTION api.ai_store_embeddings(text, jsonb) FROM PUBLIC;
 REVOKE ALL ON FUNCTION api.ai_index_status(text) FROM PUBLIC;
 -- ai-gateway gọi PostgREST không kèm token người dùng (vai trò web_anon), có WORKFLOW_TOKEN cho hàm nội bộ.
-GRANT EXECUTE ON FUNCTION api.knowledge_search(text, text, text, int, real) TO web_anon, "citizen-app", "commune-app";
+-- Chỉ cổng AI (vai trò web_anon trong mạng nội bộ) gọi; phạm vi xã và đối tượng do cổng AI đặt từ token đã ký.
+GRANT EXECUTE ON FUNCTION api.knowledge_search(text, text, text, int, real, text, text) TO web_anon;
 GRANT EXECUTE ON FUNCTION api.ai_pending_chunks(text, int), api.ai_store_embeddings(text, jsonb),
   api.ai_index_status(text) TO web_anon;
 

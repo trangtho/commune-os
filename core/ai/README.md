@@ -51,6 +51,27 @@ chọn trích dẫn 3–15 giây với `qwen3:1.7b`.
 
 Không lưu câu hỏi; nhật ký chỉ ghi mã băm, độ dài, số kết quả và thời gian.
 
+### Phạm vi theo người hỏi (đặt từ token đã ký, người hỏi không tự khai được)
+
+| Người hỏi | Thủ tục | Hướng dẫn nghiệp vụ cán bộ (`staff_guide`) |
+| --- | --- | --- |
+| Khách (`/public/ai/ask`) | Mọi thủ tục đã công bố | Không |
+| Công dân (`citizen-app`) | Chỉ thủ tục xã của công dân đang mở (claim `citizen_tenant`) | Không |
+| Cán bộ (`commune-app`) | Chỉ thủ tục xã của cán bộ đang mở (claim `tenant_id`) | Có |
+
+`api.knowledge_search` chỉ cấp cho vai trò `web_anon` mà `ai-gateway` dùng trong mạng nội bộ; gọi thẳng qua
+`/rest` bằng token người dùng bị từ chối, nên không ai tự đổi được xã hay đối tượng.
+
+Câu hỏi tra cứu thông tin của một người cụ thể ("số điện thoại của công dân...", "hồ sơ của ông...") hoặc một
+mã hồ sơ (`HS-...`) bị từ chối trước khi tìm kiếm (`mode: refused`). Trợ lý không có quyền đọc hồ sơ, giấy tờ,
+thông báo hay bất kỳ dữ liệu cá nhân nào; việc tra cứu hồ sơ làm trên màn hình nghiệp vụ theo phân quyền.
+
+Hướng dẫn nghiệp vụ cho cán bộ nằm trong bảng `staff_guide` (`core/db/init/24-staff-guide.sql`), tự đưa vào
+chỉ mục tri thức khi thêm, sửa, xóa.
+
+Trợ lý nổi ở góc màn hình có trên mọi trang của Kênh người dân (`AssistantWidget.vue`, gọi `/api/chat`) và
+màn hình cán bộ (`StaffAssistant.vue`, gọi `/api/tro-ly`).
+
 Kênh người dân (`apps/citizen/server/api/chat/index.post.ts`) dùng kết quả này như sau:
 - tìm kiếm chỉ ra thủ tục nào được hỏi (chỉ dựa vào đoạn mang tính nhận diện như tên, nội dung,
   giấy tờ; không dựa vào đoạn lệ phí, thời hạn vốn giống nhau giữa các thủ tục);

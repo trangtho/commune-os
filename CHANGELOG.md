@@ -11,6 +11,19 @@ Mọi thay đổi đáng chú ý của dự án được ghi tại đây.
 
 ## [Chưa phát hành]
 
+### Thêm mới (trợ lý AI cho hai kênh, 2026-11-22)
+
+- Nút "Hỏi trợ lý AI" nổi trên mọi trang của Kênh người dân và màn hình cán bộ.
+- Lõi giới hạn phạm vi trợ lý theo token đã ký: chỉ thủ tục xã của người hỏi đang mở; hướng dẫn nghiệp vụ nội bộ
+  (`core/db/init/24-staff-guide.sql`) chỉ cán bộ thấy; hàm tìm kiếm không gọi thẳng được bằng token người dùng.
+- Lõi từ chối câu hỏi tra cứu thông tin của người cụ thể hoặc mã hồ sơ; trợ lý không đọc hồ sơ hay dữ liệu cá nhân.
+- `make test` thêm 1 kiểm tra AI, tổng 46.
+
+### Thay đổi (giao diện, 2026-11-22)
+
+- Hình nền trống đồng, hoa sen cho Kênh người dân, màn hình cán bộ và bảng quản trị (`public/images/nen-trong-dong.webp`,
+  nén WebP 49 KB); khung nội dung giữ nền trắng, bỏ nền khi in.
+
 ### Sửa lỗi (thông báo cho cán bộ, 2026-11-22)
 
 - Trang thông báo của cán bộ luôn trống vì đọc nhầm bảng thông báo của công dân (RLS chặn). Thay bằng thông báo riêng cho

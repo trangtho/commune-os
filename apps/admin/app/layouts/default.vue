@@ -22,7 +22,7 @@ const menu = [
 </script>
 
 <template>
-  <div class="min-h-screen bg-slate-50 text-slate-900 md:flex">
+  <div class="min-h-screen text-slate-900 md:flex">
     <aside class="bg-slate-900 text-slate-100 md:w-60 md:shrink-0">
       <div class="px-5 py-4">
         <p class="text-lg font-bold">CommuneOS</p>
