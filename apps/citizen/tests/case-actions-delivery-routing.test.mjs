@@ -55,7 +55,7 @@ test('Staff routing requires a verified policy and acceptance by the receiving l
  assert.match(page,/đơn vị nhận phải xác nhận/i)
 })
 test('Existing dashboard and application detail link to new functionality', () => {
- const detail=read('apps/citizen/pages/ho-so/[id].vue')
+ const detail=read('apps/citizen/pages/ho-so/[id]/index.vue')
  assert.match(detail,/yeu-cau/)
  assert.match(detail,/nhan-ket-qua/)
  assert.match(detail,/chuyen-co-quan/)

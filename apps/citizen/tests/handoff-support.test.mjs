@@ -52,7 +52,7 @@ test('citizen interface keeps main layout and links cases to handoff and ticket 
  const layout=read('../layouts/default.vue')
  assert.match(layout,/\/chuyen-tiep/)
  assert.match(layout,/\/yeu-cau-ho-tro/)
- assert.match(read('../pages/ho-so/[id].vue'),/chuyen-tiep\?case=/)
+ assert.match(read('../pages/ho-so/[id]/index.vue'),/chuyen-tiep\?case=/)
  assert.match(read('../pages/chuyen-tiep.vue'),/Mã chỉ có hiệu lực 15 phút/)
  assert.match(read('../pages/yeu-cau-ho-tro.vue'),/Yêu cầu của tôi/)
  assert.match(read('../pages/yeu-cau-ho-tro/[id].vue'),/Lịch sử trao đổi/)

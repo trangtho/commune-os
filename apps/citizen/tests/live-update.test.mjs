@@ -43,7 +43,7 @@ test('Home, procedure, case, inbox and profile pages register matching refresh k
     ['pages/index.vue', 'citizen-applications'],
     ['pages/thu-tuc/index.vue', 'citizen-procedures'],
     ['pages/ho-so/index.vue', 'citizen-applications'],
-    ['pages/ho-so/[id].vue', 'citizen-application:'],
+    ['pages/ho-so/[id]/index.vue', 'citizen-application:'],
     ['pages/thong-bao.vue', 'citizen-notifications'],
     ['pages/ho-so-ca-nhan.vue', 'citizen-profile'],
   ]) assert.ok(get('apps/citizen/' + path).includes(key), path)
