@@ -4,12 +4,14 @@
 #
 # Kiểm thử cách ly dữ liệu giữa 2 xã qua đường thật: Keycloak → APISIX → PostgREST → PostgreSQL (RLS).
 # Cần: docker compose up đang chạy, curl, python3.
-# Dùng 2 tài khoản mẫu canbo.xa-a / canbo.xa-b. Mật khẩu lấy từ biến DEMO_PASSWORD (mặc định 12345).
+# Dùng các tài khoản mẫu cán bộ (mật khẩu DEMO_PASSWORD, mặc định 12345) và công dân
+# congdan.demo / congdan.khac (mật khẩu CITIZEN_DEMO_PASSWORD, mặc định Demo@2026!).
 set -u
 
 KC="${KEYCLOAK_URL:-http://localhost:8080}"
 GW="${GATEWAY_URL:-http://localhost:${GATEWAY_PORT:-9080}}"
 PASS="${DEMO_PASSWORD:-12345}"
+CITIZEN_PASS="${CITIZEN_DEMO_PASSWORD:-Demo@2026!}"
 FAIL=0
 
 ok()   { echo "  ĐẠT  $1"; }
@@ -146,6 +148,34 @@ code=$(curl -s -o /dev/null -w '%{http_code}' -X POST -H "Authorization: Bearer 
 
 code=$(wf "$TA" HS-2026-001197 '{"action":"completed","note":"kiem thu"}')
 [ "$code" = "400" ] && ok "Cán bộ xử lý không tự trả kết quả khi lãnh đạo chưa duyệt (400)" || fail "Trả kết quả chưa duyệt phải 400, nhận $code"
+
+# Công dân: token của client citizen-app, RLS theo công dân qua cổng /rest.
+citizen_token() {
+  curl -s -X POST "$KC/realms/communeos/protocol/openid-connect/token" \
+    -d grant_type=password -d client_id="$1" -d username="$2" --data-urlencode password="$3" |
+    python3 -c 'import json,sys; print(json.load(sys.stdin).get("access_token",""))'
+}
+logins() {
+  curl -s -H "Authorization: Bearer $1" "$GW/rest/my_citizen_profile?select=login_name" |
+    python3 -c 'import json,sys; d=json.load(sys.stdin); print(",".join(r["login_name"] for r in d) if isinstance(d,list) else "LOI")'
+}
+CA=$(citizen_token citizen-app congdan.demo "$CITIZEN_PASS"); CB=$(citizen_token citizen-app congdan.khac "$CITIZEN_PASS")
+[ "$(logins "$CA")" = "congdan.demo" ] && [ "$(logins "$CB")" = "congdan.khac" ] &&
+  ok "Công dân qua cổng /rest chỉ thấy hồ sơ cá nhân của mình" || fail "Công dân thấy sai hồ sơ cá nhân (A='$(logins "$CA")', B='$(logins "$CB")')"
+
+code=$(curl -s -o /dev/null -w '%{http_code}' -H "Authorization: Bearer $CA" "$GW/rest/dossiers")
+[ "$code" = "403" ] && ok "Token công dân không đọc được hồ sơ của cán bộ (403)" || fail "Công dân đọc dossiers phải 403, nhận $code"
+
+CX=$(citizen_token commune-app congdan.demo "$CITIZEN_PASS")
+[ -n "$CX" ] && [ "$(ids "$CX")" = "" ] && ok "Công dân lấy token qua client cán bộ cũng không thấy hồ sơ của xã" ||
+  fail "Công dân dùng client cán bộ thấy hồ sơ: '$(ids "$CX")'"
+
+SC=$(citizen_token citizen-app canbo.xa-a "$PASS")
+[ "$(logins "$SC")" = "" ] && ok "Cán bộ dùng client công dân không thấy hồ sơ công dân nào" || fail "Cán bộ dùng client công dân thấy: '$(logins "$SC")'"
+
+code=$(curl -s -o /dev/null -w '%{http_code}' -X POST -H "Authorization: Bearer $CA" -H 'Content-Type: application/json' \
+  -d '{"currentPassword":"sai-mat-khau","newPassword":"MatKhauMoi2026"}' "$GW/accounts/me/password")
+[ "$code" = "403" ] && ok "Đổi mật khẩu với mật khẩu hiện tại sai bị từ chối (403)" || fail "Đổi mật khẩu sai mật khẩu cũ phải 403, nhận $code"
 
 code=$(curl -s -o /dev/null -w '%{http_code}' -H "Authorization: Bearer ${TA}sai" "$GW/rest/dossiers")
 [ "$code" = "401" ] && ok "Token bị sửa → 401" || fail "Token bị sửa phải 401, nhận $code"

@@ -28,6 +28,9 @@ export default defineNuxtConfig({
   },
   runtimeConfig: {
     sessionSecret: process.env.SESSION_SECRET || '',
+    // Đăng nhập công dân bằng Keycloak và gọi lõi qua cổng APISIX.
+    keycloakUrl: process.env.KEYCLOAK_URL || 'http://localhost:8080',
+    gatewayUrl: process.env.GATEWAY_URL || 'http://localhost:9080',
     oidcIssuer: process.env.CITIZEN_OIDC_ISSUER || '',
     oidcAuthorizeUrl: process.env.CITIZEN_OIDC_AUTHORIZE_URL || '',
     oidcTokenUrl: process.env.CITIZEN_OIDC_TOKEN_URL || '',

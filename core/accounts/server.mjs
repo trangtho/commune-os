@@ -13,6 +13,9 @@
 //   PATCH /accounts/staff/:id                      sửa họ tên, email
 //   DELETE /accounts/staff/:id                     xóa hẳn (phải khóa trước)
 //
+//   POST  /accounts/me/password                    người đăng nhập tự đổi mật khẩu (công dân hoặc cán bộ)
+//                                                  { currentPassword, newPassword }
+//
 // Không cần token (cổng APISIX có route riêng, không kiểm tra token):
 //   POST  /accounts/first-password                 cán bộ đổi mật khẩu tạm lần đầu
 //                                                  { username, currentPassword, newPassword }
@@ -63,7 +66,8 @@ async function publicKey(kid) {
   return createPublicKey({ key: jwk, format: 'jwk' })
 }
 
-async function caller(req) {
+// Kiểm chữ ký, hạn dùng và client cấp token; trả về các claim.
+async function verifiedClaims(req, allowedClients) {
   const m = /^Bearer (\S+)$/.exec(String(req.headers.authorization || ''))
   if (!m) throw new HttpError(401, 'Thiếu token đăng nhập')
   const [h, p, s] = m[1].split('.')
@@ -74,14 +78,19 @@ async function caller(req) {
   } catch { throw new HttpError(401, 'Token không hợp lệ') }
   if (header.alg !== 'RS256') throw new HttpError(401, 'Token không hợp lệ')
   const ok = verify('RSA-SHA256', Buffer.from(`${h}.${p}`), await publicKey(header.kid), Buffer.from(s || '', 'base64url'))
-  if (!ok || !claims.exp || claims.exp * 1000 < Date.now() || claims.azp !== TOKEN_AZP) {
+  if (!ok || !claims.exp || claims.exp * 1000 < Date.now() || !allowedClients.includes(claims.azp)) {
     throw new HttpError(401, 'Token không hợp lệ hoặc đã hết hạn')
   }
+  return { claims, token: m[1] }
+}
+
+async function caller(req) {
+  const { claims, token } = await verifiedClaims(req, [TOKEN_AZP])
   const roles = claims.realm_access?.roles || []
   if (!roles.includes('leader') || !claims.tenant_id) {
     throw new HttpError(403, 'Chỉ lãnh đạo xã được quản lý cán bộ')
   }
-  return { id: claims.sub, tenant: claims.tenant_id, name: claims.name || claims.preferred_username, token: m[1] }
+  return { id: claims.sub, tenant: claims.tenant_id, name: claims.name || claims.preferred_username, token }
 }
 
 // ---------- Keycloak Admin API bằng tài khoản dịch vụ ----------
@@ -213,6 +222,44 @@ async function firstPassword(req, res) {
   return json(res, 200, { username, changed: true })
 }
 
+// ---------- Tự đổi mật khẩu (cần token) ----------
+// Mật khẩu hiện tại được kiểm tra bằng chính Keycloak, qua đúng client đã cấp token cho người gọi.
+// Công dân dùng citizen-app (phải có vai trò citizen); cán bộ dùng commune-app.
+const CITIZEN_CLIENT = env('CITIZEN_CLIENT_ID', 'citizen-app')
+async function mePassword(req, res) {
+  const { claims } = await verifiedClaims(req, [CITIZEN_CLIENT, LOGIN_CLIENT])
+  const roles = claims.realm_access?.roles || []
+  if (claims.azp === CITIZEN_CLIENT && !roles.includes('citizen')) throw new HttpError(403, 'Tài khoản không phải công dân')
+  if (claims.azp === LOGIN_CLIENT && !claims.tenant_id && !roles.includes('sys_admin')) throw new HttpError(403, 'Tài khoản chưa được gán xã')
+  const b = await readJson(req)
+  const current = String(b.currentPassword || '')
+  const next = String(b.newPassword || '')
+  if (!current) throw new HttpError(400, 'Nhập mật khẩu hiện tại')
+  if (next.length < 8 || next.length > 128) throw new HttpError(400, 'Mật khẩu mới phải từ 8 đến 128 ký tự')
+  if (!/[A-Za-z]/.test(next) || !/[0-9]/.test(next)) throw new HttpError(400, 'Mật khẩu mới phải có cả chữ và số')
+  if (next === current) throw new HttpError(400, 'Mật khẩu mới phải khác mật khẩu hiện tại')
+  if (limited(`me:${claims.sub}`, 5)) throw new HttpError(429, 'Thử quá nhiều lần, vui lòng đợi 15 phút')
+
+  const r = await fetch(`${KEYCLOAK_URL}/realms/${REALM}/protocol/openid-connect/token`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/x-www-form-urlencoded' },
+    body: new URLSearchParams({ grant_type: 'password', client_id: claims.azp, username: claims.preferred_username, password: current }),
+  })
+  if (!r.ok) throw new HttpError(403, 'Mật khẩu hiện tại không đúng')
+  const set = await fetch(`${ADMIN}/users/${claims.sub}/reset-password`, {
+    method: 'PUT',
+    headers: { authorization: `Bearer ${await adminToken()}`, 'content-type': 'application/json' },
+    body: JSON.stringify({ type: 'password', value: next, temporary: false }),
+  })
+  if (set.status === 400) {
+    const e = await set.json().catch(() => ({}))
+    throw new HttpError(400, `Mật khẩu mới chưa đạt yêu cầu của hệ thống${e.error_description ? ` (${e.error_description})` : ''}`)
+  }
+  if (!set.ok) throw new HttpError(502, 'Keycloak từ chối đặt mật khẩu')
+  attempts.delete(`me:${claims.sub}`)
+  return json(res, 200, { changed: true })
+}
+
 // ---------- HTTP ----------
 async function readJson(req) {
   let raw = ''
@@ -232,6 +279,7 @@ async function handle(req, res) {
   const parts = url.pathname.split('/').filter(Boolean)
   if (req.method === 'GET' && url.pathname === '/health') return json(res, 200, { ok: true })
   if (req.method === 'POST' && url.pathname === '/accounts/first-password') return firstPassword(req, res)
+  if (req.method === 'POST' && url.pathname === '/accounts/me/password') return mePassword(req, res)
   if (parts[0] !== 'accounts' || parts[1] !== 'staff') throw new HttpError(404, 'Không có đường dẫn này')
   const me = await caller(req)
 
