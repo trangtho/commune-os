@@ -11,6 +11,13 @@ Mọi thay đổi đáng chú ý của dự án được ghi tại đây.
 
 ## [Chưa phát hành]
 
+### Thêm mới (sao lưu và khôi phục, 2026-11-22)
+
+- `make backup`: sao lưu ba cơ sở dữ liệu (`pg_dump`), kho đối tượng SeaweedFS và tệp cũ của Kênh người dân vào
+  `backups/<ngày-giờ>/`, kèm `MANIFEST.txt` và `SHA256SUMS`; `backups/` có trong `.gitignore`.
+- `make restore BACKUP=...`: kiểm tra mã băm, bắt xác nhận, khôi phục, chạy lại `db-setup` cho khớp lược đồ mới nhất.
+- Hướng dẫn và kết quả diễn tập khôi phục trên máy chủ mới: `core/backup/README.md` (#72).
+
 ### Thêm mới (trang Tình trạng hệ thống, 2026-11-22)
 
 - Bảng quản trị: trang `/tinh-trang` kiểm tra từng dịch vụ lõi qua cổng API (định danh, cổng API và dữ liệu, quy trình,
