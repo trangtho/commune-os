@@ -29,7 +29,7 @@ test('OIDC verifies state+nonce, RSA signature and never trusts email as account
 test('RAG answer only uses published database evidence and signed results require backend',()=>{
   assert.match(read('server/api/chat/index.post.ts'),/loadPublishedKnowledge/)
   assert.match(read('server/api/chat/index.post.ts'),/buildGroundedAnswer/)
-  assert.match(read('server/utils/ai-classifier.ts'),/selectedProcedureId/)
+  assert.match(read('server/api/chat/index.post.ts'),/semanticProcedure\(ai,/)
   assert.match(read('shared/ai-knowledge.ts'),/INSUFFICIENT/)
   assert.match(read('server/api/applications/[id]/result-file.get.ts'),/requireCompleted/)
   assert.match(read('server/api/applications/[id]/result-file.get.ts'),/application\/pdf/)

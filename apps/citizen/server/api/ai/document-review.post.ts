@@ -2,6 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import {citizenTx} from '../../utils/database'
 import {getProcedureFormFields} from '../../../shared/procedure-forms'
+import {isInternalEndpoint} from '../../utils/internal-endpoint'
 const allowedTypes=['application/pdf','image/png','image/jpeg']
 export default defineEventHandler(async event=>{
  const parts=await readMultipartFormData(event)
@@ -24,8 +25,9 @@ export default defineEventHandler(async event=>{
  const token=String(process.env.CITIZEN_OCR_TOKEN||'')
  let url:URL|null=null
  try{url=new URL(endpoint)}catch{/* OCR not configured */}
- if(!url || (url.protocol!=='https:' && !(url.protocol==='http:'&&['127.0.0.1','localhost'].includes(url.hostname))))
-  return {status:'not_configured',fields:[],notice:'Chưa cấu hình dịch vụ OCR tin cậy. Hệ thống chỉ kiểm tra chất lượng ảnh tại trình duyệt, không tự nhận dạng chữ.'}
+ // Giấy tờ là dữ liệu mật: chỉ gửi tới dịch vụ OCR chạy trong mạng nội bộ của đơn vị, không gửi ra Internet.
+ if(!url || !isInternalEndpoint(url))
+  return {status:'not_configured',fields:[],notice:'Chưa cấu hình dịch vụ OCR chạy trong mạng nội bộ. Hệ thống chỉ kiểm tra chất lượng ảnh tại trình duyệt, không tự nhận dạng chữ.'}
  if(token.length<16)throw createError({statusCode:503,statusMessage:'Dịch vụ OCR thiếu mã xác thực bảo mật'})
  const allowed=new Map(getProcedureFormFields(procedureId).map(f=>[f.key,f.label]))
  // Explicit opt-in: no upload of sensitive documents to third parties without consent.

@@ -39,33 +39,43 @@ CREATE TRIGGER citizen_knowledge_vector_trigger
   BEFORE INSERT OR UPDATE ON public.citizen_knowledge_chunks
   FOR EACH ROW EXECUTE FUNCTION public.communeos_rag_chunk_vector();
 
+-- Cập nhật tại chỗ: đoạn không đổi nội dung được giữ nguyên (kể cả vector tìm kiếm ngữ nghĩa của
+-- core/ai), đoạn đổi nội dung được cập nhật, đoạn không còn (gỡ công bố, xóa giấy tờ) bị xóa.
 CREATE OR REPLACE FUNCTION public.communeos_rag_refresh_procedure(p_id text)
 RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog, public AS $$
 BEGIN
-  DELETE FROM public.citizen_knowledge_chunks WHERE procedure_id = p_id;
-  INSERT INTO public.citizen_knowledge_chunks
-    (id,source_type,procedure_id,source_id,field,source_title,content)
-  SELECT 'procedure:' || p.id || ':' || field_data.field,
-    'procedure', p.id, p.id, field_data.field, p.title, field_data.content
-  FROM public.procedures p
-  CROSS JOIN LATERAL (VALUES
-    ('title', p.title),
-    ('category', p.category),
-    ('summary', p.summary),
-    ('instructions', p.instructions),
-    ('fee', p.fee_note),
-    ('duration', p.sla_days::text || ' ngày (thời hạn minh họa)')
-  ) AS field_data(field,content)
-  WHERE p.id=p_id AND p.published=true AND nullif(btrim(field_data.content),'') IS NOT NULL;
-
-  INSERT INTO public.citizen_knowledge_chunks
-    (id,source_type,procedure_id,source_id,field,source_title,content)
-  SELECT 'procedure:' || d.procedure_id || ':document:' || d.document_code,
-    'procedure', p.id, p.id, 'documents', p.title,
-    d.document_name || CASE WHEN d.is_required THEN ' (bắt buộc theo dữ liệu hệ thống)' ELSE ' (không bắt buộc)' END
-  FROM public.procedure_documents d
-  JOIN public.procedures p ON p.id=d.procedure_id
-  WHERE p.id=p_id AND p.published=true;
+  WITH fresh(id,source_type,procedure_id,source_id,field,source_title,content) AS (
+    SELECT 'procedure:' || p.id || ':' || field_data.field,
+      'procedure', p.id, p.id, field_data.field, p.title, field_data.content
+    FROM public.procedures p
+    CROSS JOIN LATERAL (VALUES
+      ('title', p.title),
+      ('category', p.category),
+      ('summary', p.summary),
+      ('instructions', p.instructions),
+      ('fee', p.fee_note),
+      ('duration', p.sla_days::text || ' ngày (thời hạn minh họa)')
+    ) AS field_data(field,content)
+    WHERE p.id=p_id AND p.published=true AND nullif(btrim(field_data.content),'') IS NOT NULL
+    UNION ALL
+    SELECT 'procedure:' || d.procedure_id || ':document:' || d.document_code,
+      'procedure', p.id, p.id, 'documents', p.title,
+      d.document_name || CASE WHEN d.is_required THEN ' (bắt buộc theo dữ liệu hệ thống)' ELSE ' (không bắt buộc)' END
+    FROM public.procedure_documents d
+    JOIN public.procedures p ON p.id=d.procedure_id
+    WHERE p.id=p_id AND p.published=true
+  ), upserted AS (
+    INSERT INTO public.citizen_knowledge_chunks
+      (id,source_type,procedure_id,source_id,field,source_title,content)
+    SELECT * FROM fresh
+    ON CONFLICT (id) DO UPDATE SET source_type=EXCLUDED.source_type, procedure_id=EXCLUDED.procedure_id,
+      source_id=EXCLUDED.source_id, field=EXCLUDED.field, source_title=EXCLUDED.source_title, content=EXCLUDED.content
+    WHERE (citizen_knowledge_chunks.field, citizen_knowledge_chunks.source_title, citizen_knowledge_chunks.content)
+      IS DISTINCT FROM (EXCLUDED.field, EXCLUDED.source_title, EXCLUDED.content)
+    RETURNING 1
+  )
+  DELETE FROM public.citizen_knowledge_chunks c
+  WHERE c.procedure_id = p_id AND NOT EXISTS (SELECT 1 FROM fresh f WHERE f.id = c.id);
 END; $$;
 
 CREATE OR REPLACE FUNCTION public.communeos_rag_procedure_changed()
@@ -132,7 +142,9 @@ BEGIN
       (id,source_type,source_id,field,source_title,content)
     VALUES ('faq:' || faq_row.id::text,'faq',faq_row.id::text,'faq',faq_row.question,
       faq_row.question || ' ' || faq_row.keywords || ': ' || faq_row.answer)
-    ON CONFLICT (id) DO UPDATE SET source_title=EXCLUDED.source_title,content=EXCLUDED.content;
+    ON CONFLICT (id) DO UPDATE SET source_title=EXCLUDED.source_title,content=EXCLUDED.content
+    WHERE (citizen_knowledge_chunks.source_title, citizen_knowledge_chunks.content)
+      IS DISTINCT FROM (EXCLUDED.source_title, EXCLUDED.content);
   END LOOP;
   DELETE FROM public.citizen_knowledge_chunks c
     WHERE c.source_type='faq' AND NOT EXISTS

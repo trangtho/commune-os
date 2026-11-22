@@ -67,11 +67,12 @@ test('Change to catalog data is reflected immediately, no index to rebuild',()=>
   `)
 })
 test('External model chooses only valid IDs and fields, cannot inject arbitrary facts into answer',()=>{
- const classifier=read('server/utils/ai-classifier.ts')
- assert.match(classifier,/choices\.some\(hit => hit\.procedure\.id === selected\)/)
- assert.match(classifier,/ANSWER_FIELDS\.includes/)
- assert.match(classifier,/containsPersonalIdentifiers/)
- assert.doesNotMatch(classifier,/return \{answer:.*value\.answer/)
+ // Tìm kiếm ngữ nghĩa chỉ chọn thủ tục có trong danh mục; mô hình chỉ trả số thứ tự câu, trích dẫn lấy nguyên văn.
+ const semantic=read('server/utils/core-ai.ts')
+ assert.match(semantic,/catalogIds\.has\(chunk\.procedure_id\)/)
+ const gateway=read('../../core/ai/server.mjs')
+ assert.match(gateway,/src\.chunk\.content\.includes\(quote\)/)
+ assert.doesNotMatch(gateway,/answer:\s*d\.message/)
  const know=read('shared/ai-knowledge.ts')
  assert.match(know,/renderFacts\(p,/)
  assert.doesNotMatch(know,/javascript:/)

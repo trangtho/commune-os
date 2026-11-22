@@ -113,4 +113,44 @@ routes:
       type: roundrobin
       nodes:
         "rest:3000": 1
+  # Cổng AI của lõi (core/ai): mô hình chạy cục bộ, không gọi API AI bên ngoài.
+  - id: ai
+    uri: /ai/*
+    plugins:
+      openid-connect:
+        client_id: commune-app
+        client_secret: khong-dung
+        discovery: http://identity:8080/realms/communeos/.well-known/openid-configuration
+        bearer_only: true
+        use_jwks: true
+    upstream:
+      type: roundrobin
+      timeout:
+        connect: 5
+        send: 30
+        read: 120
+      nodes:
+        "ai-gateway:3000": 1
+  # Trợ lý cho khách chưa đăng nhập: không nhận token, giới hạn chặt.
+  - id: public-ai
+    uris: ["/public/ai/ask", "/public/ai/ready"]
+    methods: ["GET", "POST"]
+    plugins:
+      limit-count:
+        count: 20
+        time_window: 60
+        key_type: var
+        key: remote_addr
+        rejected_code: 429
+      proxy-rewrite:
+        headers:
+          remove: ["Authorization"]
+    upstream:
+      type: roundrobin
+      timeout:
+        connect: 5
+        send: 30
+        read: 120
+      nodes:
+        "ai-gateway:3000": 1
 #END

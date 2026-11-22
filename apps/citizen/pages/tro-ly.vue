@@ -211,7 +211,7 @@ async function copyAnswer(message: ChatMessage) {
           <h2 class="text-xl font-black sm:text-2xl">Trợ lý thủ tục hành chính</h2>
           <p class="mt-1 max-w-[660px] text-xs leading-6 text-blue-50 sm:text-sm">Tra cứu từ dữ liệu thủ tục đang công bố. Không tìm thấy nguồn thì không đưa ra câu trả lời phỏng đoán.</p></div>
         </div>
-        <div class="flex flex-wrap items-center gap-2"><span class="flex items-center gap-2 rounded-full border border-white/30 bg-white/15 px-3 py-1.5 text-xs font-semibold"><Database :size="15"/> {{procedures?.length || 0}} thủ tục đang công bố</span><span v-if="knowledgeStatus?.ready" class="flex items-center gap-2 rounded-full border border-white/30 bg-white/15 px-3 py-1.5 text-xs font-semibold"><ShieldCheck :size="15"/> {{knowledgeStatus.chunks}} đoạn tri thức · {{knowledgeStatus.aiConfigured ? "Đã cấu hình AI" : "Tra cứu nguồn"}}</span></div>
+        <div class="flex flex-wrap items-center gap-2"><span class="flex items-center gap-2 rounded-full border border-white/30 bg-white/15 px-3 py-1.5 text-xs font-semibold"><Database :size="15"/> {{procedures?.length || 0}} thủ tục đang công bố</span><span v-if="knowledgeStatus?.ready" class="flex items-center gap-2 rounded-full border border-white/30 bg-white/15 px-3 py-1.5 text-xs font-semibold"><ShieldCheck :size="15"/> {{knowledgeStatus.chunks}} đoạn tri thức · {{knowledgeStatus.aiConfigured ? "AI chạy trên máy chủ của xã" : "Tra cứu nguồn"}}</span></div>
       </div>
     </section>
 

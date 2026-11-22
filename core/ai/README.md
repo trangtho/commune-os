@@ -3,83 +3,97 @@ SPDX-FileCopyrightText: 2026 CommuneOS Contributors
 SPDX-License-Identifier: Apache-2.0
 -->
 
-# CommuneOS · AI thủ tục hành chính
+# core/ai · Trí tuệ nhân tạo chạy cục bộ
 
-Trợ lý AI là một **tính năng của Kênh công dân**, triển khai bằng Nuxt/Nitro tại
-`apps/citizen/pages/tro-ly.vue` và `apps/citizen/server/api/chat/`.
-Lõi hiện **chưa có dịch vụ AI** riêng; thư mục này chỉ chứa tài liệu.
-Mặc định trợ lý chỉ dùng tìm kiếm toàn văn trên PostgreSQL, không dùng mô hình ngôn ngữ.
+Dịch vụ AI của lõi. Mô hình chạy trên máy chủ của xã, trong mạng Docker **không có đường ra Internet**.
+CommuneOS không gọi bất kỳ API AI bên ngoài nào, vì hồ sơ hành chính và dữ liệu cá nhân là dữ liệu mật.
 
-## Dòng dữ liệu
+## Thành phần
 
-`procedures (published=true)` + `procedure_documents` + `citizen_faq`
-→ trigger PostgreSQL → `citizen_knowledge_chunks` (GIN full-text,
-`unaccent`, không chứa dữ liệu cá nhân) → API retrieval → kiểm tra nguồn
-→ (tùy chọn) model chọn **đoạn trích nguyên văn** → kiểm chứng bằng code
-→ trả lời và liên kết tới trang nội bộ.
+| Dịch vụ compose | Phần mềm | Mạng | Việc |
+| --- | --- | --- | --- |
+| `ai-models` | Ollama 0.12.6 (`pull-models.sh`) | mạng chung | Chạy một lần mỗi khi `make up`: tải mô hình vào volume `ai-models` nếu chưa có. Dịch vụ AI duy nhất cần Internet, và chỉ ở lần đầu |
+| `ai` | Ollama 0.12.6 | chỉ `ai-internal` (`internal: true`) | Chạy mô hình; không mở cổng, không ra được Internet |
+| `ai-gateway` | Node.js 22, `server.mjs`, không thư viện ngoài | mạng chung và `ai-internal` | Cầu nối duy nhất tới mô hình, sau APISIX |
+| `db` | PostgreSQL 17 + pgvector 0.8.1 | mạng chung | Vector của chỉ mục tri thức (`core/db/init/22-ai-knowledge-vectors.sql`) |
 
-Các trigger cập nhật chỉ mục **cùng giao dịch** với thay đổi nguồn: thêm,
-sửa, xóa, unpublish thủ tục; thêm/sửa/xóa giấy tờ và FAQ. Thay đổi chưa
-`COMMIT` không hiển thị. Dữ liệu thủ tục vẫn được lấy trực tiếp từ PostgreSQL
-ở mỗi lượt hỏi để giới hạn khả năng index bị lỗi hoặc thiếu migration.
+Mô hình mặc định (đặt khác được trong `.env`):
 
-`core/db/init/02-ai-knowledge.sql` là migration thêm mới, được chạy bởi
-`db-setup` sau khi seed; `make repair-db` tạo/chỉnh index trên volume cũ mà
-không xóa hồ sơ. `make rag-test` kiểm thử trigger trong transaction và
-`ROLLBACK` toàn bộ thay đổi thử nghiệm.
+| Biến | Mặc định | Giấy phép | Dùng để |
+| --- | --- | --- | --- |
+| `AI_CHAT_MODEL` | `qwen3:1.7b` (1,4 GB) | Apache-2.0 | Chọn câu trích dẫn trả lời câu hỏi |
+| `AI_EMBED_MODEL` | `bge-m3` (1,2 GB) | MIT | Vector 1024 chiều cho tìm kiếm ngữ nghĩa, tốt với tiếng Việt |
 
-## Kết nối mô hình tùy chọn
+Máy chủ có nhiều nhân hoặc có GPU có thể đặt `AI_CHAT_MODEL=qwen3:4b` hoặc `qwen3:8b`. Mô hình nhúng
+phải cho vector 1024 chiều. Đo trên laptop Intel Core Ultra 5 225U (chỉ CPU): tìm kiếm dưới 1 giây,
+chọn trích dẫn 3–15 giây với `qwen3:1.7b`.
 
-Các biến **chỉ ở server**, truyền cho service `citizen` trong compose
-(thông qua các override `NUXT_AI_*` tương ứng của Nuxt runtimeConfig):
+## API (qua cổng APISIX)
 
-```dotenv
-CITIZEN_AI_ENDPOINT=http://<may-chu-noi-bo>/v1/chat/completions
-CITIZEN_AI_MODEL=<ten-mo-hinh>
-CITIZEN_AI_TOKEN=
+| Đường dẫn | Ai gọi | Việc |
+| --- | --- | --- |
+| `POST /ai/ask` | Công dân (`citizen-app`), cán bộ (`commune-app`), cần token | `{ question, procedureId?, select? }` → kết quả tìm kiếm và trích dẫn |
+| `POST /public/ai/ask` | Khách chưa đăng nhập | Như trên, không token; APISIX giới hạn 20 lần/phút, dịch vụ giới hạn 10 lần/phút mỗi IP |
+| `GET /public/ai/ready` | Bất kỳ | `{ ready }`: đã có đủ mô hình chưa |
+| `GET /ai/status` | Chỉ `sys_admin` | Mô hình đã tải, đã nạp, số đoạn đã có vector, thời gian phản hồi trung bình, lỗi gần nhất |
+
+## Cách trả lời một câu hỏi (`/ai/ask`)
+
+1. Che số điện thoại, dãy số dạng định danh, email trong câu hỏi trước khi đưa vào mô hình.
+2. Tạo vector câu hỏi bằng mô hình nhúng.
+3. Tìm kiếm lai trên `citizen_knowledge_chunks` (chỉ thủ tục đã công bố và câu hỏi thường gặp, không có
+   dữ liệu cá nhân): toàn văn và vector, xếp hạng bằng Reciprocal Rank Fusion (`api.knowledge_search`).
+   Kết quả vector chỉ được tính khi độ tương đồng cosine từ `AI_MIN_SIMILARITY` (mặc định 0,45) trở lên.
+4. Tách 3 đoạn đầu thành câu đánh số. Mô hình ngôn ngữ **chỉ trả số thứ tự câu**; trích dẫn được chép
+   nguyên văn từ nguồn theo số đó, nên mô hình không thể tự viết nội dung.
+5. Trả `{ mode, chunks, selections, masked, models, timings }`. Mô hình lỗi hoặc quá giờ thì vẫn trả
+   kết quả tìm kiếm (`mode: semantic`).
+
+Không lưu câu hỏi; nhật ký chỉ ghi mã băm, độ dài, số kết quả và thời gian.
+
+Kênh người dân (`apps/citizen/server/api/chat/index.post.ts`) dùng kết quả này như sau:
+- tìm kiếm chỉ ra thủ tục nào được hỏi (chỉ dựa vào đoạn mang tính nhận diện như tên, nội dung,
+  giấy tờ; không dựa vào đoạn lệ phí, thời hạn vốn giống nhau giữa các thủ tục);
+- câu trả lời vẫn dựng từ dữ liệu thủ tục đã công bố;
+- trích dẫn của mô hình chỉ được dùng khi thuộc đúng thủ tục, đúng loại thông tin được hỏi.
+
+AI chưa sẵn sàng thì trợ lý dùng tìm kiếm toàn văn như trước.
+
+## Chỉ mục vector
+
+`ai-gateway` quét mỗi phút, tạo vector cho đoạn tri thức mới hoặc đã đổi nội dung (so mã băm MD5),
+ghi qua `api.ai_pending_chunks` và `api.ai_store_embeddings`. Hai hàm này chỉ nhận lời gọi kèm
+`WORKFLOW_TOKEN` (cùng cách với dịch vụ điều phối). Trigger của `02-ai-knowledge.sql` cập nhật chỉ mục
+tại chỗ, nên đoạn không đổi giữ nguyên vector.
+
+## Máy chủ không có Internet
+
+Tải mô hình trên một máy có mạng (`make up`), rồi chép volume sang máy chủ:
+
+```bash
+docker run --rm -v commune-os_ai-models:/m -v "$PWD":/out alpine tar czf /out/ai-models.tgz -C /m .
+# trên máy chủ:
+docker volume create commune-os_ai-models
+docker run --rm -v commune-os_ai-models:/m -v "$PWD":/in alpine tar xzf /in/ai-models.tgz -C /m
 ```
 
-Dữ liệu của hệ thống là dữ liệu mật: chỉ trỏ tới mô hình chạy trên máy chủ của đơn vị,
-**không dùng API AI bên ngoài**. Mã hiện chấp nhận `https://` bất kỳ hoặc `http://localhost`,
-`http://127.0.0.1`; chưa tự chặn địa chỉ ngoài mạng nội bộ. Biến chưa được khai báo trong
-`.env.example`, chỉ có trong `docker-compose.yml`.
-
-Endpoint phải tương thích OpenAI chat completions và hỗ trợ JSON output.
-Không có provider/token/mô hình thì trợ lý vẫn hoạt động chế độ `DATA`,
-không được mô tả là đã có AI tạo sinh. Khi có mô hình, API gửi tối đa
-18 đoạn trích **đã lọc**, yêu cầu model chọn `id` và `quote` nguyên văn.
-API bỏ toàn bộ nội dung không trùng nguồn, không nhận URL hay lời khẳng
-định ngoài dữ liệu. Câu hỏi chứa số điện thoại, email, dãy định danh
-không được chuyển tới mô hình. Lượt gọi có giới hạn thời gian 7 giây,
-không redirect và không lưu hội thoại vào database.
-
-Các biến `CITIZEN_RAG_ENDPOINT` / `CITIZEN_RAG_TOKEN` (classifier từ bản trước)
-vẫn được hỗ trợ để giữ tương thích ngược, nhưng không bắt buộc.
-
-## Giới hạn dữ liệu và nguyên tắc an toàn
-
-- Seed 6 thủ tục là **dữ liệu minh họa**, chưa phải thông tin pháp lý chính thức.
-- Dữ liệu hiện không có trường cơ quan tiếp nhận/điều kiện pháp lý xác thực,
-  nên không đoán cơ quan, mức phí cụ thể, văn bản quy định hoặc quyền lợi.
-- Chỉ bản ghi `published=true` được lập chỉ mục; bản ghi vừa gỡ công bố
-  được xóa khỏi index ngay trong transaction.
-- Không truy xuất `citizens`, `applications`, thông tin cá nhân, file tải lên.
-- Link trích dẫn chỉ được tạo nội bộ: `/thu-tuc/<slug>` hoặc `/huong-dan`.
-- PostgreSQL chỉ cấp **SELECT** chỉ mục cho tài khoản web, không cấp ghi.
-- Khi dữ liệu nguồn không khả dụng hoặc không có bằng chứng, trả lời không đủ
-  dữ liệu thay vì tự suy đoán.
-- Kết quả chính thức trong tương lai cần metadata nguồn (mã văn bản,
-  hiệu lực, cơ quan ban hành, địa phương) được nhóm dữ liệu kiểm chứng.
-- Cần đánh giá bảo mật và hạn mức theo gateway trước khi triển khai cho công dân thật.
+Chưa có mô hình thì `ai-models` báo rồi vẫn thoát bình thường: lõi chạy đủ, trợ lý dùng tìm kiếm toàn văn.
 
 ## Kiểm thử
 
 ```bash
-npm --prefix apps/citizen test
-make repair-db    # sao lưu DB trước nếu có dữ liệu cần giữ
-make rag-test     # SQL test có ROLLBACK, không thay đổi dữ liệu
-curl http://localhost:3000/api/chat/knowledge
+make test                       # có 4 kiểm tra AI khi dịch vụ AI đang chạy (không thì BỎ QUA)
+make rag-test                   # trigger chỉ mục tri thức (ROLLBACK)
+curl -s localhost:9080/public/ai/ready
+curl -s -X POST -H 'content-type: application/json' \
+  -d '{"question":"Em bé vừa chào đời cần làm giấy tờ gì"}' localhost:9080/public/ai/ask
+docker compose logs ai-gateway  # mô hình đã nạp, số đoạn đã tạo vector
 ```
 
-`GET /api/chat/knowledge` trả thống kê chỉ mục, trạng thái bật mô hình,
-không tiết lộ token. Ứng dụng có cảnh báo nếu chưa chạy migration.
+## Giới hạn
+
+- Dữ liệu thủ tục mẫu là minh họa, chưa phải thông tin pháp lý chính thức.
+- Mô hình nhỏ có thể không chọn được câu phù hợp; khi đó trợ lý dùng câu trả lời dựng từ dữ liệu.
+- Câu hỏi có từ bỏ dấu trùng với tên thủ tục khác (ví dụ "đại học" và "đất đai") mà tìm kiếm ngữ nghĩa
+  không chắc chắn thì vẫn có thể bị bộ xếp hạng từ khóa cũ chọn nhầm thủ tục.
+- OCR giấy tờ chưa có; biến `CITIZEN_OCR_ENDPOINT` chỉ nhận dịch vụ trong mạng nội bộ.
