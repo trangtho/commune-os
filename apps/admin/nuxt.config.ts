@@ -23,5 +23,10 @@ export default defineNuxtConfig({
     // Trình duyệt gọi /rest/... cùng địa chỉ với trang → không lỗi CORS.
     // Nuxt chuyển tiếp nguyên yêu cầu (kèm token) sang cổng APISIX.
     "/rest/**": { proxy: `${gatewayUrl}/rest/**` },
+    // Trang Tình trạng hệ thống kiểm tra từng dịch vụ lõi qua cổng (cần token sys_admin).
+    "/workflow/**": { proxy: `${gatewayUrl}/workflow/**` },
+    "/files/**": { proxy: `${gatewayUrl}/files/**` },
+    "/accounts/**": { proxy: `${gatewayUrl}/accounts/**` },
+    "/ai/**": { proxy: `${gatewayUrl}/ai/**` },
   },
 });

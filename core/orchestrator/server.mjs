@@ -9,7 +9,7 @@
 // API (gọi qua cổng: /workflow/...):
 //   GET  /dossiers/:id/actions            → bước hiện tại và các bước được phép đi tiếp
 //   POST /dossiers/:id/actions {action, note} → thực hiện một bước
-//   GET  /health
+//   GET  /health   (qua cổng: /workflow/health) dịch vụ và động cơ Flowable
 //
 // Không dùng thư viện ngoài: chỉ Node.js 22 (http, fetch, crypto, fs).
 import { createServer } from 'node:http'
@@ -143,7 +143,16 @@ function actorName(auth) {
 // ---------- Xử lý yêu cầu ----------
 async function handle(req) {
   const url = new URL(req.url, 'http://x')
-  if (url.pathname === '/health') return { status: 'ok' }
+  if (url.pathname === '/health') {
+    // Kiểm tra cả động cơ Flowable phía sau; Flowable không trả lời thì báo 503.
+    const t = Date.now()
+    try {
+      await flowable('/management/engine', { signal: AbortSignal.timeout(5000) })
+    } catch {
+      throw new HttpError(503, 'Động cơ quy trình Flowable không trả lời')
+    }
+    return { status: 'ok', flowable: { ok: true, ms: Date.now() - t } }
+  }
 
   const match = /^\/dossiers\/([^/]+)\/actions$/.exec(url.pathname)
   if (!match) throw new HttpError(404, 'Không có đường dẫn này')

@@ -11,6 +11,14 @@ Mọi thay đổi đáng chú ý của dự án được ghi tại đây.
 
 ## [Chưa phát hành]
 
+### Thêm mới (trang Tình trạng hệ thống, 2026-11-22)
+
+- Bảng quản trị: trang `/tinh-trang` kiểm tra từng dịch vụ lõi qua cổng API (định danh, cổng API và dữ liệu, quy trình,
+  lưu trữ tệp, tài khoản cán bộ, AI, sổ ghi nhận), kèm thời gian phản hồi, tự kiểm tra lại mỗi 30 giây; chỉ đọc.
+- `/workflow/health`, `/files/health`, `/accounts/health` kiểm tra cả thành phần phía sau (Flowable, SeaweedFS, Keycloak Admin API)
+  và trả 503 khi thành phần đó không trả lời.
+- `make test` thêm 1 kiểm tra, tổng 43.
+
 ### Thêm mới (AI chạy cục bộ trong lõi, 2026-11-22)
 
 - Dịch vụ AI của lõi, mô hình chạy trên máy chủ, không gọi API AI bên ngoài: `ai` (Ollama 0.12.6) chỉ nằm trong mạng

@@ -11,7 +11,7 @@
 //   PUT    /internal/objects            lưu một tệp, trả { key, sha256 }
 //   GET    /internal/objects/:key       đọc tệp
 //   DELETE /internal/objects/:key       xóa tệp
-//   GET    /health
+//   GET    /health, /files/health (qua cổng)   dịch vụ và kho đối tượng
 // Quyền xem/ghi do PostgreSQL quyết định (RLS theo xã), dịch vụ này chỉ chuyển token của người dùng.
 
 import { createServer } from 'node:http'
@@ -197,7 +197,15 @@ async function handle(req, res) {
   const parts = url.pathname.split('/').filter(Boolean)
   const auth = String(req.headers.authorization || '')
 
-  if (req.method === 'GET' && url.pathname === '/health') return json(res, 200, { ok: true })
+  if (req.method === 'GET' && (url.pathname === '/health' || url.pathname === '/files/health')) {
+    // Kiểm tra cả kho đối tượng phía sau (HEAD bucket).
+    const t = Date.now()
+    let storage = false
+    try { storage = (await s3('HEAD', '')).ok } catch { storage = false }
+    return json(res, storage ? 200 : 503, {
+      ok: storage, storage: { ok: storage, ms: Date.now() - t }, antivirus: { configured: Boolean(CLAMAV_HOST) },
+    })
+  }
 
   // --- Công khai, qua cổng APISIX ---
   if (parts[0] === 'files') {

@@ -24,6 +24,7 @@ nằm trong `server.mjs` và được kiểm thử trong `core/tests/tenant-isol
 
 | Phương thức | Đường dẫn | Việc |
 | --- | --- | --- |
+| GET | `/accounts/health` | Kiểm tra dịch vụ còn xin được token Keycloak Admin API (không được thì 503) |
 | GET | `/accounts/staff` | Danh sách cán bộ của xã |
 | POST | `/accounts/staff` | Tạo cán bộ xử lý `{ username, firstName, lastName, email? }`, trả mật khẩu tạm |
 | PATCH | `/accounts/staff/{id}` | Sửa họ, tên, email `{ firstName, lastName, email }` |

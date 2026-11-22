@@ -16,7 +16,8 @@ Không dành cho cán bộ xã hay người dân.
 - Chi tiết xã: tổng quan, sổ ghi nhận, mở / tắt thủ tục theo lĩnh vực hoặc hàng loạt.
 - Danh mục thủ tục: xem, nạp gói thủ tục từ `pack.yaml`, chọn xã được mở.
 - Kiểm tra hồ sơ đã ký (`/so-cai`): xem sổ ghi nhận và kiểm tra chuỗi băm.
-- Tình trạng hệ thống (`/tinh-trang`): **chưa làm**, trang hiện chỉ có dòng giữ chỗ.
+- Tình trạng hệ thống (`/tinh-trang`): kiểm tra từng dịch vụ lõi qua cổng (định danh, cổng API và dữ liệu, quy trình,
+  lưu trữ tệp, tài khoản cán bộ, AI, sổ ghi nhận), kèm thời gian phản hồi; tự kiểm tra lại mỗi 30 giây. Chỉ đọc.
 
 ## Chạy thử
 
@@ -36,8 +37,8 @@ Mở http://localhost:3001 và đăng nhập bằng `quantri`.
 - Đăng nhập: trang gọi `POST /api/dang-nhap`, máy chủ Nuxt đổi tài khoản lấy
   token từ Keycloak (`server/api/dang-nhap.post.ts`). Token giữ trong
   `sessionStorage`, đóng tab là phải đăng nhập lại.
-- Dữ liệu: mọi lời gọi `/rest/...` được Nuxt chuyển tiếp sang cổng APISIX
-  (`routeRules` trong `nuxt.config.ts`), nên không có lỗi CORS.
+- Dữ liệu: mọi lời gọi `/rest/...` (và `/workflow`, `/files`, `/accounts`, `/ai` của trang Tình trạng hệ thống)
+  được Nuxt chuyển tiếp sang cổng APISIX (`routeRules` trong `nuxt.config.ts`), nên không có lỗi CORS.
 - Một chỗ duy nhất gọi API: `app/composables/useApi.ts`. Danh sách API xem
   [core/rest/README.md](../rest/README.md).
 
