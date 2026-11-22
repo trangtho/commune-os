@@ -1,9 +1,9 @@
 # SPDX-FileCopyrightText: 2026 CommuneOS Contributors
 # SPDX-License-Identifier: Apache-2.0
 #
-# Các dịch vụ lõi CommuneOS: db, identity, gateway.
-# Bổ sung db-setup và citizen cho Kênh Công dân; chỉ mở cổng PostgreSQL và
-# Citizen trên localhost, giữ nguyên các cổng phát triển của lõi.
+# Toàn bộ CommuneOS: các dịch vụ lõi (db, db-setup, identity, gateway, rest, workflow-engine,
+# orchestrator, accounts, storage, files, antivirus tùy chọn) và ba ứng dụng Tầng 2
+# (citizen, commune, admin). Cổng ứng dụng và PostgreSQL chỉ mở trên 127.0.0.1.
 
 services:
   db:

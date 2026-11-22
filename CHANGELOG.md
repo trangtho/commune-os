@@ -11,6 +11,13 @@ Mọi thay đổi đáng chú ý của dự án được ghi tại đây.
 
 ## [Chưa phát hành]
 
+### Tài liệu (rà soát hướng dẫn, 2026-11-22)
+
+- Sửa tài liệu cho khớp mã nguồn: `README.md`, `docs/CITIZEN_SETUP.md`, `docs/README.md`, `core/ai`, `core/db`,
+  `core/gateway`, `core/rest`, `core/tests`, `packs`, `apps/admin`, `apps/commune`, `DEPENDENCIES.md`.
+- Nêu rõ Kênh người dân còn nối PostgreSQL trực tiếp, lõi chưa có dịch vụ AI và mô hình AI chỉ được chạy trên máy chủ nội bộ;
+  bỏ các mô tả "chưa có APISIX, Flowable, ClamAV" đã cũ; số kiểm tra của `make test` là 28.
+
 ### Thêm mới (hồ sơ cá nhân và điều hành cán bộ, 2026-11-19)
 
 - Hồ sơ cá nhân cho mọi cán bộ (`/ho-so-ca-nhan`): thông tin, giấy tờ, yêu cầu, việc được giao.

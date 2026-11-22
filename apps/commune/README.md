@@ -10,7 +10,10 @@ Bảng quản trị cán bộ (Nuxt) cho CommuneOS. Dùng để duyệt, giải 
 - `pages/` – các trang quản trị (tổng quan, hồ sơ, thủ tục, thông báo, báo cáo, nhân viên)
 - `components/` – MetricCard, StatusPill, ProcedureCard, CaseTimeline, DocUploader
 - `server/api/` – API route xử lý nghiệp vụ (auth, hồ sơ, thủ tục, thông báo, nhân viên)
-- `server/utils/` – kết nối PostgreSQL, phiên làm việc, xác thực đầu vào
+- `server/utils/` – gọi API lõi (`core-api.ts`, `core-files.ts`, `core-accounts.ts`), phiên làm việc, xác thực đầu vào.
+  `database.ts` (kết nối PostgreSQL trực tiếp) còn dùng cho thông báo và xác nhận bổ sung hồ sơ;
+  trong `docker-compose.yml` dịch vụ `commune` chưa được truyền biến `PG*`, nên các API này
+  chưa chạy được khi dựng bằng Docker.
 - `types/models.ts` – TypeScript interfaces chia sẻ với cổng Công dân
 
 ## Cài đặt và chạy
@@ -21,7 +24,8 @@ npm install
 npm run dev
 ```
 
-Tài khoản thử (Keycloak): `canbo.xa-a` / `canbo.xa-b`, mật khẩu `12345`.
+Tài khoản thử (Keycloak): `canbo.xa-a`, `canbo.xa-b` (cán bộ xử lý), `lanhdao.xa-a`, `lanhdao.xa-b`
+(lãnh đạo, thấy thêm khu Nhân viên), mật khẩu `12345`.
 
 Chạy: `SESSION_SECRET=$(openssl rand -hex 32) npm run dev -- --port 3002`
 (cần `docker compose up -d` ở thư mục gốc).
