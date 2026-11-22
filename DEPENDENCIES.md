@@ -42,6 +42,7 @@ thuộc danh sách OSI (https://opensource.org/licenses).
 | `@nuxtjs/tailwindcss` | ^6.14.0   | MIT        | `apps/admin`, `apps/citizen`, `apps/commune`   |
 | `lucide-vue-next`     | ^1.0.0    | ISC        | `apps/admin`, bộ biểu tượng                    |
 | `lucide-vue-next`     | ^0.468.0  | ISC        | `apps/citizen`, `apps/commune`, bộ biểu tượng  |
+| `@fontsource/be-vietnam-pro` | 5.3.0 | OFL-1.1 | `apps/admin`, `apps/citizen`, `apps/commune`, phông chữ đóng gói cùng ứng dụng |
 | `pg`                  | ^8.16.0   | MIT        | `apps/citizen`, `apps/commune`                 |
 | `zod`                 | ^3.25.0   | MIT        | `apps/citizen`, `apps/commune`                 |
 | TypeScript            | ^5.8.0    | Apache-2.0 | `apps/citizen`, `apps/commune`                 |
