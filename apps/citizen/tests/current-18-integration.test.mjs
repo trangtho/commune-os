@@ -5,12 +5,14 @@ import assert from 'node:assert/strict'
 import {readFileSync} from 'node:fs'
 import {matchSituation,compareObservedFields,nextCaseActions} from '../shared/citizen-intelligence.mjs'
 const read=rel=>readFileSync(new URL(rel,import.meta.url),'utf8')
+const core=read('../../../core/db/init/21-citizen-api-core-flow.sql')
 
 test('Preserves commune-specific procedure availability while pinning drafts to legal version',()=>{
  const draft=read('../server/api/applications/index.post.ts')
- assert.match(draft,/procedure_enabled_for\(/)
- assert.match(draft,/latestProcedureVersion\(/)
- assert.match(draft,/acknowledged_procedure_version_id/)
+ assert.match(draft,/citizen_application_create/)
+ assert.match(core,/procedure_enabled_for\(v_receiving, p_procedure_id\)/)
+ assert.match(core,/v_version := public\.citizen_latest_version\(p_procedure_id\)/)
+ assert.match(core,/procedure_version_id, acknowledged_procedure_version_id/)
  assert.match(read('../pages/thu-tuc/[slug].vue'),/available_in_my_commune/)
  const docker=read('../../../docker-compose.yml')
  const chain=['13-thu-tuc-theo-xa.sql','15-citizen-vault-autofill.sql','16-citizen-procedure-privacy.sql','17-citizen-intelligent-services.sql']

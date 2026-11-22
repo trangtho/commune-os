@@ -1,6 +1,8 @@
 // SPDX-FileCopyrightText: 2026 CommuneOS Contributors
 // SPDX-License-Identifier: Apache-2.0
-import { citizenTx } from '../../utils/database'
-export default defineEventHandler(async(event)=>citizenTx(event,async(client)=>{
-  await client.query('UPDATE citizen_notifications SET is_read=true WHERE is_read=false');return {ok:true}
-}))
+import { citizenRpc } from '../../utils/identity'
+import { requireCitizen } from '../../utils/session'
+export default defineEventHandler(async (event) => {
+  requireCitizen(event)
+  return citizenRpc(event, 'citizen_notifications_read_all')
+})

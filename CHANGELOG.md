@@ -11,6 +11,23 @@ Mọi thay đổi đáng chú ý của dự án được ghi tại đây.
 
 ## [Chưa phát hành]
 
+### Thay đổi (Kênh người dân gọi lõi qua cổng API, 2026-11-22)
+
+- Luồng chính của Kênh người dân không còn truy vấn PostgreSQL trực tiếp: danh mục và chi tiết thủ tục, tạo, sửa,
+  tự lưu bản nháp, nộp hồ sơ, đính kèm, tải và xóa giấy tờ, hồ sơ của tôi, thông báo, hồ sơ cá nhân gọi các hàm `api.*`
+  của lõi qua cổng `/rest` (`core/db/init/21-citizen-api-core-flow.sql`).
+- Lõi kiểm tra lại mọi ràng buộc trong cùng giao dịch khi ghi: trạng thái bản nháp, khóa thủ tục, phiên bản đã xác nhận,
+  xã còn mở thủ tục, tuyến tiếp nhận, người kê khai hoặc quyền đại diện, đủ giấy tờ bắt buộc (Poka-yoke), bản nháp chưa đổi
+  kể từ lúc kiểm tra biểu mẫu.
+- Khách chưa đăng nhập xem danh mục thủ tục qua tuyến công khai `/public/rpc/*` (PostgREST vai trò `web_anon`, giới hạn số lần gọi).
+- Client `citizen-app` chuyển thành client bí mật (biến mới `CITIZEN_KEYCLOAK_SECRET`): chỉ máy chủ Kênh người dân xin được
+  token công dân; `identity-setup` tự chuyển trên realm đã có.
+- `make test` thêm 5 kiểm tra (tổng 38); thêm `make citizen-api-test` (tạo, nộp hồ sơ, Poka-yoke, ROLLBACK) (#66).
+
+### Sửa lỗi (Kênh người dân gọi lõi qua cổng API, 2026-11-22)
+
+- Xóa giấy tờ của bản nháp báo lỗi do vai trò ứng dụng không có quyền xóa (#66).
+
 ### Sửa lỗi (nộp hồ sơ, 2026-11-22)
 
 - Nộp hồ sơ và xác nhận phiên bản thủ tục mới ở Kênh người dân báo "Server Error" (`permission denied for table procedures`):

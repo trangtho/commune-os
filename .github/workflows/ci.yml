@@ -61,6 +61,9 @@ jobs:
       - name: Kiểm thử cách ly xã, xử lý hồ sơ, sổ ghi nhận
         run: DEMO_PASSWORD=12345 make test
 
+      - name: Kiểm thử API luồng chính của công dân trong lõi (ROLLBACK)
+        run: make citizen-api-test
+
       - name: Kiểm thử Kênh người dân
         run: make test-citizen
 

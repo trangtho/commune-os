@@ -226,6 +226,7 @@ async function firstPassword(req, res) {
 // Mật khẩu hiện tại được kiểm tra bằng chính Keycloak, qua đúng client đã cấp token cho người gọi.
 // Công dân dùng citizen-app (phải có vai trò citizen); cán bộ dùng commune-app.
 const CITIZEN_CLIENT = env('CITIZEN_CLIENT_ID', 'citizen-app')
+const CITIZEN_CLIENT_SECRET = process.env.CITIZEN_CLIENT_SECRET || ''
 async function mePassword(req, res) {
   const { claims } = await verifiedClaims(req, [CITIZEN_CLIENT, LOGIN_CLIENT])
   const roles = claims.realm_access?.roles || []
@@ -243,7 +244,10 @@ async function mePassword(req, res) {
   const r = await fetch(`${KEYCLOAK_URL}/realms/${REALM}/protocol/openid-connect/token`, {
     method: 'POST',
     headers: { 'content-type': 'application/x-www-form-urlencoded' },
-    body: new URLSearchParams({ grant_type: 'password', client_id: claims.azp, username: claims.preferred_username, password: current }),
+    body: new URLSearchParams({
+      grant_type: 'password', client_id: claims.azp, username: claims.preferred_username, password: current,
+      ...(claims.azp === CITIZEN_CLIENT ? { client_secret: CITIZEN_CLIENT_SECRET } : {}),
+    }),
   })
   if (!r.ok) throw new HttpError(403, 'Mật khẩu hiện tại không đúng')
   const set = await fetch(`${ADMIN}/users/${claims.sub}/reset-password`, {

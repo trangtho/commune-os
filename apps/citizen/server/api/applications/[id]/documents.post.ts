@@ -1,7 +1,9 @@
 // SPDX-FileCopyrightText: 2026 CommuneOS Contributors
 // SPDX-License-Identifier: Apache-2.0
+// Đính kèm giấy tờ: kiểm tra định dạng, lưu tệp vào kho đối tượng của lõi (dịch vụ files),
+// rồi lõi ghi siêu dữ liệu sau khi kiểm tra trạng thái hồ sơ và loại giấy tờ (api.citizen_document_add).
 import { putObject, deleteObject } from '../../../utils/object-store'
-import { citizenTx } from '../../../utils/database'
+import { citizenRpc } from '../../../utils/identity'
 import { requireCitizen } from '../../../utils/session'
 const accepted:Record<string,string>={'application/pdf':'.pdf','image/png':'.png','image/jpeg':'.jpg'}
 export default defineEventHandler(async(event)=>{
@@ -16,22 +18,12 @@ export default defineEventHandler(async(event)=>{
   const buffer=file.data
   const actual=suffix==='.pdf'?buffer.subarray(0,5).toString()==='%PDF-':suffix==='.png'?buffer.subarray(0,8).equals(Buffer.from([137,80,78,71,13,10,26,10])):buffer[0]===0xff&&buffer[1]===0xd8&&buffer[2]===0xff
   if(!actual)throw createError({statusCode:415,statusMessage:'Nội dung tệp không khớp định dạng'})
-  // Nội dung vào kho đối tượng của lõi; cơ sở dữ liệu giữ khóa và mã băm SHA-256.
   const { key: storageKey, sha256 } = await putObject(buffer, file.type || '')
   try {
-    return await citizenTx(event,async(client)=>{
-      const id=getRouterParam(event,'id')
-      const application=(await client.query('SELECT id,procedure_id,status FROM applications WHERE id=$1 FOR UPDATE',[id])).rows[0]
-      if(!application||!['draft','supplement'].includes(application.status))throw createError({statusCode:403,statusMessage:'Hồ sơ không cho phép tải tài liệu'})
-      const allowed=code==='other'||(await client.query('SELECT 1 FROM procedure_documents WHERE procedure_id=$1 AND document_code=$2',[application.procedure_id,code])).rowCount
-      if(!allowed)throw createError({statusCode:400,statusMessage:'Loại giấy tờ không hợp lệ'})
-      const count=(await client.query('SELECT count(*)::int AS count FROM application_documents WHERE application_id=$1',[id])).rows[0].count
-      if(count>=30)throw createError({statusCode:422,statusMessage:'Hồ sơ tối đa 30 tệp; vui lòng liên hệ hỗ trợ nếu cần bổ sung'})
-      const originalName=(file.filename||'tai-lieu').replace(/[\\/\r\n\x00-\x1f]/g,'').slice(0,180)
-      const result=(await client.query(`INSERT INTO application_documents(application_id,document_code,original_name,storage_key,mime_type,size_bytes,sha256)
-        VALUES($1,$2,$3,$4,$5,$6,$7) RETURNING id,document_code,original_name,size_bytes,uploaded_at`,
-        [id,code,originalName,storageKey,file.type,buffer.length,sha256])).rows[0]
-      return result
+    return await citizenRpc(event,'citizen_document_add',{
+      p_application_id:String(getRouterParam(event,'id')||''), p_document_code:code,
+      p_original_name:(file.filename||'tai-lieu').replace(/[\\/\r\n\x00-\x1f]/g,'').slice(0,180),
+      p_storage_key:storageKey, p_mime_type:file.type, p_size_bytes:buffer.length, p_sha256:sha256,
     })
   } catch(error) { await deleteObject(storageKey);throw error }
 })

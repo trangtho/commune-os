@@ -8,11 +8,12 @@ import {fileURLToPath,pathToFileURL} from 'node:url'
 import {spawnSync} from 'node:child_process'
 const root=resolve(dirname(fileURLToPath(import.meta.url)),'..')
 const read=path=>readFileSync(resolve(root,path),'utf8')
+const core=read('../../core/db/init/21-citizen-api-core-flow.sql')
 test('Server-side owner-scoped document DELETE and no result forgery',()=>{
   const deletion=read('server/api/applications/[id]/documents/[documentId].delete.ts')
-  assert.match(deletion,/citizenTx/)
-  assert.match(deletion,/\['draft', 'supplement'\]/)
-  assert.match(deletion,/DELETE FROM application_documents/)
+  assert.match(deletion,/citizen_document_remove/)
+  assert.match(core,/v_status NOT IN \('draft', 'supplement'\)/)
+  assert.match(core,/DELETE FROM application_documents/)
   assert.match(read('server/api/documents/[id].get.ts'),/inline/)
   const result=read('server/api/applications/[id]/result.get.ts')
   assert.match(result,/requireCompleted/)
@@ -35,8 +36,9 @@ test('RAG answer only uses published database evidence and signed results requir
 })
 test('Search, profile validation, notice paging and locality routing are server-side',()=>{
   assert.match(read('pages/tra-cuu.vue'),/citizen-applications-lookup/)
-  assert.match(read('server/api/applications/index.get.ts'),/applicant_name/)
-  assert.match(read('server/api/notifications/index.get.ts'),/pageSize/)
+  assert.match(read('server/api/applications/index.get.ts'),/citizen_applications/)
+  assert.match(core,/citizen_fold\(ap\.applicant_name\)/)
+  assert.match(core,/'pageSize', v_size/)
   assert.match(read('server/api/profile/index.patch.ts'),/phoneIssue/)
   assert.match(read('server/api/applications/index.post.ts'),/receivingTenantId/)
 })

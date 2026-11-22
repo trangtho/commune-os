@@ -6,6 +6,8 @@
 // Tệp này đọc realm/communeos-realm.json và thêm những mục chưa có, KHÔNG ghi đè mục đã có:
 //   * vai trò, client, người dùng liệt kê trong IMPORT (qua partialImport, ifResourceExists=SKIP)
 //   * thuộc tính khai báo trong user profile (chỉ thêm thuộc tính chưa có)
+//   * client liệt kê trong CONFIDENTIAL: luôn là client bí mật với secret lấy từ biến môi trường
+// Biến ${TÊN} trong tệp realm được thay bằng biến môi trường cùng tên (giống Keycloak khi nạp realm).
 // Không thư viện ngoài (chỉ Node 22).
 
 import { readFile } from 'node:fs/promises'
@@ -22,6 +24,8 @@ const IMPORT = {
   clients: ['citizen-app'],
   users: ['congdan.demo', 'congdan.khac'],
 }
+// Client bí mật và biến môi trường chứa secret.
+const CONFIDENTIAL = { 'citizen-app': 'CITIZEN_KEYCLOAK_SECRET' }
 
 if (!ADMIN_USER || !ADMIN_PASSWORD) {
   console.error('Thiếu KEYCLOAK_ADMIN hoặc KEYCLOAK_ADMIN_PASSWORD')
@@ -53,7 +57,8 @@ async function waitToken() {
 }
 
 async function main() {
-  const realm = JSON.parse(await readFile(REALM_FILE, 'utf8'))
+  const raw = await readFile(REALM_FILE, 'utf8')
+  const realm = JSON.parse(raw.replace(/\$\{([A-Z0-9_]+)\}/g, (all, name) => (process.env[name] ? JSON.stringify(process.env[name]).slice(1, -1) : all)))
   const token = await waitToken()
   const api = async (method, path, body) => {
     const r = await fetch(`${KEYCLOAK_URL}/admin/realms/${REALM}${path}`, {
@@ -88,6 +93,19 @@ async function main() {
     users: pick(realm.users, 'username', IMPORT.users),
   })
   console.log(`partialImport: thêm ${result.added}, bỏ qua ${result.skipped} (đã có)`)
+
+  // 3. Client bí mật: realm cài từ bản trước có thể còn là client công khai hoặc secret cũ.
+  for (const [clientId, variable] of Object.entries(CONFIDENTIAL)) {
+    const secret = process.env[variable]
+    if (!secret) throw new Error(`Thiếu ${variable}`)
+    const [client] = await api('GET', `/clients?clientId=${encodeURIComponent(clientId)}`)
+    if (!client) continue
+    const current = client.publicClient ? null : (await api('GET', `/clients/${client.id}/client-secret`))?.value
+    if (client.publicClient || current !== secret) {
+      await api('PUT', `/clients/${client.id}`, { ...client, publicClient: false, clientAuthenticatorType: 'client-secret', secret })
+      console.log(`Client ${clientId}: đặt là client bí mật, cập nhật secret`)
+    }
+  }
   console.log('Cấu hình định danh đã đủ.')
 }
 

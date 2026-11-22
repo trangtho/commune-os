@@ -93,4 +93,24 @@ routes:
       type: roundrobin
       nodes:
         "accounts:3000": 1
+  # API công khai cho khách chưa đăng nhập: chỉ danh mục và chi tiết thủ tục đã công bố.
+  # Không nhận token (bỏ header Authorization), PostgREST dùng vai trò web_anon; có giới hạn số lần gọi.
+  - id: public-procedures
+    uris: ["/public/rpc/procedure_catalog", "/public/rpc/procedure_detail"]
+    methods: ["GET", "POST"]
+    plugins:
+      limit-count:
+        count: 120
+        time_window: 60
+        key_type: var
+        key: remote_addr
+        rejected_code: 429
+      proxy-rewrite:
+        regex_uri: ["^/public/(.*)", "/$1"]
+        headers:
+          remove: ["Authorization"]
+    upstream:
+      type: roundrobin
+      nodes:
+        "rest:3000": 1
 #END

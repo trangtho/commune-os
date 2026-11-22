@@ -11,8 +11,9 @@ Dịch vụ định danh của lõi, dùng Keycloak. Realm xuất ra JSON để 
   khi khởi động (`start-dev --import-realm`).
 - Vai trò: `sys_admin` (quản trị hệ thống), `leader` (lãnh đạo xã), `officer` (cán bộ xử lý), `supervisor` (cấp trên), `citizen` (công dân). Mỗi xã chỉ dùng `leader` và `officer`; `receptionist` còn trong realm để tương thích, không gán cho ai.
 - Client `commune-app`: cán bộ và quản trị đăng nhập. Mapper đưa thuộc tính `tenant_id` (mã xã) vào access token.
-- Client `citizen-app`: máy chủ Kênh người dân đổi tên đăng nhập, mật khẩu của công dân lấy token
-  (chỉ bật đăng nhập bằng mật khẩu, không bật luồng chuyển trang). Mapper đưa `citizen_id` (mã công dân
+- Client `citizen-app` (client bí mật, secret lấy từ biến `CITIZEN_KEYCLOAK_SECRET`): máy chủ Kênh người
+  dân đổi tên đăng nhập, mật khẩu của công dân lấy token (chỉ bật đăng nhập bằng mật khẩu, không bật luồng
+  chuyển trang). Công dân không có secret nên không tự xin token để gọi thẳng API lõi. Mapper đưa `citizen_id` (mã công dân
   trong bảng `citizens`) và `citizen_tenant` (mã xã) vào access token.
 - Client `accounts-service`: tài khoản dịch vụ cho `core/accounts`, bí mật lấy từ biến `KEYCLOAK_ACCOUNTS_SECRET` khi nạp realm.
 - Thuộc tính `tenant_id`: người dùng chỉ xem, chỉ quản trị sửa được. `citizen_id`, `citizen_tenant`:
@@ -25,6 +26,7 @@ Dịch vụ định danh của lõi, dùng Keycloak. Realm xuất ra JSON để 
 Keycloak chỉ nạp tệp realm khi realm chưa tồn tại. Dịch vụ `identity-setup` (`setup.mjs`, chạy một lần
 mỗi khi `make up`) đọc tệp realm và bổ sung những mục còn thiếu qua Admin API, không ghi đè mục đã có:
 thuộc tính user profile, và các vai trò, client, người dùng liệt kê trong biến `IMPORT` của `setup.mjs`.
+Client trong biến `CONFIDENTIAL` luôn được đặt là client bí mật với secret lấy từ biến môi trường.
 Khi thêm vai trò, client hoặc tài khoản mẫu vào tệp realm, thêm tên vào `IMPORT`.
 
 ```bash
