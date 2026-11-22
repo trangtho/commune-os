@@ -11,9 +11,8 @@ Bảng quản trị cán bộ (Nuxt) cho CommuneOS. Dùng để duyệt, giải 
 - `components/` – MetricCard, StatusPill, ProcedureCard, CaseTimeline, DocUploader
 - `server/api/` – API route xử lý nghiệp vụ (auth, hồ sơ, thủ tục, thông báo, nhân viên)
 - `server/utils/` – gọi API lõi (`core-api.ts`, `core-files.ts`, `core-accounts.ts`), phiên làm việc, xác thực đầu vào.
-  `database.ts` (kết nối PostgreSQL trực tiếp) còn dùng cho thông báo và xác nhận bổ sung hồ sơ;
-  trong `docker-compose.yml` dịch vụ `commune` chưa được truyền biến `PG*`, nên các API này
-  chưa chạy được khi dựng bằng Docker.
+  `database.ts` (kết nối PostgreSQL trực tiếp bằng vai trò `communeos_app`) còn dùng cho thông báo
+  và xác nhận bổ sung hồ sơ; biến kết nối `NUXT_DB_*` khai báo trong `docker-compose.yml`.
 - `types/models.ts` – TypeScript interfaces chia sẻ với cổng Công dân
 
 ## Cài đặt và chạy
