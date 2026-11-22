@@ -37,6 +37,7 @@ services:
 
   identity:
     image: quay.io/keycloak/keycloak:26.8.2
+    restart: unless-stopped
     command: start-dev --import-realm
     environment:
       KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN}
@@ -58,6 +59,7 @@ services:
 
   gateway:
     image: apache/apisix:3.20.0-debian
+    restart: unless-stopped
     environment:
       APISIX_STAND_ALONE: "true"
     volumes:
@@ -348,14 +350,24 @@ services:
       dockerfile: Dockerfile
     restart: unless-stopped
     depends_on:
-      - gateway
-      - identity
+      db-setup:
+        condition: service_completed_successfully
+      gateway:
+        condition: service_started
+      identity:
+        condition: service_started
     environment:
       NODE_ENV: production
       HOST: 0.0.0.0
       PORT: 3000
       # Biến NUXT_* ghi đè runtimeConfig lúc chạy container.
       NUXT_SESSION_SECRET: ${SESSION_SECRET}
+      # Thông báo và xác nhận bổ sung hồ sơ còn đọc PostgreSQL trực tiếp (vai trò có RLS).
+      NUXT_DB_HOST: db
+      NUXT_DB_PORT: "5432"
+      NUXT_DB_NAME: ${POSTGRES_DB}
+      NUXT_DB_USER: communeos_app
+      NUXT_DB_PASSWORD: ${POSTGRES_APP_PASSWORD}
       NUXT_KEYCLOAK_URL: http://identity:8080
       NUXT_GATEWAY_URL: http://gateway:9080
     ports:

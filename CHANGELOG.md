@@ -11,6 +11,11 @@ Mọi thay đổi đáng chú ý của dự án được ghi tại đây.
 
 ## [Chưa phát hành]
 
+### Sửa lỗi (vận hành, 2026-11-22)
+
+- `identity` (Keycloak) và `gateway` (APISIX) tự khởi động lại sau khi máy chủ khởi động lại (`restart: unless-stopped`).
+- Màn hình cán bộ xã kết nối được PostgreSQL khi chạy bằng Docker (thiếu biến `NUXT_DB_*`), chờ `db-setup` xong mới chạy.
+
 ### Tài liệu (rà soát hướng dẫn, 2026-11-22)
 
 - Sửa tài liệu cho khớp mã nguồn: `README.md`, `docs/CITIZEN_SETUP.md`, `docs/README.md`, `core/ai`, `core/db`,
