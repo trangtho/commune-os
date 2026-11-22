@@ -16,13 +16,15 @@ Mọi thay đổi đáng chú ý của dự án được ghi tại đây.
 - Cùng một hệ thống giao diện cho ba ứng dụng, mỗi ứng dụng một màu chủ đạo (người dân xanh dương, cán bộ xanh ngọc,
   quản trị chàm); phông Be Vietnam Pro đóng gói cùng ứng dụng (không tải từ máy chủ ngoài); chữ xám đậm hơn cho dễ đọc.
 - Nội dung luôn nằm trên tấm nền đặc, ảnh nền chỉ lộ ra hai bên, chữ không còn chìm vào ảnh.
-- Kênh người dân: bỏ cột trái, cột phải và chân trang; tiêu đề trang gọn; bốn bước nộp hồ sơ chỉ hiện khi đang nộp;
+- Kênh người dân: bỏ cột trái, cột phải và chân trang; thanh tiêu đề nền xanh trơn, giống nhau ở mọi trang; bốn bước nộp hồ sơ chỉ hiện khi đang nộp;
   trang chủ có ô tìm thủ tục, ba việc chính và hồ sơ đang giải quyết; danh mục thủ tục lọc bằng nút chủ đề;
   trang chi tiết thủ tục có tóm tắt giấy tờ, lệ phí, thời hạn và nút nộp cố định trên điện thoại;
   trang mới `/tai-khoan` gom các chức năng phụ.
 - Màn hình cán bộ: bỏ ảnh tiêu đề, cột hướng dẫn bên phải và chân trang; ô tìm hồ sơ theo mã ở đầu trang;
   trang tổng quan còn 4 ô số liệu bấm được và danh sách việc cần làm xếp theo hạn; danh sách hồ sơ lọc bằng nút trạng thái
   (có lọc "Quá hạn"), mở được bằng đường dẫn `/ho-so?status=...`.
+- Màn hình cán bộ: "Việc được giao" tách khỏi Hồ sơ cá nhân thành mục riêng trên menu (`/viec-duoc-giao`), có số việc chưa
+  xong; trang tổng quan hiện việc lãnh đạo giao, quá hạn lên đầu.
 - Bảng quản trị: trang Tổng quan mới (xã, thủ tục, tình trạng sổ ghi nhận); thanh bên sáng; sổ ghi nhận hiện tên xã và
   tên tiếng Việt cho mọi loại thao tác.
 - Trợ lý AI nổi: tiêu đề một dòng, câu hỏi gợi ý, mở toàn màn hình trên điện thoại.
