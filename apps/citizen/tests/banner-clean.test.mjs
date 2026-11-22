@@ -18,11 +18,12 @@ test('Hero uses building-only asset, with no baked-in workflow ribbon', () => {
   assert.equal(image.readUInt32BE(20), 139)
 })
 
-test('Workflow descriptions remain real UI text and steps fit desktop widths', () => {
+test('Workflow steps are real UI text, shown only while filing, and fit desktop widths', () => {
   const layout = readFileSync(resolve(root, 'layouts/default.vue'), 'utf8')
   assert.match(layout, /Đính kèm giấy tờ theo yêu cầu/)
   assert.match(layout, /Kiểm tra và gửi hồ sơ/)
-  assert.match(layout, /xl:grid-cols-5/)
+  assert.match(layout, /v-if="isFiling"/)
+  assert.match(layout, /xl:grid-cols-4/)
   assert.match(layout, /xl:overflow-visible/)
   assert.match(layout, /overflow-x-auto/)
 })

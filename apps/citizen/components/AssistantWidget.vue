@@ -45,21 +45,22 @@ async function send() {
     scrollDown()
   }
 }
+// Câu hỏi gợi ý hiện khi chưa hỏi gì, bấm là gửi luôn.
+const suggestions = ['Làm giấy khai sinh cần giấy tờ gì?', 'Lệ phí chứng thực bản sao bao nhiêu?', 'Đăng ký kết hôn mất bao lâu?']
+function ask(q: string) { input.value = q; send() }
 function onKey(e: KeyboardEvent) { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); send() } }
 </script>
 
 <template>
   <div v-if="!hidden" class="fixed bottom-4 right-4 z-50 flex flex-col items-end gap-3 print:hidden" @keydown.esc="open = false">
     <section v-if="open" role="dialog" aria-label="Trợ lý AI thủ tục hành chính"
-      class="flex h-[min(560px,calc(100dvh-6rem))] w-[min(380px,calc(100vw-2rem))] flex-col overflow-hidden rounded-2xl border border-[#dbe6f4] bg-white shadow-2xl">
-      <header class="flex items-start gap-3 bg-gradient-to-r from-brand-600 to-brand-700 px-4 py-3 text-white">
-        <Bot :size="22" class="mt-0.5 shrink-0" />
-        <div class="min-w-0 flex-1">
-          <h2 class="font-bold">Trợ lý AI thủ tục</h2>
-          <p class="text-xs text-blue-100">Chỉ dùng thông tin thủ tục công khai, luôn trích nguồn. Không xem hồ sơ của bạn hay của người khác.</p>
-        </div>
-        <button class="rounded p-1 hover:bg-white/20" aria-label="Đóng trợ lý" @click="open = false"><X :size="18" /></button>
+      class="flex h-[min(560px,calc(100dvh-6rem))] w-[min(380px,calc(100vw-2rem))] flex-col overflow-hidden rounded-2xl border border-[#dbe6f4] bg-white shadow-2xl max-sm:fixed max-sm:inset-0 max-sm:h-[100dvh] max-sm:w-full max-sm:rounded-none max-sm:border-0">
+      <header class="flex items-center gap-2 bg-brand-700 px-4 py-3 text-white">
+        <Bot :size="20" class="shrink-0" />
+        <h2 class="min-w-0 flex-1 font-bold">Trợ lý AI thủ tục</h2>
+        <button class="rounded p-1.5 hover:bg-white/20" aria-label="Đóng trợ lý" @click="open = false"><X :size="20" /></button>
       </header>
+      <p class="border-b border-slate-100 bg-white px-4 py-2 text-xs text-slate-600">Chỉ dùng thông tin thủ tục công khai, có trích nguồn. Trợ lý không xem hồ sơ của ai.</p>
       <div ref="box" class="flex-1 space-y-3 overflow-y-auto bg-[#f7faff] p-3" aria-live="polite">
         <div v-for="(m, i) in messages" :key="i" :class="m.role === 'user' ? 'flex justify-end' : 'flex justify-start'">
           <div :class="['max-w-[88%] rounded-2xl px-3 py-2 text-sm', m.role === 'user' ? 'bg-brand-600 text-white' : m.error ? 'border border-rose-200 bg-rose-50 text-rose-800' : 'border border-[#dbe6f4] bg-white text-ink']">
@@ -71,6 +72,9 @@ function onKey(e: KeyboardEvent) { if (e.key === 'Enter' && !e.shiftKey) { e.pre
             </ul>
           </div>
         </div>
+        <div v-if="messages.length === 1 && !busy" class="flex flex-wrap gap-2 pt-1">
+          <button v-for="q in suggestions" :key="q" type="button" class="rounded-full border border-brand-200 bg-white px-3 py-1.5 text-left text-xs font-semibold text-brand-700 hover:bg-brand-50" @click="ask(q)">{{ q }}</button>
+        </div>
         <p v-if="busy" class="text-xs text-muted">Đang tìm trong dữ liệu thủ tục... (có thể mất khoảng 10–15 giây)</p>
       </div>
       <form class="flex items-end gap-2 border-t border-slate-100 p-3" @submit.prevent="send">
@@ -80,7 +84,7 @@ function onKey(e: KeyboardEvent) { if (e.key === 'Enter' && !e.shiftKey) { e.pre
       </form>
       <NuxtLink to="/tro-ly" class="border-t border-slate-100 py-2 text-center text-xs font-semibold text-brand-700 hover:bg-brand-50" @click="open = false">Mở trang trợ lý đầy đủ, xem lịch sử hỏi đáp</NuxtLink>
     </section>
-    <button class="flex items-center gap-2 rounded-full bg-gradient-to-b from-brand-500 to-brand-700 px-4 py-3 font-bold text-white shadow-xl hover:brightness-105 focus:outline-none focus:ring-4 focus:ring-brand-200"
+    <button :class="open ? 'max-sm:hidden' : ''" class="flex items-center gap-2 rounded-full bg-brand-700 px-4 py-3 font-bold text-white shadow-xl hover:brightness-105 focus:outline-none focus:ring-4 focus:ring-brand-200"
       :aria-expanded="open" aria-label="Hỏi trợ lý AI" @click="toggle">
       <X v-if="open" :size="20" /><MessageCircle v-else :size="20" />
       <span class="hidden sm:inline">{{ open ? 'Đóng' : 'Hỏi trợ lý AI' }}</span>
