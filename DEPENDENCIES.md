@@ -58,5 +58,6 @@ theo phiên bản thực tế trong `package-lock.json`.
 ## Mô hình AI
 
 Kho mã không đi kèm mô hình AI nào. Trợ lý thủ tục mặc định trả lời bằng tìm kiếm toàn văn
-trên dữ liệu thủ tục (PostgreSQL). Có thể tùy chọn nối một mô hình tương thích OpenAI qua biến
-`CITIZEN_AI_ENDPOINT`; người triển khai tự chọn mô hình và tự kiểm tra giấy phép của mô hình đó.
+trên dữ liệu thủ tục (PostgreSQL). Có thể tùy chọn nối một mô hình tương thích OpenAI chạy trên máy chủ nội bộ
+qua biến `CITIZEN_AI_ENDPOINT` (không dùng API AI bên ngoài vì dữ liệu là dữ liệu mật);
+người triển khai tự chọn mô hình và tự kiểm tra giấy phép của mô hình đó.

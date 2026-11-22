@@ -7,8 +7,8 @@ SPDX-License-Identifier: Apache-2.0
 
 Trợ lý AI là một **tính năng của Kênh công dân**, triển khai bằng Nuxt/Nitro tại
 `apps/citizen/pages/tro-ly.vue` và `apps/citizen/server/api/chat/`.
-Không khởi chạy một dịch vụ AI riêng không có trong kiến trúc main; khi nhóm có
-AI service chung có thể tích hợp qua biến môi trường server.
+Lõi hiện **chưa có dịch vụ AI** riêng; thư mục này chỉ chứa tài liệu.
+Mặc định trợ lý chỉ dùng tìm kiếm toàn văn trên PostgreSQL, không dùng mô hình ngôn ngữ.
 
 ## Dòng dữ liệu
 
@@ -34,10 +34,15 @@ Các biến **chỉ ở server**, truyền cho service `citizen` trong compose
 (thông qua các override `NUXT_AI_*` tương ứng của Nuxt runtimeConfig):
 
 ```dotenv
-CITIZEN_AI_ENDPOINT=https://your-trusted-provider.example/v1/chat/completions
-CITIZEN_AI_MODEL=your-approved-model
-CITIZEN_AI_TOKEN=your-private-token
+CITIZEN_AI_ENDPOINT=http://<may-chu-noi-bo>/v1/chat/completions
+CITIZEN_AI_MODEL=<ten-mo-hinh>
+CITIZEN_AI_TOKEN=
 ```
+
+Dữ liệu của hệ thống là dữ liệu mật: chỉ trỏ tới mô hình chạy trên máy chủ của đơn vị,
+**không dùng API AI bên ngoài**. Mã hiện chấp nhận `https://` bất kỳ hoặc `http://localhost`,
+`http://127.0.0.1`; chưa tự chặn địa chỉ ngoài mạng nội bộ. Biến chưa được khai báo trong
+`.env.example`, chỉ có trong `docker-compose.yml`.
 
 Endpoint phải tương thích OpenAI chat completions và hỗ trợ JSON output.
 Không có provider/token/mô hình thì trợ lý vẫn hoạt động chế độ `DATA`,
@@ -45,7 +50,7 @@ không được mô tả là đã có AI tạo sinh. Khi có mô hình, API gử
 18 đoạn trích **đã lọc**, yêu cầu model chọn `id` và `quote` nguyên văn.
 API bỏ toàn bộ nội dung không trùng nguồn, không nhận URL hay lời khẳng
 định ngoài dữ liệu. Câu hỏi chứa số điện thoại, email, dãy định danh
-không được chuyển tới model ngoài. Lượt gọi có giới hạn thời gian 7 giây,
+không được chuyển tới mô hình. Lượt gọi có giới hạn thời gian 7 giây,
 không redirect và không lưu hội thoại vào database.
 
 Các biến `CITIZEN_RAG_ENDPOINT` / `CITIZEN_RAG_TOKEN` (classifier từ bản trước)
@@ -65,14 +70,13 @@ vẫn được hỗ trợ để giữ tương thích ngược, nhưng không b�
   dữ liệu thay vì tự suy đoán.
 - Kết quả chính thức trong tương lai cần metadata nguồn (mã văn bản,
   hiệu lực, cơ quan ban hành, địa phương) được nhóm dữ liệu kiểm chứng.
-- Cần đánh giá bảo mật, hạn mức theo gateway và xác nhận nhà cung cấp AI
-  trước khi triển khai cho công dân thật.
+- Cần đánh giá bảo mật và hạn mức theo gateway trước khi triển khai cho công dân thật.
 
 ## Kiểm thử
 
 ```bash
 npm --prefix apps/citizen test
-make repair-db    # trên máy Mac có Docker, sao lưu DB nếu cần
+make repair-db    # sao lưu DB trước nếu có dữ liệu cần giữ
 make rag-test     # SQL test có ROLLBACK, không thay đổi dữ liệu
 curl http://localhost:3000/api/chat/knowledge
 ```

@@ -5,7 +5,8 @@ SPDX-License-Identifier: Apache-2.0
 
 # core/rest — API dữ liệu (PostgREST)
 
-Mọi giao diện (bảng quản trị, màn hình cán bộ xã) đọc dữ liệu qua API này.
+Bảng quản trị và màn hình cán bộ xã đọc dữ liệu qua API này. Kênh người dân hiện vẫn
+kết nối PostgreSQL trực tiếp.
 
 ```
 Đăng nhập Keycloak → token (tenant_id = mã xã, realm_access.roles = vai trò)
@@ -19,7 +20,7 @@ Mọi lời gọi cần header `Authorization: Bearer <token>`. Không có token
 ## Danh sách API
 
 | Muốn                                 | Gọi                                                                                                                                                |
-| ------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------- | --- |
+| ------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------- |
 | Hồ sơ của xã (số điện thoại đã che)  | `GET /rest/dossiers`                                                                                                                               |
 | Hồ sơ đang xử lý, hạn gần nhất trước | `GET /rest/dossiers?status=eq.processing&order=due_at`                                                                                             |
 | Hồ sơ quá hạn                        | `GET /rest/dossiers?overdue=is.true`                                                                                                               |
@@ -31,9 +32,14 @@ Mọi lời gọi cần header `Authorization: Bearer <token>`. Không có token
 | Danh sách xã (sys_admin thấy tất cả) | `GET /rest/tenants`                                                                                                                                |
 | Thêm xã (chỉ sys_admin)              | `POST /rest/rpc/add_tenant` với `{"code":"xa-c","name":"Xã C"}`                                                                                    |
 | Khóa / mở xã (chỉ sys_admin)         | `POST /rest/rpc/set_tenant_status` với `{"code":"xa-a","status":"locked"}`                                                                         |
-| Đổi trạng thái hồ sơ (cán bộ xã)     | Không gọi ở đây: dùng `POST /workflow/dossiers/<mã>/actions` (xem `core/orchestrator`). `set_dossier_status` chỉ nhận lời gọi từ dịch vụ điều phối |     |
+| Đổi trạng thái hồ sơ (cán bộ xã)     | Không gọi ở đây: dùng `POST /workflow/dossiers/<mã>/actions` (xem `core/orchestrator`). `set_dossier_status` chỉ nhận lời gọi từ dịch vụ điều phối|
 | Xem sổ ghi nhận                      | `GET /rest/ledger?order=seq.desc&limit=30`                                                                                                         |
 | Kiểm tra sổ có bị sửa không          | `POST /rest/rpc/verify_ledger` với `{}` hoặc `{"only_tenant":"xa-a"}`                                                                              |
+| Mở / tắt thủ tục cho xã (sys_admin)  | `POST /rest/rpc/set_tenant_procedure`, `set_tenant_procedures`, `set_procedure_tenants`                                                            |
+| Nạp gói thủ tục (sys_admin)          | `POST /rest/rpc/import_procedure` với `{"pack": {...}}` (nội dung `pack.yaml` chuyển sang JSON)                                                          |
+| Phân công, trình duyệt hồ sơ         | `POST /rest/rpc/assign_dossier`, `request_dossier_approval`; xem `GET /rest/dossier_assignments`                                                   |
+| Nhật ký quản lý cán bộ (lãnh đạo)    | `GET /rest/staff_audit`                                                                                                                            |
+| Nhân viên, việc giao, yêu cầu        | `staff_profiles`, `staff_tasks`, `staff_requests`, `staff_workload`, `my_profile`, `my_tasks`, `my_requests` (xem `docs/QUAN_LY_NHAN_VIEN.md`)      |
 
 Hồ sơ thuộc về xã tiếp nhận: `tenant_code` là xã xử lý hồ sơ, `home_tenant_code` là xã của người nộp.
 

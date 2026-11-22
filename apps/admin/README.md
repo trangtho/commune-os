@@ -12,8 +12,11 @@ Không dành cho cán bộ xã hay người dân.
 ## Chức năng
 
 - Đăng nhập bằng Keycloak; chỉ tài khoản có vai trò `sys_admin` vào được.
-- Danh sách xã: xem số hồ sơ, thêm xã, khóa / mở khóa xã (dữ liệu thật trong PostgreSQL).
-- Thủ tục, Kiểm tra hồ sơ đã ký, Tình trạng hệ thống: đang làm.
+- Danh sách xã: tìm kiếm, xem số hồ sơ và số thủ tục đang mở, thêm xã, khóa / mở khóa xã.
+- Chi tiết xã: tổng quan, sổ ghi nhận, mở / tắt thủ tục theo lĩnh vực hoặc hàng loạt.
+- Danh mục thủ tục: xem, nạp gói thủ tục từ `pack.yaml`, chọn xã được mở.
+- Kiểm tra hồ sơ đã ký (`/so-cai`): xem sổ ghi nhận và kiểm tra chuỗi băm.
+- Tình trạng hệ thống (`/tinh-trang`): **chưa làm**, trang hiện chỉ có dòng giữ chỗ.
 
 ## Chạy thử
 
