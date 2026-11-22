@@ -5,8 +5,8 @@ SPDX-License-Identifier: Apache-2.0
 
 # core/rest — API dữ liệu (PostgREST)
 
-Bảng quản trị và màn hình cán bộ xã đọc dữ liệu qua API này. Kênh người dân hiện vẫn
-kết nối PostgreSQL trực tiếp.
+Bảng quản trị và màn hình cán bộ xã đọc dữ liệu qua API này. Kênh người dân dùng API này khi
+đăng nhập; các chức năng khác của Kênh người dân vẫn kết nối PostgreSQL trực tiếp.
 
 ```
 Đăng nhập Keycloak → token (tenant_id = mã xã, realm_access.roles = vai trò)
@@ -40,6 +40,17 @@ Mọi lời gọi cần header `Authorization: Bearer <token>`. Không có token
 | Phân công, trình duyệt hồ sơ         | `POST /rest/rpc/assign_dossier`, `request_dossier_approval`; xem `GET /rest/dossier_assignments`                                                   |
 | Nhật ký quản lý cán bộ (lãnh đạo)    | `GET /rest/staff_audit`                                                                                                                            |
 | Nhân viên, việc giao, yêu cầu        | `staff_profiles`, `staff_tasks`, `staff_requests`, `staff_workload`, `my_profile`, `my_tasks`, `my_requests` (xem `docs/QUAN_LY_NHAN_VIEN.md`)      |
+
+### Công dân (token của client `citizen-app`)
+
+Token công dân có vai trò `citizen`, claim `citizen_id` và `citizen_tenant`. PostgREST chuyển sang
+vai trò `citizen-app`; hàm `public.rest_pre_request()` (biến `PGRST_DB_PRE_REQUEST`) đặt
+`app.citizen_id`, `app.tenant_id` để chính sách RLS của các bảng công dân áp dụng
+(`core/db/init/19-citizen-rest-api.sql`). Token công dân không đọc được các API của cán bộ ở trên (403).
+
+| Muốn | Gọi |
+| --- | --- |
+| Thông tin của công dân đang đăng nhập | `GET /rest/my_citizen_profile` |
 
 Hồ sơ thuộc về xã tiếp nhận: `tenant_code` là xã xử lý hồ sơ, `home_tenant_code` là xã của người nộp.
 

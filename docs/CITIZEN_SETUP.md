@@ -46,8 +46,10 @@ khi đã sao lưu hoặc không còn cần dữ liệu.
 Khi chạy, PostgreSQL tạo role `communeos_app` không có quyền superuser.
 Nuxt Nitro kết nối bằng role này; mọi truy vấn dữ liệu Công dân chạy trong
 transaction có `set_config('app.citizen_id'...)` và `tenant_id` để áp RLS.
-Ứng dụng Công dân hiện kết nối PostgreSQL trực tiếp, chưa đi qua cửa ngõ APISIX
-như `apps/admin`; đăng nhập dùng cookie phiên của ứng dụng, OIDC là tùy chọn.
+Đăng nhập: máy chủ Công dân gửi tên đăng nhập và mật khẩu tới Keycloak (client `citizen-app`), đọc
+hồ sơ công dân qua cổng APISIX (`/rest/my_citizen_profile`), rồi tạo cookie phiên ký HMAC. Token
+Keycloak giữ trong cookie HttpOnly mã hóa AES-256-GCM, tự gia hạn; trình duyệt không đọc được.
+Các chức năng còn lại vẫn kết nối PostgreSQL trực tiếp, chưa đi qua cửa ngõ APISIX.
 
 ### Sửa lỗi "Không tải được thủ tục từ PostgreSQL" (không mất dữ liệu)
 
@@ -125,9 +127,9 @@ trên dữ liệu cần giữ vì lệnh này xóa toàn bộ volume dữ liệu
 | `/tro-ly` | Hỏi đáp thủ tục: tìm kiếm toàn văn trên chỉ mục thủ tục đã công bố, trích nguồn (chưa dùng mô hình ngôn ngữ) |
 | `/huong-dan` | Quy trình sử dụng, FAQ cơ bản |
 | `/ho-so-ca-nhan` | Xem và sửa profile trong PostgreSQL |
-| `/bao-mat` | Đổi mật khẩu mẫu, hash scrypt |
+| `/bao-mat` | Đổi mật khẩu (lưu ở Keycloak, qua `/accounts/me/password` của lõi) |
 | `/lien-he` | Gửi phản hồi, lưu PostgreSQL |
-| `/dang-nhap` | Đăng nhập công dân mô phỏng, cookie HMAC HttpOnly |
+| `/dang-nhap` | Đăng nhập công dân qua Keycloak, cookie phiên HttpOnly |
 
 Phần UI trên gồm đủ luồng nghiệp vụ tương ứng bộ màn hình Công dân đã thiết kế;
 một số bước dùng một trang wizard thay vì nhiều trang HTML lặp lại.
@@ -137,9 +139,9 @@ một số bước dùng một trang wizard thay vì nhiều trang HTML lặp l�
 | API | Phương thức | Công dụng |
 | --- | --- | --- |
 | `/api/health` | GET | Kiểm tra kết nối database |
-| `/api/auth/login` | POST | Đăng nhập demo bằng mật khẩu hash |
+| `/api/auth/login` | POST | Đăng nhập qua Keycloak, đọc hồ sơ qua `/rest` |
 | `/api/auth/me` | GET | Tình trạng phiên và vai trò |
-| `/api/auth/logout` | POST | Xóa cookie phiên |
+| `/api/auth/logout` | POST | Thu hồi phiên Keycloak, xóa cookie |
 | `/api/procedures` | GET | Danh sách thủ tục |
 | `/api/procedures/:id` | GET | Chi tiết thủ tục và giấy tờ |
 | `/api/applications` | GET/POST | Danh sách, tạo bản nháp |
@@ -152,15 +154,14 @@ một số bước dùng một trang wizard thay vì nhiều trang HTML lặp l�
 | `/api/notifications/:id/read` | POST | Đánh dấu đã đọc |
 | `/api/notifications/read-all` | POST | Đánh dấu tất cả |
 | `/api/profile` | GET/PATCH | Hồ sơ công dân |
-| `/api/profile/password` | POST | Đổi mật khẩu |
+| `/api/profile/password` | POST | Đổi mật khẩu qua dịch vụ tài khoản của lõi |
 | `/api/chat` | POST | Trả lời từ chỉ mục tri thức thủ tục (`citizen_knowledge_chunks`), có trích nguồn |
 | `/api/support`, `/api/feedback` | POST | Gửi trao đổi, góp ý |
 
 Mọi API riêng tư đều đọc **cookie phiên ký trên server**, không tin
 `citizen_id` do client gửi. SQL sử dụng query có tham số, và PostgreSQL RLS
 lọc theo `app.citizen_id` và `app.tenant_id`. Danh sách trên chỉ gồm các API cơ bản;
-toàn bộ API nằm trong `apps/citizen/server/api/`. Trong sản phẩm thật cần thay
-cơ chế cookie demo bằng Keycloak OIDC với JWT do APISIX xác thực.
+toàn bộ API nằm trong `apps/citizen/server/api/`.
 
 ## 5. Kiểm thử thủ công
 
@@ -190,14 +191,15 @@ Các lệnh kiểm thử liên quan:
 - `make test-citizen`: kiểm thử đơn vị và cấu trúc của `apps/citizen` (Node 22 trong Docker).
 - `make rls-test`, `make chat-history-test`, `make vault-autofill-test`, ...: kiểm thử RLS trên
   PostgreSQL thật, chạy trong transaction rồi `ROLLBACK` (`make help` để xem đủ).
-- `make test`: 28 kiểm tra của lõi qua gateway (cách ly xã, quy trình, tệp, tài khoản cán bộ).
+- `make test`: 33 kiểm tra của lõi qua gateway (cách ly xã, quy trình, tệp, tài khoản cán bộ, công dân).
 - `npm --prefix apps/citizen run test:e2e`: kiểm thử giao diện end-to-end bằng Playwright (cần ứng dụng đang chạy).
 
 ## 6. Giới hạn và yêu cầu trước production
 
-- Đăng nhập công dân bằng cookie demo; chưa xác minh căn cước. Kết nối OIDC (Keycloak hoặc
-  nhà cung cấp định danh được phê duyệt) có sẵn nhưng tắt mặc định.
-- Ứng dụng chưa đi qua cửa ngõ APISIX; truy cập PostgreSQL trực tiếp bằng vai trò có RLS.
+- Tài khoản công dân do quản trị tạo trong Keycloak, chưa có trang tự đăng ký, chưa xác minh căn cước.
+  Kết nối OIDC tới nhà cung cấp định danh được phê duyệt có sẵn nhưng tắt mặc định.
+- Ngoài đăng nhập và đổi mật khẩu, ứng dụng chưa đi qua cửa ngõ APISIX; truy cập PostgreSQL
+  trực tiếp bằng vai trò có RLS. Cột `citizens.password_hash` không còn dùng để đăng nhập.
 - Quét mã độc ClamAV là tùy chọn (`docker compose --profile antivirus up -d antivirus`,
   `CLAMAV_HOST=antivirus`). Chưa có OCR (biến `CITIZEN_OCR_ENDPOINT` để trống) và chưa có chữ ký số.
 - Trợ lý là tìm kiếm toàn văn có trích nguồn, **chưa dùng mô hình ngôn ngữ**. Mô hình, nếu có,

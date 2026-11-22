@@ -57,6 +57,21 @@ services:
     ports:
       - "8080:8080"
 
+  # Bổ sung vai trò, client, người dùng mới của tệp realm vào realm đã có (chạy một lần rồi dừng).
+  # Keycloak chỉ nạp tệp realm khi tạo mới; dịch vụ này không ghi đè mục đã có.
+  identity-setup:
+    image: node:22-alpine
+    restart: "no"
+    command: ["node", "/app/setup.mjs"]
+    environment:
+      KEYCLOAK_URL: http://identity:8080
+      KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN}
+      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD}
+    volumes:
+      - ./core/identity:/app:ro
+    depends_on:
+      - identity
+
   gateway:
     image: apache/apisix:3.20.0-debian
     restart: unless-stopped
@@ -134,6 +149,8 @@ services:
         psql -v ON_ERROR_STOP=1 -f /setup/init/18-citizen-life-journeys.sql
         psql -v ON_ERROR_STOP=1 -f /setup/init/16-nhat-ky-can-bo.sql
         psql -v ON_ERROR_STOP=1 -f /setup/init/17-nhan-vien.sql
+        psql -v ON_ERROR_STOP=1 -f /setup/init/19-citizen-rest-api.sql
+        psql -v ON_ERROR_STOP=1 -f /setup/init/20-citizen-procedure-lock.sql
         psql -v ON_ERROR_STOP=1 -c "SELECT count(*) AS published_procedures FROM procedures WHERE published = true"
         echo 'PostgreSQL setup finished successfully.'
 
@@ -158,6 +175,8 @@ services:
       PGRST_DB_ANON_ROLE: ""
       PGRST_JWT_SECRET: "@/keys/jwks.json"
       PGRST_JWT_ROLE_CLAIM_KEY: ".azp"
+      # Đặt biến RLS của công dân từ token (core/db/init/19-citizen-rest-api.sql).
+      PGRST_DB_PRE_REQUEST: public.rest_pre_request
       PGRST_SERVER_PORT: "3000"
     volumes:
       - rest-keys:/keys:ro
@@ -262,6 +281,10 @@ services:
     depends_on:
       db-setup:
         condition: service_completed_successfully
+      identity:
+        condition: service_started
+      gateway:
+        condition: service_started
     environment:
       NODE_ENV: production
       CITIZEN_STAFF_BRIDGE_TOKEN: ${CITIZEN_STAFF_BRIDGE_TOKEN:-}
@@ -285,6 +308,9 @@ services:
       NUXT_DB_USER: communeos_app
       NUXT_DB_PASSWORD: ${POSTGRES_APP_PASSWORD}
       NUXT_SESSION_SECRET: ${SESSION_SECRET}
+      # Đăng nhập công dân bằng Keycloak (client citizen-app), gọi lõi qua cổng APISIX.
+      NUXT_KEYCLOAK_URL: http://identity:8080
+      NUXT_GATEWAY_URL: http://gateway:9080
       CITIZEN_OIDC_PROVIDER: ${CITIZEN_OIDC_PROVIDER:-identity}
       CITIZEN_OIDC_RESIDENCE_TENANT_CLAIM: ${CITIZEN_OIDC_RESIDENCE_TENANT_CLAIM:-}
       CITIZEN_OIDC_TEMPORARY_TENANT_CLAIM: ${CITIZEN_OIDC_TEMPORARY_TENANT_CLAIM:-}

@@ -31,6 +31,7 @@ nằm trong `server.mjs` và được kiểm thử trong `core/tests/tenant-isol
 | DELETE | `/accounts/staff/{id}` | Xóa hẳn tài khoản (phải khóa trước); hồ sơ cá nhân và nhật ký vẫn giữ |
 | POST | `/accounts/first-password` | Không cần token. Cán bộ đổi mật khẩu tạm lần đầu ngay trên trang đăng nhập `{ username, currentPassword, newPassword }`; mật khẩu tạm được Keycloak kiểm tra; tối đa 5 lần/15 phút mỗi tài khoản |
 | POST | `/accounts/staff/{id}/reset-password` | Cấp mật khẩu tạm mới |
+| POST | `/accounts/me/password` | Người đăng nhập tự đổi mật khẩu `{ currentPassword, newPassword }`. Nhận token của `citizen-app` (phải có vai trò `citizen`) hoặc `commune-app`; mật khẩu hiện tại được Keycloak kiểm tra qua đúng client đó; tối đa 5 lần/15 phút mỗi tài khoản |
 
 Nhật ký: `GET /rest/staff_audit` (lãnh đạo thấy xã mình, `sys_admin` thấy tất cả).
 

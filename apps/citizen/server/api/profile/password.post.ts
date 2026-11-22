@@ -1,20 +1,22 @@
 // SPDX-FileCopyrightText: 2026 CommuneOS Contributors
 // SPDX-License-Identifier: Apache-2.0
-import { randomBytes, scryptSync, timingSafeEqual } from 'node:crypto'
+// Mật khẩu công dân nằm ở Keycloak; đổi qua dịch vụ tài khoản của lõi (/accounts/me/password).
 import { z } from 'zod'
-import { citizenTx } from '../../utils/database'
+import { citizenGateway } from '../../utils/identity'
+import { requireCitizen } from '../../utils/session'
 import { validate } from '../../utils/validation'
-const schema=z.object({oldPassword:z.string(),newPassword:z.string().min(10).max(128)})
-export default defineEventHandler(async(event)=>{
-  const body=validate(schema,await readBody(event))
-  return citizenTx(event,async(client,actor)=>{
-    const old=(await client.query('SELECT password_hash FROM citizens WHERE id=$1',[actor.id])).rows[0]?.password_hash||''
-    const [,salt,digest]=old.split('$')
-    if(!salt||!digest||!timingSafeEqual(Buffer.from(digest,'hex'),scryptSync(body.oldPassword,salt,64)))
-      throw createError({statusCode:403,statusMessage:'Mật khẩu hiện tại không đúng'})
-    const newSalt=randomBytes(16).toString('hex')
-    const newHash=`scrypt$${newSalt}$${scryptSync(body.newPassword,newSalt,64).toString('hex')}`
-    await client.query('UPDATE citizens SET password_hash=$1 WHERE id=$2',[newHash,actor.id])
-    return {ok:true}
-  })
+const schema = z.object({ oldPassword: z.string().min(1).max(128), newPassword: z.string().min(10).max(128) })
+export default defineEventHandler(async (event) => {
+  requireCitizen(event)
+  const body = validate(schema, await readBody(event))
+  try {
+    await citizenGateway(event, '/accounts/me/password', {
+      method: 'POST', body: { currentPassword: body.oldPassword, newPassword: body.newPassword },
+    })
+  } catch (error: any) {
+    if (error?.statusCode === 401 && !error?.status) throw error
+    const status = Number(error?.status) || 502
+    throw createError({ statusCode: status >= 500 ? 502 : status, statusMessage: error?.data?.message || 'Chưa đổi được mật khẩu, vui lòng thử lại sau' })
+  }
+  return { ok: true }
 })
