@@ -60,15 +60,8 @@ async function login() {
 <template>
   <div class="grid min-h-screen lg:grid-cols-2">
     <div
-      class="hero-gradient hero-pattern relative hidden items-center justify-center overflow-hidden p-12 text-white lg:flex"
+      class="hero-gradient relative hidden items-center justify-center overflow-hidden p-12 text-white lg:flex"
     >
-      <div class="absolute inset-y-0 right-0 w-full opacity-30">
-        <img
-          src="/images/ubnd-hero-clean.png"
-          class="h-full w-full object-contain object-top"
-          alt="Trụ sở UBND minh họa"
-        />
-      </div>
       <div class="relative z-10 max-w-lg">
         <span
           class="mb-6 flex h-20 w-20 items-center justify-center rounded-2xl border border-white/40 bg-white/20"

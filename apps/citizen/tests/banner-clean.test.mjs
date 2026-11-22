@@ -2,20 +2,18 @@
 // SPDX-License-Identifier: Apache-2.0
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { readFileSync } from 'node:fs'
+import { readFileSync, existsSync } from 'node:fs'
 import { fileURLToPath } from 'node:url'
 import { dirname, resolve } from 'node:path'
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 
-test('Hero uses building-only asset, with no baked-in workflow ribbon', () => {
+test('Title bars and login pages are plain blue, no building image', () => {
   const layout = readFileSync(resolve(root, 'layouts/default.vue'), 'utf8')
   const login = readFileSync(resolve(root, 'pages/dang-nhap.vue'), 'utf8')
-  const image = readFileSync(resolve(root, 'public/images/ubnd-hero-clean.png'))
-  assert.match(layout, /src="\/images\/ubnd-hero-clean\.png"/)
-  assert.match(login, /src="\/images\/ubnd-hero-clean\.png"/)
-  assert.equal(image.toString('hex', 0, 8), '89504e470d0a1a0a')
-  assert.equal(image.readUInt32BE(16), 768)
-  assert.equal(image.readUInt32BE(20), 139)
+  assert.doesNotMatch(layout, /ubnd-hero/)
+  assert.doesNotMatch(login, /ubnd-hero/)
+  assert.match(layout, /<section class="hero-gradient relative/)
+  assert.ok(!existsSync(resolve(root, 'public/images/ubnd-hero-clean.png')))
 })
 
 test('Workflow steps are real UI text, shown only while filing, and fit desktop widths', () => {
