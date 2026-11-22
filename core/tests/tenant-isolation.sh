@@ -212,6 +212,17 @@ code=$(rpc "$CB" citizen_application_submit "{\"p_application_id\":\"$APP_A\",\"
 code=$(rpc "$TA" citizen_applications '{}')
 [ "$code" = "403" ] && ok "Token cán bộ không gọi được API của công dân (403)" || fail "Cán bộ gọi API công dân phải 403, nhận $code"
 
+# Tình trạng dịch vụ lõi qua cổng (trang Tình trạng hệ thống của bảng quản trị): kiểm tra cả thành phần phía sau.
+QT=$(token quantri)
+codes=""
+for p in workflow/health files/health accounts/health; do
+  codes="$codes $(curl -s -o /dev/null -w '%{http_code}' -H "Authorization: Bearer $QT" "$GW/$p")"
+done
+noauth=$(curl -s -o /dev/null -w '%{http_code}' "$GW/files/health")
+[ "$codes" = " 200 200 200" ] && [ "$noauth" = "401" ] &&
+  ok "Tình trạng quy trình, kho tệp, tài khoản đọc được qua cổng; không token bị chặn" ||
+  fail "Tình trạng dịch vụ lõi:$codes, không token $noauth"
+
 # Trí tuệ nhân tạo chạy cục bộ (core/ai). Bỏ qua khi dịch vụ AI không chạy (ví dụ CI không tải mô hình).
 skip() { echo "  BỎ QUA  $1"; }
 if [ "$(curl -s "$GW/public/ai/ready" | python3 -c 'import json,sys; print(json.load(sys.stdin).get("ready", False))' 2>/dev/null)" = "True" ]; then
@@ -225,7 +236,6 @@ if [ "$(curl -s "$GW/public/ai/ready" | python3 -c 'import json,sys; print(json.
     fail "Trợ lý AI trả '$r' (cần: khai-sinh True True)"
 
   code=$(curl -s -o /dev/null -w '%{http_code}' -H "Authorization: Bearer $TA" "$GW/ai/status")
-  QT=$(token quantri)
   ext=$(curl -s -H "Authorization: Bearer $QT" "$GW/ai/status" | python3 -c 'import json,sys; print(json.load(sys.stdin).get("externalApis"))')
   [ "$code" = "403" ] && [ "$ext" = "False" ] && ok "Trợ lý AI: chỉ quản trị xem được tình trạng, không dùng API bên ngoài" ||
     fail "Tình trạng AI: cán bộ nhận $code, externalApis=$ext"

@@ -19,7 +19,7 @@
 // Không cần token (cổng APISIX có route riêng, không kiểm tra token):
 //   POST  /accounts/first-password                 cán bộ đổi mật khẩu tạm lần đầu
 //                                                  { username, currentPassword, newPassword }
-//   GET   /health
+//   GET   /health, /accounts/health (qua cổng)  dịch vụ và quyền vào Keycloak Admin API
 //
 // Quy tắc (kiểm tra ở đây, vì tài khoản dịch vụ có quyền trên cả realm):
 //   * Chỉ người có vai trò leader và có tenant_id mới gọi được.
@@ -281,7 +281,13 @@ const json = (res, status, body) => {
 async function handle(req, res) {
   const url = new URL(req.url, 'http://accounts')
   const parts = url.pathname.split('/').filter(Boolean)
-  if (req.method === 'GET' && url.pathname === '/health') return json(res, 200, { ok: true })
+  if (req.method === 'GET' && (url.pathname === '/health' || url.pathname === '/accounts/health')) {
+    // Kiểm tra tài khoản dịch vụ còn xin được token Keycloak (không gọi thao tác quản trị nào).
+    const t = Date.now()
+    let keycloak = false
+    try { keycloak = Boolean(await adminToken()) } catch { keycloak = false }
+    return json(res, keycloak ? 200 : 503, { ok: keycloak, keycloakAdmin: { ok: keycloak, ms: Date.now() - t } })
+  }
   if (req.method === 'POST' && url.pathname === '/accounts/first-password') return firstPassword(req, res)
   if (req.method === 'POST' && url.pathname === '/accounts/me/password') return mePassword(req, res)
   if (parts[0] !== 'accounts' || parts[1] !== 'staff') throw new HttpError(404, 'Không có đường dẫn này')
