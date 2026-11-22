@@ -48,7 +48,7 @@ test('Staff publication is token-protected, validates official source and alerts
 test('Creating a draft pins a snapshot, submission rejects unreviewed revision',()=>{
  assert.match(readRoute('applications/index.post.ts'),/acknowledged_procedure_version_id/)
  const submit=readRoute('applications/[id]/submit.post.ts')
- assert.match(submit,/FOR SHARE/)
+ assert.match(submit,/lock_procedure_shared/)
  assert.match(submit,/acknowledged_procedure_version_id!==version\.id/)
  assert.match(submit,/submitted_procedure_version_id/)
  const ack=readRoute('applications/[id]/procedure-change/ack.post.ts')

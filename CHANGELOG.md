@@ -11,6 +11,11 @@ Mọi thay đổi đáng chú ý của dự án được ghi tại đây.
 
 ## [Chưa phát hành]
 
+### Sửa lỗi (nộp hồ sơ, 2026-11-22)
+
+- Nộp hồ sơ và xác nhận phiên bản thủ tục mới ở Kênh người dân báo "Server Error" (`permission denied for table procedures`):
+  khóa dòng thủ tục chuyển sang hàm `public.lock_procedure_shared`, không cấp thêm quyền sửa bảng `procedures` (#64).
+
 ### Thêm mới (đăng nhập công dân bằng Keycloak, 2026-11-22)
 
 - Công dân đăng nhập bằng Keycloak: vai trò `citizen`, client `citizen-app`, thuộc tính `citizen_id`, `citizen_tenant`

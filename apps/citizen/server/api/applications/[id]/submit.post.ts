@@ -14,7 +14,7 @@ export default defineEventHandler(async(event)=>citizenTx(event,async(client,act
   // a revision being committed between version verification and final submission.
   const reference=(await client.query('SELECT procedure_id FROM applications WHERE id=$1',[id])).rows[0]
   if(!reference)throw createError({statusCode:404,statusMessage:'Không tìm thấy hồ sơ'})
-  await client.query('SELECT id FROM procedures WHERE id=$1 FOR SHARE',[reference.procedure_id])
+  await client.query('SELECT public.lock_procedure_shared($1)',[reference.procedure_id])
   const row=(await client.query('SELECT * FROM applications WHERE id=$1 FOR UPDATE',[id])).rows[0]
   if(!row||row.status!=='draft')throw createError({statusCode:409,statusMessage:'Hồ sơ không ở trạng thái bản nháp'})
   const version=await latestProcedureVersion(client,row.procedure_id)

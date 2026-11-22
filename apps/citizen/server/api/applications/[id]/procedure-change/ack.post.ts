@@ -10,7 +10,7 @@ export default defineEventHandler(async event=>{
   const id=String(getRouterParam(event,'id'))
   const reference=(await client.query('SELECT procedure_id FROM applications WHERE id=$1',[id])).rows[0]
   if(!reference)throw createError({statusCode:404,statusMessage:'Không tìm thấy hồ sơ'})
-  await client.query('SELECT id FROM procedures WHERE id=$1 FOR SHARE',[reference.procedure_id])
+  await client.query('SELECT public.lock_procedure_shared($1)',[reference.procedure_id])
   const row=(await client.query('SELECT status FROM applications WHERE id=$1 FOR UPDATE',[id])).rows[0]
   if(!row||row.status!=='draft')throw createError({statusCode:409,statusMessage:'Chỉ bản nháp mới được xác nhận cập nhật quy định'})
   const change=await procedureDraftChange(client,id)
