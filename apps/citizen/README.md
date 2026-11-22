@@ -72,7 +72,7 @@ acceptance have been certified by the responsible teams.
 | A11y | Skip link, keyboard focus rings, screen-reader announcements, labels and responsive controls. |
 | Localities | List real configured tenants; only current account's tenant is selectable for submission due to RLS. Cross-locality routing requires the case-routing team. |
 | OIDC / VNeID | A real OIDC Code + PKCE start/callback and RSA ID token verification are implemented. **This is not VNeID integration without the approved Identity broker/IdP and linked citizens.** |
-| RAG / knowledge QA | Direct retrieval of published `procedures`, `procedure_documents` and portal `citizen_faq` on each request. Optional evidence-selection model via `CITIZEN_RAG_ENDPOINT`; no invented facts or outside web citations. Without AI configuration, it is marked **DATA**, not AI. |
+| RAG / knowledge QA | Direct retrieval of published `procedures`, `procedure_documents` and portal `citizen_faq` on each request, plus the core AI service (`core/ai`, local models, no external AI API): hybrid full-text + vector search and verbatim quote selection. No invented facts or outside web citations. If the AI service is unavailable the assistant stays in **DATA** mode. |
 | Signed results | Secured result-metadata/PDF adapter. Valid signature state is reported **by external results service**, not independently verified by this portal; without it the UI says no signed file is available. |
 | E2E | Playwright journey spec added, **not run in delivery environment**. Requires running stack, Chromium, demo data, optionally staff-side fixtures. |
 
@@ -107,8 +107,6 @@ CITIZEN_OIDC_JWKS_URL=https://identity.example/realms/communeos/protocol/openid-
 CITIZEN_OIDC_CLIENT_ID=communeos-citizen
 CITIZEN_OIDC_CLIENT_SECRET=<only if confidential client>
 CITIZEN_OIDC_REDIRECT_URI=https://citizen.example/api/auth/oidc/callback
-CITIZEN_RAG_ENDPOINT=https://trusted-ai-service.example/api/classify-evidence
-CITIZEN_RAG_TOKEN=<secret>
 CITIZEN_SUPPORT_ENDPOINT=https://staff.example/api
 CITIZEN_SUPPORT_TOKEN=<secret>
 CITIZEN_RESULTS_ENDPOINT=https://results.example/api
@@ -127,24 +125,16 @@ callback returns HTTP 403, not a demo login. The Keycloak/broker client must
 register the exact redirect URI and enable authorization-code + PKCE. Linking
 VNeID requires official approved broker flow and relevant permissions.
 
-**RAG contract (citizen-channel evidence selection):** `POST CITIZEN_RAG_ENDPOINT`
-receives `{ "query": "...", "language": "vi", "task": "select_grounded_evidence",
-"allowed_fields": [...], "candidates": [...] }`. The remote service **must return**
-`{ "selectedProcedureId": "khai-sinh", "fields": ["documents", "duration"] }`.
-Only IDs from the server-retrieved candidate list and values from `allowed_fields`
-are honored. **Remote-generated prose and remote URLs are ignored**. The citizen
-API always assembles the displayed answer and citation locally from published
-PostgreSQL rows. A failed or missing classifier leaves the assistant in **DATA**
-mode (deterministic grounded retrieval), not a simulated AI connection. Endpoint
-must be HTTPS, except localhost HTTP in development. Do not forward genuine PII;
-questions with phone numbers, national ID-shaped numbers or email addresses are
-never sent to the remote service. Configure outbound allowlists at deployment.
-
-For the example adapter, the AI worker should classify question intent **only**;
-it cannot be trusted to invent administrative instructions. This bounded mode is a
-retrieval-augmented assistant, but it intentionally does not offer free-form
-model-generated administrative claims. If your team wants prose generation, it
-requires an additional evidence-based verification design and security review.
+**Assistant and core AI:** `/api/chat` calls the core AI service through the gateway
+(`POST /ai/ask` with the citizen token, or `POST /public/ai/ask` for guests). Models run on the
+commune's own server (`core/ai/README.md`); this app never calls an external AI API and has no
+AI endpoint setting. The core masks phone numbers, ID-shaped numbers and e-mail addresses before
+any model sees the question, runs hybrid full-text + vector search on published knowledge, and the
+language model only returns sentence numbers; quotes are copied verbatim from the source. The
+citizen API still assembles the displayed answer from published PostgreSQL rows: a semantic hit only
+picks which procedure is meant, and a quote is shown only if it belongs to an allowed source and
+field (`composeExtractiveAnswer`). If the AI service is down or models are missing, the assistant
+falls back to deterministic grounded retrieval (**DATA** mode).
 
 **Staff contract:** `GET {CITIZEN_SUPPORT_ENDPOINT}/citizen/tickets?citizenId=<uuid>`
 returns `{ "tickets": [{"id":"...","citizenId":"<uuid>","tenantId":"<uuid>","subject":"...","status":"received|processing|answered|closed","reply":"...","updatedAt":"..."}] }`.
@@ -289,20 +279,9 @@ including deletion and unpublishing. `core/db/init/01-schema.sql` now includes
 FAQ in existing SSE invalidation notifications.
 
 Check health at `GET /api/chat/knowledge` (index ready, fragment count,
-last index update, AI configured flag). If not ready, run `make repair-db` on
-the Mac and refresh; the page will explain that direct-source lookup still
-works before the migration. Optional **server-only** model configuration:
-
-```dotenv
-CITIZEN_AI_ENDPOINT=https://approved-provider.example/v1/chat/completions
-CITIZEN_AI_MODEL=approved-model-name
-CITIZEN_AI_TOKEN=private-token
-```
-
-Values are mapped to `NUXT_AI_*` by the root Compose service. With no
-configured model, answers remain in `DATA` mode, **not an AI simulation**. With
-one, the model can select up to six exact evidence substrings; the server
-rejects any unverifiable quote, URL, or unsupported fact. Citizen identifiers
+last index update, core AI ready flag). If not ready, run `make repair-db` and refresh; the page will explain that direct-source lookup still
+works before the migration. `aiConfigured` is true when the core AI service has its models
+(`GET /public/ai/ready`). Citizen identifiers
 are not forwarded to the model. For full architecture and test commands see
 `core/ai/README.md` and `core/db/tests/citizen-rag.sql`.
 

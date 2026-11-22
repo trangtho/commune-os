@@ -50,16 +50,18 @@ Mỗi xã tự có danh sách thủ tục được mở. Cán bộ và người 
 | Dịch vụ (docker compose)          | Thành phần            | Vai trò                                                                                      |
 | --------------------------------- | --------------------- | -------------------------------------------------------------------------------------------- |
 | `identity`, `identity-setup`      | Keycloak              | Đăng nhập một lần cho cán bộ và công dân; `identity-setup` bổ sung mục mới vào realm đã có  |
-| `gateway`                         | Apache APISIX         | Cửa ngõ API: `/rest`, `/workflow`, `/files`, `/accounts` (kiểm tra token), `/public` (khách) |
+| `gateway`                         | Apache APISIX         | Cửa ngõ API: `/rest`, `/workflow`, `/files`, `/accounts`, `/ai` (kiểm tra token), `/public` (khách) |
 | `db`, `rest`                      | PostgreSQL, PostgREST | Dữ liệu có cấu trúc, API tự sinh, cách ly xã bằng RLS                                        |
 | `workflow-engine`, `orchestrator` | Flowable, Node.js     | Quy trình xử lý hồ sơ theo sơ đồ BPMN                                                        |
 | `storage`                         | SeaweedFS             | Kho đối tượng chuẩn S3 cho giấy tờ (dữ liệu phi cấu trúc)                                    |
 | `files`                           | Node.js               | Dịch vụ tệp: kiểm tra, lưu, mã băm SHA-256 ([core/files](core/files/README.md))              |
 | `antivirus` (tùy chọn)            | ClamAV                | Quét mã độc tệp tải lên                                                                      |
 | `accounts`                        | Node.js               | Lãnh đạo xã quản lý tài khoản cán bộ qua Keycloak ([core/accounts](core/accounts/README.md)) |
+| `ai`, `ai-gateway`, `ai-models`   | Ollama, Node.js       | AI chạy cục bộ: tìm kiếm ngữ nghĩa, chọn trích dẫn ([core/ai](core/ai/README.md))            |
 
-Lõi **chưa có dịch vụ AI**. Trợ lý hỏi đáp của Kênh người dân hiện trả lời bằng tìm kiếm
-toàn văn trên PostgreSQL, không dùng mô hình ngôn ngữ ([core/ai](core/ai/README.md)).
+AI của lõi chạy hoàn toàn trên máy chủ: mô hình (mặc định `qwen3:1.7b` và `bge-m3`) nằm trong mạng
+Docker không có đường ra Internet, không gọi API AI bên ngoài. Mô hình không nằm trong kho mã;
+`make up` tự tải ở lần chạy đầu (cần Internet lần đó, khoảng 2,6 GB).
 
 Chi tiết: [docs/](docs/).
 
@@ -67,7 +69,8 @@ Chi tiết: [docs/](docs/).
 
 - Docker Engine và Docker Compose (hoặc Podman)
 - GNU Make
-- Khoảng 6 GB RAM cho các dịch vụ hiện có (chưa có mô hình AI cục bộ)
+- Khoảng 8 GB RAM cho toàn bộ dịch vụ, trong đó khoảng 2,5 GB cho mô hình AI cục bộ
+- Khoảng 4 GB ổ đĩa cho mô hình AI (volume `ai-models`); chạy được chỉ với CPU
 - Thêm khoảng 1,5 GB RAM nếu bật quét mã độc (dịch vụ antivirus)
 
 ## Dựng từ mã nguồn
@@ -77,7 +80,7 @@ git clone https://github.com/trangtho/commune-os.git
 cd commune-os
 cp .env.example .env      # sửa mật khẩu trong .env
 make up                   # dựng, khởi động toàn bộ dịch vụ và tự nạp dữ liệu mẫu (db-setup)
-make test                 # 38 kiểm tra qua gateway: cách ly xã, quy trình, tệp, tài khoản, công dân (xem core/tests)
+make test                 # 42 kiểm tra qua gateway: cách ly xã, quy trình, tệp, tài khoản, công dân, AI (xem core/tests)
 make test-citizen         # kiểm thử đơn vị Kênh người dân
 ```
 
@@ -158,7 +161,8 @@ Hiện trạng cần biết (chi tiết trong [docs/CITIZEN_SETUP.md](docs/CITIZ
   (SeaweedFS, SHA-256, ClamAV tùy chọn).
 - Các chức năng phụ còn lại (kho giấy tờ, đại diện, lịch hẹn, lộ trình, trợ lý...) vẫn đọc ghi
   PostgreSQL trực tiếp (vai trò `communeos_app`, RLS theo công dân và xã).
-- Trợ lý hỏi đáp là tìm kiếm toàn văn trên chỉ mục thủ tục đã công bố, **không dùng mô hình ngôn ngữ**.
+- Trợ lý hỏi đáp dùng AI của lõi: tìm kiếm lai toàn văn + ngữ nghĩa trên thủ tục đã công bố, mô hình chỉ chọn
+  câu trích dẫn nguyên văn; câu trả lời luôn có nguồn. AI chưa sẵn sàng thì dùng tìm kiếm toàn văn.
 - Kết quả giải quyết là phiếu mô phỏng, chưa ký số.
 
 Không nhập, tải lên hoặc đưa vào kho mã bất kỳ dữ liệu cá nhân thật nào.

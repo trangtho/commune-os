@@ -126,7 +126,7 @@ trên dữ liệu cần giữ vì lệnh này xóa toàn bộ volume dữ liệu
 | `/ho-so/:id/bo-sung` | Bổ sung giấy tờ khi hồ sơ có trạng thái `supplement` |
 | `/ho-so/:id/ket-qua` | Phiếu kết quả mô phỏng (không có giá trị pháp lý) |
 | `/thong-bao` | Thông báo từ database, đánh dấu đã đọc |
-| `/tro-ly` | Hỏi đáp thủ tục: tìm kiếm toàn văn trên chỉ mục thủ tục đã công bố, trích nguồn (chưa dùng mô hình ngôn ngữ) |
+| `/tro-ly` | Hỏi đáp thủ tục bằng AI của lõi (`core/ai`, mô hình chạy cục bộ): tìm kiếm lai toàn văn + ngữ nghĩa, trích dẫn nguyên văn có nguồn |
 | `/huong-dan` | Quy trình sử dụng, FAQ cơ bản |
 | `/ho-so-ca-nhan` | Xem và sửa profile trong PostgreSQL |
 | `/bao-mat` | Đổi mật khẩu (lưu ở Keycloak, qua `/accounts/me/password` của lõi) |
@@ -193,7 +193,7 @@ Các lệnh kiểm thử liên quan:
 - `make test-citizen`: kiểm thử đơn vị và cấu trúc của `apps/citizen` (Node 22 trong Docker).
 - `make rls-test`, `make chat-history-test`, `make vault-autofill-test`, ...: kiểm thử RLS trên
   PostgreSQL thật, chạy trong transaction rồi `ROLLBACK` (`make help` để xem đủ).
-- `make test`: 38 kiểm tra của lõi qua gateway (cách ly xã, quy trình, tệp, tài khoản cán bộ, công dân).
+- `make test`: 42 kiểm tra của lõi qua gateway (cách ly xã, quy trình, tệp, tài khoản cán bộ, công dân, AI).
 - `make citizen-api-test`: tạo, nộp hồ sơ qua API của lõi, Poka-yoke thiếu giấy tờ, chống sửa hồ sơ đã nộp (ROLLBACK).
 - `npm --prefix apps/citizen run test:e2e`: kiểm thử giao diện end-to-end bằng Playwright (cần ứng dụng đang chạy).
 
@@ -207,8 +207,8 @@ Các lệnh kiểm thử liên quan:
   trong lõi; vì vậy `citizen-app` là client bí mật để công dân không tự xin token gọi thẳng API lõi.
 - Quét mã độc ClamAV là tùy chọn (`docker compose --profile antivirus up -d antivirus`,
   `CLAMAV_HOST=antivirus`). Chưa có OCR (biến `CITIZEN_OCR_ENDPOINT` để trống) và chưa có chữ ký số.
-- Trợ lý là tìm kiếm toàn văn có trích nguồn, **chưa dùng mô hình ngôn ngữ**. Mô hình, nếu có,
-  phải chạy trên máy chủ của xã (xem `core/ai/README.md`); không gửi dữ liệu ra API AI bên ngoài.
+- Trợ lý dùng mô hình nhỏ chạy trên CPU của máy chủ (xem `core/ai/README.md`), không gửi dữ liệu ra API AI
+  bên ngoài; mỗi câu hỏi mất vài giây đến khoảng 15 giây. Mô hình chỉ chọn trích dẫn, không tự viết nội dung.
 - Các số ngày, lệ phí và danh mục giấy tờ chưa đối chiếu quy định hành chính
   hiện hành, không dùng để ra quyết định thật.
 - Giấy tờ lưu trong kho đối tượng của lõi qua dịch vụ `files`; tệp cũ trước khi có dịch vụ này

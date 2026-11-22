@@ -66,7 +66,8 @@ test('QR result verification is issued only after external PDF verification and 
 test('OCR requires user agreement and trusted endpoint; client never auto-fills',()=>{
  const source=read('../server/api/ai/document-review.post.ts')
  assert.match(source,/if\(!confirmed\)/)
- assert.match(source,/protocol!=='https:'/)
+ assert.match(source,/isInternalEndpoint\(url\)/)
+ assert.match(read('../server/utils/internal-endpoint.ts'),/a === 192 && b === 168/)
  assert.match(source,/redirect:'error'/)
  const ui=read('../components/CitizenDocumentReview.vue')
  assert.match(ui,/ocrConsent/)

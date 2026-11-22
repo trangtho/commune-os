@@ -1,13 +1,16 @@
 # SPDX-FileCopyrightText: 2026 CommuneOS Contributors
 # SPDX-License-Identifier: Apache-2.0
 #
-# Toàn bộ CommuneOS: các dịch vụ lõi (db, db-setup, identity, gateway, rest, workflow-engine,
-# orchestrator, accounts, storage, files, antivirus tùy chọn) và ba ứng dụng Tầng 2
+# Toàn bộ CommuneOS: các dịch vụ lõi (db, db-setup, identity, identity-setup, gateway, rest,
+# workflow-engine, orchestrator, accounts, storage, files, antivirus tùy chọn, ai-models, ai, ai-gateway)
+# và ba ứng dụng Tầng 2
 # (citizen, commune, admin). Cổng ứng dụng và PostgreSQL chỉ mở trên 127.0.0.1.
 
 services:
   db:
-    image: postgres:17
+    # PostgreSQL 17 kèm pgvector (tìm kiếm ngữ nghĩa cho trợ lý AI). Bản trixie dùng cùng glibc với ảnh
+    # postgres:17 chính thức, nên dùng tiếp volume cũ mà không lệch thứ tự sắp xếp chữ (collation).
+    image: pgvector/pgvector:0.8.1-pg17-trixie
     restart: unless-stopped
     environment:
       POSTGRES_DB: ${POSTGRES_DB}
@@ -154,6 +157,7 @@ services:
         psql -v ON_ERROR_STOP=1 -f /setup/init/19-citizen-rest-api.sql
         psql -v ON_ERROR_STOP=1 -f /setup/init/20-citizen-procedure-lock.sql
         psql -v ON_ERROR_STOP=1 -f /setup/init/21-citizen-api-core-flow.sql
+        psql -v ON_ERROR_STOP=1 -f /setup/init/22-ai-knowledge-vectors.sql
         psql -v ON_ERROR_STOP=1 -c "SELECT count(*) AS published_procedures FROM procedures WHERE published = true"
         echo 'PostgreSQL setup finished successfully.'
 
@@ -278,6 +282,57 @@ services:
     profiles: ["antivirus"]
     restart: unless-stopped
 
+  # ===== Trí tuệ nhân tạo chạy cục bộ (core/ai) =====
+  # Tải mô hình một lần vào volume ai-models; đã có thì bỏ qua. Dịch vụ duy nhất của AI cần Internet.
+  ai-models:
+    image: ollama/ollama:0.12.6
+    restart: "no"
+    entrypoint: ["/bin/sh", "/script/pull-models.sh"]
+    environment:
+      AI_CHAT_MODEL: ${AI_CHAT_MODEL:-qwen3:1.7b}
+      AI_EMBED_MODEL: ${AI_EMBED_MODEL:-bge-m3}
+    volumes:
+      - ai-models:/root/.ollama
+      - ./core/ai:/script:ro
+
+  # Chạy mô hình (Ollama). Chỉ nằm trong mạng ai-internal: không ra được Internet, không mở cổng.
+  ai:
+    image: ollama/ollama:0.12.6
+    restart: unless-stopped
+    environment:
+      OLLAMA_KEEP_ALIVE: 24h
+      OLLAMA_NUM_PARALLEL: "1"
+    volumes:
+      - ai-models:/root/.ollama
+    networks:
+      - ai-internal
+    depends_on:
+      ai-models:
+        condition: service_completed_successfully
+
+  # Cổng AI của lõi sau APISIX (/ai/*, /public/ai/*): kiểm token, giới hạn số lần gọi, che dữ liệu cá nhân,
+  # tìm kiếm lai (toàn văn + vector), mô hình chỉ chọn trích dẫn nguyên văn; tạo vector cho chỉ mục tri thức.
+  ai-gateway:
+    image: node:22-alpine
+    restart: unless-stopped
+    working_dir: /app
+    command: ["node", "server.mjs"]
+    environment:
+      OLLAMA_URL: http://ai:11434
+      REST_URL: http://rest:3000
+      KEYCLOAK_URL: http://identity:8080
+      WORKFLOW_TOKEN: ${WORKFLOW_TOKEN}
+      AI_CHAT_MODEL: ${AI_CHAT_MODEL:-qwen3:1.7b}
+      AI_EMBED_MODEL: ${AI_EMBED_MODEL:-bge-m3}
+    volumes:
+      - ./core/ai:/app:ro
+    networks:
+      - default
+      - ai-internal
+    depends_on:
+      - ai
+      - rest
+
   citizen:
     build:
       context: ./apps/citizen
@@ -357,19 +412,7 @@ services:
       NUXT_STORAGE_DIR: /app/storage
       NUXT_FILES_URL: http://files:3000
       NUXT_FILES_SERVICE_TOKEN: ${FILES_SERVICE_TOKEN}
-      # Optional server-side, OpenAI-compatible answer model and legacy classifier.
-      # Do not expose tokens via Nuxt public runtimeConfig.
-      CITIZEN_AI_ENDPOINT: ${CITIZEN_AI_ENDPOINT:-}
-      CITIZEN_AI_MODEL: ${CITIZEN_AI_MODEL:-}
-      CITIZEN_AI_TOKEN: ${CITIZEN_AI_TOKEN:-}
-      CITIZEN_RAG_ENDPOINT: ${CITIZEN_RAG_ENDPOINT:-}
-      CITIZEN_RAG_TOKEN: ${CITIZEN_RAG_TOKEN:-}
-      # Nitro runtime overrides (NUXT_* must be available at container runtime).
-      NUXT_AI_ENDPOINT: ${CITIZEN_AI_ENDPOINT:-}
-      NUXT_AI_MODEL: ${CITIZEN_AI_MODEL:-}
-      NUXT_AI_TOKEN: ${CITIZEN_AI_TOKEN:-}
-      NUXT_RAG_ENDPOINT: ${CITIZEN_RAG_ENDPOINT:-}
-      NUXT_RAG_TOKEN: ${CITIZEN_RAG_TOKEN:-}
+      # Trợ lý AI dùng cổng AI của lõi (/ai/ask qua APISIX); không cấu hình API AI bên ngoài.
     volumes:
       - citizen-uploads:/app/storage
     ports:
@@ -422,7 +465,13 @@ services:
     ports:
       - "127.0.0.1:${ADMIN_PORT:-3001}:3000"
 
+networks:
+  # Mạng riêng của AI, không có đường ra Internet.
+  ai-internal:
+    internal: true
+
 volumes:
+  ai-models:
   db-data:
   rest-keys:
   citizen-uploads:

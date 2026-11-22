@@ -11,6 +11,28 @@ Mọi thay đổi đáng chú ý của dự án được ghi tại đây.
 
 ## [Chưa phát hành]
 
+### Thêm mới (AI chạy cục bộ trong lõi, 2026-11-22)
+
+- Dịch vụ AI của lõi, mô hình chạy trên máy chủ, không gọi API AI bên ngoài: `ai` (Ollama 0.12.6) chỉ nằm trong mạng
+  `ai-internal` không ra được Internet; `ai-models` tự tải mô hình ở lần `make up` đầu tiên; `ai-gateway`
+  (`core/ai/server.mjs`) sau APISIX tại `/ai/*` (cần token) và `/public/ai/*` (khách, giới hạn số lần gọi).
+- Mô hình mặc định `qwen3:1.7b` (Apache-2.0) và `bge-m3` (MIT), đổi được qua `AI_CHAT_MODEL`, `AI_EMBED_MODEL`.
+- Tìm kiếm lai toàn văn + vector (pgvector 0.8.1, `core/db/init/22-ai-knowledge-vectors.sql`); `ai-gateway` tự tạo vector
+  cho đoạn tri thức mới hoặc đã sửa.
+- Mô hình chỉ trả số thứ tự câu, trích dẫn chép nguyên văn từ nguồn; che số điện thoại, số định danh, email trước khi
+  đưa vào mô hình; không lưu câu hỏi.
+- Trợ lý `/tro-ly` dùng AI của lõi: câu hỏi diễn đạt khác từ ngữ trong thủ tục vẫn tìm đúng thủ tục; AI chưa sẵn sàng thì
+  dùng tìm kiếm toàn văn. `GET /ai/status` cho quản trị hệ thống.
+- `make test` thêm 4 kiểm tra AI (bỏ qua khi AI không chạy), tổng 42 (#68).
+
+### Thay đổi (AI chạy cục bộ trong lõi, 2026-11-22)
+
+- Ảnh `db` chuyển sang `pgvector/pgvector:0.8.1-pg17-trixie` (cùng PostgreSQL 17 và glibc với ảnh cũ, giữ nguyên dữ liệu).
+- Bỏ cấu hình gọi mô hình bên ngoài `CITIZEN_AI_*`, `CITIZEN_RAG_*` và hai tệp `ai-classifier.ts`, `rag-answer.ts`;
+  OCR chỉ nhận dịch vụ trong mạng nội bộ.
+- Chỉ mục tri thức cập nhật tại chỗ thay cho xóa rồi chèn lại, giữ vector của đoạn không đổi.
+- `make up` tạo lại container `gateway` để luôn nạp cấu hình cổng mới nhất sau khi `git pull`.
+
 ### Thay đổi (Kênh người dân gọi lõi qua cổng API, 2026-11-22)
 
 - Luồng chính của Kênh người dân không còn truy vấn PostgreSQL trực tiếp: danh mục và chi tiết thủ tục, tạo, sửa,

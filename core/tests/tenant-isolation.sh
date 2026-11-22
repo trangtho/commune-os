@@ -212,6 +212,33 @@ code=$(rpc "$CB" citizen_application_submit "{\"p_application_id\":\"$APP_A\",\"
 code=$(rpc "$TA" citizen_applications '{}')
 [ "$code" = "403" ] && ok "Token cán bộ không gọi được API của công dân (403)" || fail "Cán bộ gọi API công dân phải 403, nhận $code"
 
+# Trí tuệ nhân tạo chạy cục bộ (core/ai). Bỏ qua khi dịch vụ AI không chạy (ví dụ CI không tải mô hình).
+skip() { echo "  BỎ QUA  $1"; }
+if [ "$(curl -s "$GW/public/ai/ready" | python3 -c 'import json,sys; print(json.load(sys.stdin).get("ready", False))' 2>/dev/null)" = "True" ]; then
+  code=$(curl -s -o /dev/null -w '%{http_code}' -X POST -H 'Content-Type: application/json' -d '{"question":"khai sinh"}' "$GW/ai/ask")
+  [ "$code" = "401" ] && ok "Trợ lý AI: không token bị chặn ở /ai/ask (401)" || fail "/ai/ask không token phải 401, nhận $code"
+
+  r=$(curl -s -m 120 -X POST -H "Authorization: Bearer $CA" -H 'Content-Type: application/json' \
+    -d '{"question":"Em bé vừa chào đời cần làm thủ tục gì, số tôi 0912345678","select":false}' "$GW/ai/ask" |
+    python3 -c 'import json,sys; d=json.load(sys.stdin); c=d.get("chunks",[]); print("%s %s %s" % (c[0].get("procedure_id") if c else "", d.get("masked"), any(x.get("matched")!="text" for x in c)))')
+  [ "$r" = "khai-sinh True True" ] && ok "Trợ lý AI: tìm đúng thủ tục theo nghĩa, che số điện thoại trước khi đưa vào mô hình" ||
+    fail "Trợ lý AI trả '$r' (cần: khai-sinh True True)"
+
+  code=$(curl -s -o /dev/null -w '%{http_code}' -H "Authorization: Bearer $TA" "$GW/ai/status")
+  QT=$(token quantri)
+  ext=$(curl -s -H "Authorization: Bearer $QT" "$GW/ai/status" | python3 -c 'import json,sys; print(json.load(sys.stdin).get("externalApis"))')
+  [ "$code" = "403" ] && [ "$ext" = "False" ] && ok "Trợ lý AI: chỉ quản trị xem được tình trạng, không dùng API bên ngoài" ||
+    fail "Tình trạng AI: cán bộ nhận $code, externalApis=$ext"
+
+  if docker compose exec -T ai sh -c 'timeout 5 bash -c "</dev/tcp/1.1.1.1/443"' >/dev/null 2>&1; then
+    fail "Dịch vụ chạy mô hình truy cập được Internet"
+  else
+    ok "Dịch vụ chạy mô hình không có đường ra Internet"
+  fi
+else
+  skip "Trợ lý AI chưa chạy hoặc chưa có mô hình (make up để tải); bỏ qua 4 kiểm tra AI"
+fi
+
 code=$(curl -s -o /dev/null -w '%{http_code}' -H "Authorization: Bearer ${TA}sai" "$GW/rest/dossiers")
 [ "$code" = "401" ] && ok "Token bị sửa → 401" || fail "Token bị sửa phải 401, nhận $code"
 

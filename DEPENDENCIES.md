@@ -18,13 +18,14 @@ thuộc danh sách OSI (https://opensource.org/licenses).
 
 | Thành phần    | Phiên bản | Giấy phép          | Nguồn                                      | Dùng để                                     |
 | ------------- | --------- | ------------------ | ------------------------------------------ | ------------------------------------------- |
-| PostgreSQL    | 17        | PostgreSQL License | Ảnh chính thức `postgres`                  | Cơ sở dữ liệu                               |
+| PostgreSQL + pgvector | 17, pgvector 0.8.1 | PostgreSQL License | Ảnh `pgvector/pgvector:0.8.1-pg17-trixie` (dựng trên ảnh chính thức `postgres`) | Cơ sở dữ liệu, tìm kiếm vector |
 | Keycloak      | 26.8.2    | Apache-2.0         | Ảnh chính thức `quay.io/keycloak/keycloak` | Định danh, đăng nhập một lần (SSO), cấp JWT |
 | Apache APISIX | 3.20.0    | Apache-2.0         | Ảnh chính thức `apache/apisix`             | Cửa ngõ API: định tuyến, kiểm JWT           |
 | Node.js       | 22-alpine | MIT                | Ảnh chính thức `node`                      | Chạy các ứng dụng Nuxt và dịch vụ điều phối |
 | PostgREST     | 16.5      | MIT                | Ảnh chính thức postgrest/postgrest         | API dữ liệu sau gateway                     |
 | Flowable REST | 8.0.0     | Apache-2.0         | Ảnh chính thức flowable/flowable-rest      | Động cơ quy trình BPMN                      |
 | SeaweedFS     | 4.53      | Apache-2.0         | Ảnh chính thức chrislusf/seaweedfs         | Kho đối tượng chuẩn S3 (giấy tờ hồ sơ)      |
+| Ollama        | 0.12.6    | MIT                | Ảnh chính thức `ollama/ollama`             | Chạy mô hình AI cục bộ (CPU hoặc GPU)       |
 | ClamAV        | 1.5.2     | GPL-2.0-only       | Ảnh chính thức clamav/clamav (tùy chọn)    | Quét mã độc tệp tải lên, chạy dịch vụ riêng |
 
 ## Thư viện (trình quản lý gói)
@@ -57,7 +58,13 @@ theo phiên bản thực tế trong `package-lock.json`.
 
 ## Mô hình AI
 
-Kho mã không đi kèm mô hình AI nào. Trợ lý thủ tục mặc định trả lời bằng tìm kiếm toàn văn
-trên dữ liệu thủ tục (PostgreSQL). Có thể tùy chọn nối một mô hình tương thích OpenAI chạy trên máy chủ nội bộ
-qua biến `CITIZEN_AI_ENDPOINT` (không dùng API AI bên ngoài vì dữ liệu là dữ liệu mật);
-người triển khai tự chọn mô hình và tự kiểm tra giấy phép của mô hình đó.
+Kho mã không chứa trọng số mô hình. Dịch vụ `ai-models` tải mô hình từ thư viện Ollama vào volume
+Docker ở lần chạy đầu. Mô hình chạy trên máy chủ của đơn vị, không gọi API AI bên ngoài vì dữ liệu là dữ liệu mật.
+
+| Mô hình | Phiên bản (thẻ Ollama) | Giấy phép | Dùng để |
+| --- | --- | --- | --- |
+| Qwen3 1.7B (Alibaba Qwen) | `qwen3:1.7b` | Apache-2.0 | Chọn câu trích dẫn (mặc định, `AI_CHAT_MODEL`) |
+| BGE-M3 (BAAI) | `bge-m3` | MIT | Vector 1024 chiều cho tìm kiếm ngữ nghĩa (`AI_EMBED_MODEL`) |
+
+Đổi mô hình qua `.env` thì người triển khai tự kiểm tra giấy phép của mô hình đó; chỉ dùng mô hình
+có giấy phép mở (Apache-2.0, MIT).

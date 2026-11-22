@@ -7,8 +7,10 @@ help: ## Liệt kê lệnh
 	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*## "}; {printf "  make %-14s %s\n", $$1, $$2}'
 .env:
 	@echo "Thiếu .env. Chạy cp .env.example .env và đổi các mật khẩu trước." && exit 1
-up: .env ## Khởi động PostgreSQL, tự nạp schema/seed, rồi chạy Công dân
+up: .env ## Dựng và khởi động toàn bộ dịch vụ, tự nạp schema, dữ liệu mẫu và mô hình AI (lần đầu)
 	$(COMPOSE) up -d --build
+	@# Tệp cấu hình cổng gắn từng tệp vào container: git pull thay tệp mới thì container vẫn giữ tệp cũ.
+	$(COMPOSE) up -d --force-recreate --no-deps gateway
 
 down: ## Dừng dịch vụ nhưng không xóa dữ liệu
 	$(COMPOSE) down
