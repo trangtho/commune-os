@@ -158,6 +158,7 @@ services:
         psql -v ON_ERROR_STOP=1 -f /setup/init/20-citizen-procedure-lock.sql
         psql -v ON_ERROR_STOP=1 -f /setup/init/21-citizen-api-core-flow.sql
         psql -v ON_ERROR_STOP=1 -f /setup/init/22-ai-knowledge-vectors.sql
+        psql -v ON_ERROR_STOP=1 -f /setup/init/23-staff-notifications.sql
         psql -v ON_ERROR_STOP=1 -c "SELECT count(*) AS published_procedures FROM procedures WHERE published = true"
         echo 'PostgreSQL setup finished successfully.'
 

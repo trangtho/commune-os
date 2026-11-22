@@ -38,6 +38,8 @@ Mọi lời gọi cần header `Authorization: Bearer <token>`. Không có token
 | Mở / tắt thủ tục cho xã (sys_admin)  | `POST /rest/rpc/set_tenant_procedure`, `set_tenant_procedures`, `set_procedure_tenants`                                                            |
 | Nạp gói thủ tục (sys_admin)          | `POST /rest/rpc/import_procedure` với `{"pack": {...}}` (nội dung `pack.yaml` chuyển sang JSON)                                                          |
 | Phân công, trình duyệt hồ sơ         | `POST /rest/rpc/assign_dossier`, `request_dossier_approval`; xem `GET /rest/dossier_assignments`                                                   |
+| Thông báo cho cán bộ (theo xã, gửi cho mình hoặc vai trò của mình) | `GET /rest/staff_notifications`; đánh dấu đã đọc `POST /rest/rpc/read_staff_notification`, `read_all_staff_notifications` |
+| Lãnh đạo gửi thông báo tới công dân của xã | `POST /rest/rpc/broadcast_citizen_notice` với `{"title":"...","body":"..."}` |
 | Nhật ký quản lý cán bộ (lãnh đạo)    | `GET /rest/staff_audit`                                                                                                                            |
 | Nhân viên, việc giao, yêu cầu        | `staff_profiles`, `staff_tasks`, `staff_requests`, `staff_workload`, `my_profile`, `my_tasks`, `my_requests` (xem `docs/QUAN_LY_NHAN_VIEN.md`)      |
 

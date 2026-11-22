@@ -223,6 +223,18 @@ noauth=$(curl -s -o /dev/null -w '%{http_code}' "$GW/files/health")
   ok "Tình trạng quy trình, kho tệp, tài khoản đọc được qua cổng; không token bị chặn" ||
   fail "Tình trạng dịch vụ lõi:$codes, không token $noauth"
 
+# Thông báo cho cán bộ: theo xã, chỉ lãnh đạo gửi được thông báo cho công dân.
+na=$(curl -s -H "Authorization: Bearer $TA" "$GW/rest/staff_notifications?select=id" | python3 -c 'import json,sys; print(len(json.load(sys.stdin)))')
+nb=$(curl -s -H "Authorization: Bearer $TB" "$GW/rest/staff_notifications?select=application_id" |
+  python3 -c 'import json,sys; print(",".join(n["application_id"] or "" for n in json.load(sys.stdin)))')
+case ",$nb," in *",$(echo "$A" | cut -d, -f1),"*) leak=1 ;; *) leak=0 ;; esac
+code=$(curl -s -o /dev/null -w '%{http_code}' -H "Authorization: Bearer $CA" "$GW/rest/staff_notifications")
+[ "$na" -gt 0 ] && [ "$leak" = "0" ] && [ "$code" = "403" ] && ok "Thông báo cán bộ: xã A có thông báo, xã B không thấy của xã A, công dân không đọc được (403)" ||
+  fail "Thông báo cán bộ: xã A $na, xã B '$nb', công dân $code"
+code=$(curl -s -o /dev/null -w '%{http_code}' -X POST -H "Authorization: Bearer $TA" -H 'Content-Type: application/json' \
+  -d '{"title":"Thử","body":"Thử nghiệm"}' "$GW/rest/rpc/broadcast_citizen_notice")
+[ "$code" = "403" ] && ok "Cán bộ xử lý không gửi được thông báo cho công dân (403)" || fail "Cán bộ gửi thông báo cho công dân phải 403, nhận $code"
+
 # Trí tuệ nhân tạo chạy cục bộ (core/ai). Bỏ qua khi dịch vụ AI không chạy (ví dụ CI không tải mô hình).
 skip() { echo "  BỎ QUA  $1"; }
 if [ "$(curl -s "$GW/public/ai/ready" | python3 -c 'import json,sys; print(json.load(sys.stdin).get("ready", False))' 2>/dev/null)" = "True" ]; then
