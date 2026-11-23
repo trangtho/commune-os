@@ -19,9 +19,12 @@ INSERT INTO citizen_service_batch_items(batch_id,procedure_id,position)
  VALUES('bbbbbbbb-0000-4000-8000-000000000001','khai-sinh',1),
        ('bbbbbbbb-0000-4000-8000-000000000001','xac-nhan-cu-tru',2);
 DO $$ DECLARE n integer; BEGIN
- SELECT count(*) INTO n FROM citizen_service_batches;
+ -- Chỉ kiểm tra dữ liệu do bài kiểm thử tạo: công dân mẫu có thể đã có nhóm thủ tục thật trên máy.
+ SELECT count(*) INTO n FROM citizen_service_batches WHERE id='bbbbbbbb-0000-4000-8000-000000000001';
  IF n<>1 THEN RAISE EXCEPTION 'Expected only owner batch, got %',n; END IF;
- SELECT count(*) INTO n FROM citizen_service_batch_items;
+ SELECT count(*) INTO n FROM citizen_service_batches WHERE citizen_id<>'20000000-0000-4000-8000-000000000001';
+ IF n<>0 THEN RAISE EXCEPTION 'Owner sees batches of other citizens: %',n; END IF;
+ SELECT count(*) INTO n FROM citizen_service_batch_items WHERE batch_id='bbbbbbbb-0000-4000-8000-000000000001';
  IF n<>2 THEN RAISE EXCEPTION 'Expected two owner batch components, got %',n; END IF;
  BEGIN
   UPDATE citizen_service_batch_items SET application_id='HS-2026-008888'
@@ -38,9 +41,11 @@ SET LOCAL ROLE communeos_app;
 SELECT set_config('app.citizen_id','20000000-0000-4000-8000-000000000002',true);
 SELECT set_config('app.tenant_id','10000000-0000-4000-8000-000000000002',true);
 DO $$ DECLARE n integer; BEGIN
- SELECT count(*) INTO n FROM citizen_service_batches;
- IF n<>1 THEN RAISE EXCEPTION 'Account B must only see B batch, got %',n; END IF;
- SELECT count(*) INTO n FROM citizen_service_batch_items;
+ SELECT count(*) INTO n FROM citizen_service_batches WHERE id='bbbbbbbb-0000-4000-8000-000000000002';
+ IF n<>1 THEN RAISE EXCEPTION 'Account B must see its own batch, got %',n; END IF;
+ SELECT count(*) INTO n FROM citizen_service_batches WHERE citizen_id<>'20000000-0000-4000-8000-000000000002';
+ IF n<>0 THEN RAISE EXCEPTION 'Account B must only see B batches, got %',n; END IF;
+ SELECT count(*) INTO n FROM citizen_service_batch_items WHERE batch_id='bbbbbbbb-0000-4000-8000-000000000001';
  IF n<>0 THEN RAISE EXCEPTION 'Account B must not see A batch items'; END IF;
 END $$;
 RESET ROLE;

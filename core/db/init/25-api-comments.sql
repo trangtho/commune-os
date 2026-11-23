@@ -206,6 +206,18 @@ BEGIN
     ('citizen_result_check', 'Kiểm tra hồ sơ đã hoàn thành trước khi cấp mã kiểm chứng kết quả', NULL),
     ('citizen_result_verification_issue', 'Cấp mã kiểm chứng kết quả', 'p_token_hash: SHA-256 của mã tra cứu; mã cũ bị thu hồi; hiệu lực 180 ngày.'),
 
+    -- ===== Hàm: đại diện, gia đình, nhóm thủ tục của công dân (29-citizen-api-representation.sql) =====
+    ('citizen_representations', 'Đăng ký đại diện nộp thay của công dân', NULL),
+    ('citizen_representation_create', 'Đăng ký đại diện nộp thay cho người thân', 'p_relationship: parent, child, spouse, guardian, other; p_legal_basis: authorization, legal_representative. Chờ cán bộ xác minh minh chứng.'),
+    ('citizen_representation_audit', 'Nhật ký sử dụng một quyền đại diện', NULL),
+    ('citizen_representation_evidence', 'Khóa tệp minh chứng đại diện để Kênh người dân tải', NULL),
+    ('citizen_representation_evidence_set', 'Gắn tệp minh chứng cho yêu cầu đại diện đang chờ xác minh', 'Trả khóa tệp cũ để xóa khỏi kho.'),
+    ('citizen_representation_revoke', 'Thu hồi quyền đại diện của chính mình', NULL),
+    ('citizen_family', 'Người thân có quyền đại diện đã xác minh và hồ sơ đã nộp thay', 'Chỉ hồ sơ do chính tài khoản nộp; không mở hồ sơ riêng của người thân.'),
+    ('citizen_service_batches', 'Các nhóm thủ tục nộp cùng lúc của công dân', NULL),
+    ('citizen_service_batch_create', 'Tạo nhóm 2–4 thủ tục chuẩn bị nộp cùng lúc', 'Chỉ là nhóm chuẩn bị, không tự nộp; dùng chung họ tên, số điện thoại khi công dân đồng ý.'),
+    ('citizen_service_batch', 'Chi tiết một nhóm thủ tục và hồ sơ đã tạo cho từng thủ tục', NULL),
+
     -- ===== Hàm: trợ lý AI (chỉ dịch vụ ai-gateway gọi) =====
     ('knowledge_search', 'Tìm kiếm lai toàn văn và ngữ nghĩa trên tri thức thủ tục (chỉ ai-gateway gọi)',
      'Ứng dụng hỏi trợ lý qua POST /ai/ask hoặc /public/ai/ask.'),

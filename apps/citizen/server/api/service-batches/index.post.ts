@@ -1,7 +1,8 @@
 // SPDX-FileCopyrightText: 2026 CommuneOS Contributors
 // SPDX-License-Identifier: Apache-2.0
+// Tạo nhóm thủ tục nộp cùng lúc (api.citizen_service_batch_create của lõi).
 import { z } from 'zod'
-import { citizenTx } from '../../utils/database'
+import { citizenRpc } from '../../utils/identity'
 import { validate } from '../../utils/validation'
 import { phoneIssue } from '../../../shared/identity-validation'
 const schema=z.object({
@@ -16,19 +17,8 @@ export default defineEventHandler(async event=>{
   throw createError({statusCode:422,statusMessage:'Một thủ tục không được chọn nhiều lần'})
  if (input.shareConsent && phoneIssue(input.phone))
   throw createError({statusCode:422,statusMessage:'Số điện thoại dùng chung không hợp lệ'})
- const item=await citizenTx(event,async(client,actor)=>{
-  const catalog=(await client.query('SELECT id FROM procedures WHERE id=ANY($1::text[]) AND published=true', [input.procedureIds])).rows
-  if(catalog.length!==input.procedureIds.length)throw createError({statusCode:422,statusMessage:'Có thủ tục không còn được công bố'})
-  const sharedData=input.shareConsent ? {applicantName:actor.name,phone:input.phone}:{}
-  const batch=(await client.query(`INSERT INTO citizen_service_batches(citizen_id,tenant_id,title,purpose,shared_data,shared_consent)
-    VALUES($1,$2,$3,$4,$5::jsonb,$6) RETURNING id`,
-    [actor.id,actor.tenantId,input.title,input.purpose,JSON.stringify(sharedData),input.shareConsent])).rows[0]
-  for (let i=0;i<input.procedureIds.length;i++) {
-   await client.query('INSERT INTO citizen_service_batch_items(batch_id,procedure_id,position) VALUES($1,$2,$3)',
-    [batch.id,input.procedureIds[i],i+1])
-  }
-  return {id:batch.id,mode:'preparation'}
- })
+ const item=await citizenRpc(event,'citizen_service_batch_create',{p_title:input.title,p_purpose:input.purpose,
+  p_procedure_ids:input.procedureIds,p_share_consent:input.shareConsent,p_phone:input.phone})
  setResponseStatus(event,201)
  return item
 })

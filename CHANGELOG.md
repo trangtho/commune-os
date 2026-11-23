@@ -11,6 +11,15 @@ Mọi thay đổi đáng chú ý của dự án được ghi tại đây.
 
 ## [Chưa phát hành]
 
+### Thay đổi (đại diện nộp thay, gia đình, nhóm thủ tục của Kênh người dân qua lõi, 2026-11-24)
+
+- 10 API đại diện nộp thay (đăng ký, minh chứng, thu hồi, nhật ký), trang gia đình và nhóm thủ tục nộp cùng lúc gọi
+  10 hàm `api.*` của lõi (`core/db/init/29-citizen-api-representation.sql`) thay cho truy vấn PostgreSQL trực tiếp.
+  Kiểm tra quyền đại diện, người kê khai dùng chung hàm của lõi; bỏ bản sao kiểm tra trong `utils/representations.ts`.
+- Sửa tên tệp khi tải minh chứng đại diện (trước đây thừa dấu ngoặc kép: `minh-chung."pdf"`).
+- `make guidance-batches-test` chỉ kiểm tra nhóm thủ tục do chính bài kiểm thử tạo, không còn lỗi khi công dân mẫu
+  đã có nhóm thủ tục thật.
+
 ### Thay đổi (trang chi tiết hồ sơ của Kênh người dân qua lõi, 2026-11-24)
 
 - 25 API của trang chi tiết hồ sơ (bổ sung theo yêu cầu, hạn giải quyết, công đoạn, lộ trình, nhận kết quả, mã chuyển
