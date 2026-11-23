@@ -7,7 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 
 **DX-OS Open-Core cho chính quyền cơ sở.**
 
-CommuneOS là nền tảng lõi mở headless, đa thuê ước, giúp một xã tự dựng hệ
+CommuneOS là nền tảng lõi mở headless, đa xã (multi-tenant), giúp một xã tự dựng hệ
 điều hành số của mình: định danh, cổng API, dữ liệu, quy trình và AI chạy
 ngay trên máy chủ của xã, không phụ thuộc nhà cung cấp.
 
@@ -32,7 +32,7 @@ Giấy phép của các thành phần bên thứ ba được liệt kê trong
 
 | Tầng                  | Thư mục         | Nội dung                                                                          |
 | --------------------- | --------------- | --------------------------------------------------------------------------------- |
-| Tầng 1 - Lõi headless | core/           | Cửa ngõ API, định danh, dữ liệu, lưu trữ tệp, quy trình, sổ cái (không giao diện) |
+| Tầng 1 - Lõi headless | `core/`         | Cửa ngõ API, định danh, dữ liệu, lưu trữ tệp, quy trình, sổ ghi nhận (không giao diện) |
 | Tầng 2 - Ứng dụng     | `apps/commune/` | Ứng dụng xã cho cán bộ, lãnh đạo, cấp trên                                        |
 | Tầng 2 - Ứng dụng     | `apps/citizen/` | Kênh nộp hồ sơ trực tuyến cho người dân                                           |
 | Tầng 2 - Ứng dụng     | `apps/admin/`   | Bảng quản trị hệ thống: xã, thủ tục, sổ ghi nhận                                  |
@@ -50,7 +50,7 @@ Mỗi xã tự có danh sách thủ tục được mở. Cán bộ và người 
 | Dịch vụ (docker compose)          | Thành phần            | Vai trò                                                                                      |
 | --------------------------------- | --------------------- | -------------------------------------------------------------------------------------------- |
 | `identity`, `identity-setup`      | Keycloak              | Đăng nhập một lần cho cán bộ và công dân; `identity-setup` bổ sung mục mới vào realm đã có  |
-| `gateway`                         | Apache APISIX         | Cửa ngõ API: `/rest`, `/workflow`, `/files`, `/accounts`, `/ai` (kiểm tra token), `/public` (khách) |
+| `gateway`                         | Apache APISIX         | Cửa ngõ API: `/rest`, `/workflow`, `/files`, `/accounts`, `/ai` (kiểm tra token), `/public` (khách), `/docs` (tài liệu API) |
 | `db`, `rest`                      | PostgreSQL, PostgREST | Dữ liệu có cấu trúc, API tự sinh, cách ly xã bằng RLS                                        |
 | `workflow-engine`, `orchestrator` | Flowable, Node.js     | Quy trình xử lý hồ sơ theo sơ đồ BPMN                                                        |
 | `storage`                         | SeaweedFS             | Kho đối tượng chuẩn S3 cho giấy tờ (dữ liệu phi cấu trúc)                                    |
@@ -58,6 +58,7 @@ Mỗi xã tự có danh sách thủ tục được mở. Cán bộ và người 
 | `antivirus` (tùy chọn)            | ClamAV                | Quét mã độc tệp tải lên                                                                      |
 | `accounts`                        | Node.js               | Lãnh đạo xã quản lý tài khoản cán bộ qua Keycloak ([core/accounts](core/accounts/README.md)) |
 | `ai`, `ai-gateway`, `ai-models`   | Ollama, Node.js       | AI chạy cục bộ: tìm kiếm ngữ nghĩa, chọn trích dẫn ([core/ai](core/ai/README.md))            |
+| `api-docs`                        | Swagger UI            | Trang tài liệu API của lõi, gọi thử được ([core/api-docs](core/api-docs/README.md))          |
 
 AI của lõi chạy hoàn toàn trên máy chủ: mô hình (mặc định `qwen3:1.7b` và `bge-m3`) nằm trong mạng
 Docker không có đường ra Internet, không gọi API AI bên ngoài. Mô hình không nằm trong kho mã;
@@ -104,6 +105,7 @@ Sau khi `make up` chạy xong, mở trình duyệt:
 | Màn hình cán bộ xã      | http://localhost:3002 | Docker (tự chạy) |
 | Bảng quản trị hệ thống  | http://localhost:3001 | Docker (tự chạy) |
 | Trang quản trị Keycloak | http://localhost:8080 | Docker (tự chạy) |
+| Tài liệu API của lõi    | http://localhost:9080/docs/ | Docker (tự chạy) |
 
 ## Cấu hình
 
@@ -138,24 +140,15 @@ Trang quản trị Keycloak: http://localhost:8080 (tài khoản quản trị l�
 
 - Thêm thủ tục mới: sao `packs/_template/`, sửa `pack.yaml`, nạp ở bảng quản trị → Danh mục thủ tục → Thêm thủ tục,
   rồi mở cho từng xã (Danh sách xã → bấm vào xã → tab Thủ tục). Thủ tục mới chưa mở cho xã nào.
-- Xây ứng dụng mới trên lõi: thêm thư mục trong `apps/`, gọi API qua cửa ngõ.
+- Xây ứng dụng mới trên lõi: thêm thư mục trong `apps/`, gọi API qua cửa ngõ. Danh sách API, tham số, phản hồi mẫu
+  và nút gọi thử nằm ở trang tài liệu http://localhost:9080/docs/ (cổng theo `GATEWAY_PORT`).
 
 Hướng dẫn chi tiết trong [docs/](docs/).
-
-## Đóng góp và báo lỗi
-
-- Báo lỗi và đề xuất: [Issues](https://github.com/trangtho/commune-os/issues)
-- Hướng dẫn đóng góp: [CONTRIBUTING.md](CONTRIBUTING.md)
-- Lịch sử thay đổi: [CHANGELOG.md](CHANGELOG.md)
-
-## Đội phát triển
-
-Danh sách người đóng góp: [Contributors](https://github.com/trangtho/commune-os/graphs/contributors).
 
 ## Kênh người dân (`apps/citizen`)
 
 Ứng dụng Nuxt 3 cho người dân: danh mục thủ tục theo xã, nộp hồ sơ nhiều bước có
-Poka-yoke, kho giấy tờ cá nhân, tự điền biểu mẫu, theo dõi tiến độ, bổ sung hồ sơ,
+kiểm tra chống sai sót (Poka-yoke), kho giấy tờ cá nhân, tự điền biểu mẫu, theo dõi tiến độ, bổ sung hồ sơ,
 đại diện nộp thay, lịch hẹn một cửa, thông báo thời gian thực (PostgreSQL
 `LISTEN/NOTIFY` → SSE) và trợ lý hỏi đáp thủ tục.
 
@@ -180,3 +173,13 @@ Không đưa bản demo ra Internet khi `DEMO_MODE=true`.
 Nếu trang báo "Không tải được thủ tục từ PostgreSQL": `make repair-db`, `make doctor`,
 rồi mở `http://localhost:3000/api/health`. Không xóa volume có dữ liệu cần giữ.
 Cập nhật thời gian thực: [docs/REALTIME_CITIZEN.md](docs/REALTIME_CITIZEN.md).
+
+## Đóng góp và báo lỗi
+
+- Báo lỗi và đề xuất: [Issues](https://github.com/trangtho/commune-os/issues)
+- Hướng dẫn đóng góp: [CONTRIBUTING.md](CONTRIBUTING.md)
+- Lịch sử thay đổi: [CHANGELOG.md](CHANGELOG.md)
+
+## Đội phát triển
+
+Danh sách người đóng góp: [Contributors](https://github.com/trangtho/commune-os/graphs/contributors).

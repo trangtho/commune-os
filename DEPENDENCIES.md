@@ -27,6 +27,7 @@ thuộc danh sách OSI (https://opensource.org/licenses).
 | SeaweedFS     | 4.53      | Apache-2.0         | Ảnh chính thức chrislusf/seaweedfs         | Kho đối tượng chuẩn S3 (giấy tờ hồ sơ)      |
 | Ollama        | 0.12.6    | MIT                | Ảnh chính thức `ollama/ollama`             | Chạy mô hình AI cục bộ (CPU hoặc GPU)       |
 | ClamAV        | 1.5.2     | GPL-2.0-only       | Ảnh chính thức clamav/clamav (tùy chọn)    | Quét mã độc tệp tải lên, chạy dịch vụ riêng |
+| Swagger UI    | 5.17.14   | Apache-2.0         | Ảnh chính thức `swaggerapi/swagger-ui`     | Trang tài liệu API của lõi (`/docs/`)       |
 
 ## Thư viện (trình quản lý gói)
 

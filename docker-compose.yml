@@ -2,7 +2,8 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 # Toàn bộ CommuneOS: các dịch vụ lõi (db, db-setup, identity, identity-setup, gateway, rest,
-# workflow-engine, orchestrator, accounts, storage, files, antivirus tùy chọn, ai-models, ai, ai-gateway)
+# workflow-engine, orchestrator, accounts, storage, files, antivirus tùy chọn, ai-models, ai, ai-gateway,
+# api-docs)
 # và ba ứng dụng Tầng 2
 # (citizen, commune, admin). Cổng ứng dụng và PostgreSQL chỉ mở trên 127.0.0.1.
 
@@ -88,6 +89,7 @@ services:
     depends_on:
       - identity
       - rest
+      - api-docs
     ports:
       - "${GATEWAY_PORT}:9080"
 
@@ -160,6 +162,7 @@ services:
         psql -v ON_ERROR_STOP=1 -f /setup/init/22-ai-knowledge-vectors.sql
         psql -v ON_ERROR_STOP=1 -f /setup/init/23-staff-notifications.sql
         psql -v ON_ERROR_STOP=1 -f /setup/init/24-staff-guide.sql
+        psql -v ON_ERROR_STOP=1 -f /setup/init/25-api-comments.sql
         psql -v ON_ERROR_STOP=1 -c "SELECT count(*) AS published_procedures FROM procedures WHERE published = true"
         echo 'PostgreSQL setup finished successfully.'
 
@@ -188,6 +191,11 @@ services:
       # Khách chưa đăng nhập: chỉ gọi được hàm cấp cho web_anon (danh mục thủ tục), qua cổng /public/rpc.
       PGRST_DB_ANON_ROLE: web_anon
       PGRST_SERVER_PORT: "3000"
+      # Tài liệu OpenAPI tự sinh (GET /): liệt kê mọi hàm, bảng ảo của schema api (cấu trúc, không có dữ liệu),
+      # kèm mô tả trong core/db/init/25-api-comments.sql; nút "Try it out" gọi qua cổng /rest.
+      PGRST_OPENAPI_MODE: ignore-privileges
+      PGRST_OPENAPI_SECURITY_ACTIVE: "true"
+      PGRST_OPENAPI_SERVER_PROXY_URI: http://localhost:${GATEWAY_PORT}/rest
     volumes:
       - rest-keys:/keys:ro
     depends_on:
@@ -314,6 +322,17 @@ services:
 
   # Cổng AI của lõi sau APISIX (/ai/*, /public/ai/*): kiểm token, giới hạn số lần gọi, che dữ liệu cá nhân,
   # tìm kiếm lai (toàn văn + vector), mô hình chỉ chọn trích dẫn nguyên văn; tạo vector cho chỉ mục tri thức.
+  # Trang tài liệu API của lõi (Swagger UI), mở qua cổng: http://localhost:${GATEWAY_PORT}/docs/
+  # Chỉ hiển thị đặc tả, không chứa dữ liệu; mọi lời gọi thử vẫn qua cổng và cần token như bình thường.
+  api-docs:
+    image: swaggerapi/swagger-ui:v5.17.14
+    restart: unless-stopped
+    environment:
+      BASE_URL: /docs
+    volumes:
+      - ./core/api-docs:/communeos:ro
+      - ./core/api-docs/50-communeos.sh:/docker-entrypoint.d/50-communeos.sh:ro
+
   ai-gateway:
     image: node:22-alpine
     restart: unless-stopped
