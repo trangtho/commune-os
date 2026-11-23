@@ -33,7 +33,7 @@ Bản này được tích hợp trên mã nguồn `commune-os-feat-citizen-porta
 | Tìm thủ tục qua tình huống | `/tim-theo-tinh-huong` | Từ đồng nghĩa + danh mục đã công bố, không tự tạo thủ tục mới |
 | Đề xuất hành động tiếp theo | `CitizenCaseInsights` | Theo trạng thái ghi nhận; công dân quyết định |
 | Trợ lý hỏi đáp từng hồ sơ | `CitizenCaseInsights` | Căn cứ sự kiện thực tế đã cấp quyền; không suy đoán lý do |
-| Tổng hợp câu hỏi chưa giải đáp | `/api/internal/ai/unanswered` | API thống kê có phân quyền; chỉ trả nhóm có ít nhất 5 câu; chưa có UI cán bộ |
+| Tổng hợp câu hỏi chưa giải đáp | `POST /rest/rpc/citizen_unanswered_summary` (lõi, lãnh đạo xã) | API thống kê có phân quyền; chỉ trả nhóm có ít nhất 5 câu; chưa có UI cán bộ |
 | Phát hiện mâu thuẫn giấy tờ | `CitizenDocumentReview`, `CitizenCaseInsights` | Chỉ đối chiếu thông tin OCR công dân đã kiểm tra, không tự bác hồ sơ |
 
 ## Cấu hình chạy thử
@@ -46,7 +46,6 @@ Bản này được tích hợp trên mã nguồn `commune-os-feat-citizen-porta
 
 **Những cấu hình quan trọng** (để trống hoặc tắt theo mặc định trong `.env.example`):
 
-- `CITIZEN_GOVERNANCE_TOKEN` và `CITIZEN_STAFF_BRIDGE_TOKEN`: xác thực API quản trị/nội bộ. Yêu cầu bí mật ít nhất 32 ký tự; không đưa vào client.
 - `CITIZEN_RETENTION_SCAN_ENABLED`: mặc định `false`, chỉ quét để đề xuất xem xét.
 - `CITIZEN_PUBLIC_ORIGIN`: địa chỉ HTTPS đáng tin cậy cho QR (localhost chỉ cho phát triển).
 - `CITIZEN_RESULTS_ENDPOINT`, `CITIZEN_RESULTS_TOKEN`: dịch vụ kết quả PDF có xác minh bên ngoài; Docker truyền cả `NUXT_RESULT_*` khi khởi chạy, không tự bật dịch vụ.

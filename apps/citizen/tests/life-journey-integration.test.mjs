@@ -40,8 +40,8 @@ test('friction aggregation does not store raw text, session identity, or low-vol
  const ingest=read('../server/api/citizen/feedback-signals/index.post.ts')
  assert.match(ingest,/consent:z\.literal\(true\)/)
  assert.doesNotMatch(ingest,/INSERT INTO.*citizen_id/s)
- const report=read('../server/api/internal/insights/friction.get.ts')
- assert.match(report,/requireStaffBridge/);assert.match(report,/requireGovernanceToken/)
+ const report=read('../../../core/db/init/26-citizen-staff-api.sql')
+ assert.match(report,/FUNCTION api\.citizen_friction_summary[\s\S]*?staff_tenant_id\(true\)/)
 })
 test('new documentation is in apps/citizen/docs and inherits SPDX',()=>{
  const docs=read('../docs/LIFE_JOURNEYS_14_FEATURES.md')

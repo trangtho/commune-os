@@ -89,7 +89,8 @@ test('SQL uses RLS, staff authorization and non-destructive migration',()=>{
 test('Private-case advice requires session-scoped SQL; staff analytics restricted',()=>{
  assert.match(read('../server/api/applications/[id]/ask.post.ts'),/citizenTx\(event/)
  assert.match(read('../server/api/applications/[id]/insights.get.ts'),/citizenTx\(event/)
- assert.match(read('../server/api/internal/ai/unanswered.get.ts'),/requireGovernanceToken/)
- assert.match(read('../server/api/internal/citizens/sync.get.ts'),/requireStaffBridge/)
- assert.match(read('../server/api/internal/citizens/sync.post.ts'),/requireGovernanceToken/)
+ const staffApi=read('../../../core/db/init/26-citizen-staff-api.sql')
+ assert.match(staffApi,/FUNCTION api\.citizen_unanswered_summary[\s\S]*?staff_tenant_id\(true\)/)
+ assert.match(staffApi,/FUNCTION api\.citizen_sync_queue[\s\S]*?staff_tenant_id\(true\)/)
+ assert.match(staffApi,/FUNCTION api\.decide_citizen_sync[\s\S]*?staff_tenant_id\(true\)/)
 })

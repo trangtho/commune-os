@@ -212,6 +212,14 @@ code=$(rpc "$CB" citizen_application_submit "{\"p_application_id\":\"$APP_A\",\"
 code=$(rpc "$TA" citizen_applications '{}')
 [ "$code" = "403" ] && ok "Token cán bộ không gọi được API của công dân (403)" || fail "Cán bộ gọi API công dân phải 403, nhận $code"
 
+# Phần việc cán bộ phát sinh từ Kênh người dân (core/db/init/26-citizen-staff-api.sql): xã, vai trò lấy từ token.
+c1=$(rpc "$TA" citizen_support_tickets '{}'); c2=$(rpc "$CA" citizen_support_tickets '{}')
+c3=$(rpc "$TA" citizen_privacy_requests '{}'); c4=$(rpc "$LA" citizen_privacy_requests '{}')
+c5=$(rpc "$LA" publish_procedure_version '{"p_data":{}}')
+[ "$c1" = "200" ] && [ "$c2" = "403" ] && [ "$c3" = "403" ] && [ "$c4" = "200" ] && [ "$c5" = "403" ] &&
+  ok "API cán bộ cho Kênh người dân: cán bộ xem hỗ trợ, công dân bị chặn, dữ liệu cá nhân chỉ lãnh đạo, công bố thủ tục chỉ quản trị" ||
+  fail "API cán bộ cho Kênh người dân: cán bộ $c1, công dân $c2, cán bộ xem dữ liệu cá nhân $c3, lãnh đạo $c4, lãnh đạo công bố $c5"
+
 # Tình trạng dịch vụ lõi qua cổng (trang Tình trạng hệ thống của bảng quản trị): kiểm tra cả thành phần phía sau.
 QT=$(token quantri)
 codes=""

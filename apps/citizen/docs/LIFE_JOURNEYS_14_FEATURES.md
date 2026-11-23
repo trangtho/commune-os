@@ -22,7 +22,7 @@ Bản triển khai gia tăng từ `communeos-18-features-current-full.zip`; ưu 
 | 11 | Tiếp tục phiên trên thiết bị khác | `citizen_draft_cursors`, `PUT /api/applications/[id]/autosave` và `/api/citizen/draft-cursors/[id]`. **Sau khi người dùng lưu bản nháp hợp lệ lần đầu**, thay đổi các trường biểu mẫu được lưu sau khoảng 1,8 giây; số phiên bản ngăn ghi đè từ thiết bị cũ (HTTP 409). Bước hiện tại cũng được lưu. Dữ liệu chưa từng lưu không thể được khôi phục. |
 | 12 | Giải thích trạng thái dễ hiểu | Dùng `explainCaseStatus`, nhật ký xử lý và các gợi ý thật trong `/api/applications/[id]/roadmap`; không đoán nguyên nhân nếu chưa có ghi chú từ cán bộ. |
 | 13 | Trợ lý có nguồn và giới hạn | Mở rộng API chatbot trả `sourceEvidence` gồm nguồn khai báo, phạm vi, hiệu lực, mức xác minh. Chỉ trích dẫn thủ tục trong PostgreSQL đang công bố, hiển thị cảnh báo dữ liệu demo/nguồn chưa xác minh. **Chưa đủ dữ liệu xác minh độc lập để cam kết trợ lý chỉ trả lời từ văn bản pháp luật có hiệu lực**, do đó cần thẩm tra nguồn trước triển khai thật. |
-| 14 | Phát hiện điểm chưa rõ trong tương tác | `POST /api/citizen/feedback-signals` chỉ nhận mã vấn đề sau khi công dân đồng ý; không lưu nội dung trường, câu hỏi, IP hay danh tính. `GET /api/internal/insights/friction` yêu cầu Staff Bridge + governance token; chỉ trả nhóm từ 5 sự kiện/90 ngày. Chưa tự thay giao diện hay nội dung thủ tục. |
+| 14 | Phát hiện điểm chưa rõ trong tương tác | `POST /api/citizen/feedback-signals` chỉ nhận mã vấn đề sau khi công dân đồng ý; không lưu nội dung trường, câu hỏi, IP hay danh tính. `POST /rest/rpc/citizen_friction_summary` (API của lõi) chỉ lãnh đạo xã gọi được; chỉ trả nhóm từ 5 sự kiện/90 ngày. Chưa tự thay giao diện hay nội dung thủ tục. |
 
 ## Database và bảo mật
 
@@ -44,7 +44,7 @@ Bản triển khai gia tăng từ `communeos-18-features-current-full.zip`; ưu 
 
 ### Kích hoạt nhắc việc tự động
 
-Thiết lập `CITIZEN_REMINDERS_ENABLED=true` trong `.env`, khởi động lại `citizen` (trên môi trường demo), sau đó người dùng bật nhắc trong `/lich-hanh-chinh`. Scheduler Nitro quét mỗi giờ và lúc khởi động (có kiểm tra trùng trong PostgreSQL). Đối với nhiều replica cần lịch chạy tập trung thay vì mỗi container tự quét. Có endpoint `POST /api/internal/reminders/scan` cho job nội bộ đã được xác thực bởi cả Staff Bridge và governance token. Nếu biến tắt, lịch vẫn hiển thị nhưng không gửi tự động.
+Thiết lập `CITIZEN_REMINDERS_ENABLED=true` trong `.env`, khởi động lại `citizen` (trên môi trường demo), sau đó người dùng bật nhắc trong `/lich-hanh-chinh`. Scheduler Nitro quét mỗi giờ và lúc khởi động (có kiểm tra trùng trong PostgreSQL). Đối với nhiều replica cần lịch chạy tập trung thay vì mỗi container tự quét. Quản trị hệ thống cũng gửi được bằng `POST /rest/rpc/dispatch_citizen_reminders` (API của lõi). Nếu biến tắt, lịch vẫn hiển thị nhưng không gửi tự động.
 
 ## Các giới hạn không được diễn giải thành tính năng đã kiểm chứng
 

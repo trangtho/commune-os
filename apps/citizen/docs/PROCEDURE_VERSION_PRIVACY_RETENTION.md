@@ -9,7 +9,7 @@
 
 - Trang `/thu-tuc/[slug]` hiển thị mã phiên bản, hiệu lực, đơn vị khai báo, đường dẫn nguồn và lịch sử cập nhật.
 - Dữ liệu có sẵn trong `seed.sql` được gắn `unverified_demo`, không tự gán URL hoặc văn bản pháp luật giả.
-- `POST /api/internal/procedures/publish` chỉ cho phép **staff bridge server-to-server** kèm quyền quản trị riêng `CITIZEN_GOVERNANCE_TOKEN` đã được cấu hình, yêu cầu `confirmed: true`, URL HTTPS thuộc phạm vi `.gov.vn`, `chinhphu.vn`, `vbpl.vn`, văn bản, cơ quan ban hành, thời điểm hiệu lực và phạm vi áp dụng.
+- `POST /rest/rpc/publish_procedure_version` (API của lõi, chỉ tài khoản `sys_admin`) yêu cầu `confirmed: true`, URL HTTPS thuộc phạm vi `.gov.vn`, `chinhphu.vn`, `vbpl.vn`, văn bản, cơ quan ban hành, thời điểm hiệu lực và phạm vi áp dụng.
 - Khi công bố, giao dịch PostgreSQL cập nhật phiên bản **và** danh mục giấy tờ, lệ phí, hạn xử lý, hướng dẫn và gửi thông báo cho mọi bản nháp liên quan. Lịch sử là **append-only**.
 - **Giới hạn:** Nguồn chỉ được kiểm tra định dạng/tên miền và được cán bộ khai báo, không tự xác minh tính pháp lý. `scope_note` là mô tả phạm vi, chưa được đối chiếu tự động với ranh giới địa phương. Bản cập nhật `formRevision` có thể cảnh báo thay đổi biểu mẫu nhưng cấu trúc form thực tế nằm trong `shared/procedure-forms.ts`: cần triển khai code form tương ứng trước khi công bố thay đổi biểu mẫu.
 - Chưa tự tải quy định từ cơ quan ban hành và chưa kích hoạt phiên bản có hiệu lực trong tương lai. Việc công bố do hệ thống cán bộ tin cậy gọi tại thời điểm hiệu lực.
@@ -41,9 +41,9 @@
 
 - Trang `/vong-doi-du-lieu`: chính sách từng nhóm dữ liệu, danh sách cần xem xét, yêu cầu truy cập/đính chính/hạn chế/xóa/xem xét thời hạn và trạng thái tiếp nhận.
 - Mặc định chưa cấu hình thời hạn lưu trữ hành chính **đã phê duyệt**, nên không tự xóa hoặc hạn chế hồ sơ.
-- API staff bridge `POST /api/internal/privacy/retention/scan` phát hiện phiên bản giấy tờ quá hạn, đồng thời xem xét hồ sơ đã kết thúc nếu chính sách `case-retention` được phê duyệt và có thời hạn; có dedup và thông báo trong hệ thống.
-- API staff bridge có thêm token quản trị `GET /api/internal/privacy/requests` (danh sách trong đơn vị) và `POST /api/internal/privacy/requests/[id]/review` quyết định trạng thái yêu cầu. `GET /api/internal/privacy/retention/reviews` (danh sách chờ xem xét) và `POST /api/internal/privacy/retention/reviews/[id]/decide` (cùng cần token quản trị) quyết định `restricted` / `archived` / `keep`; quyết định `restricted` hay `archived` sẽ chặn truy cập/tái sử dụng phiên bản giấy tờ liên quan. Có ghi nhật ký.
-- **Tự động quét:** đặt `CITIZEN_RETENTION_SCAN_ENABLED=true` tại `.env` và khởi động lại `citizen`. Plugin Nitro bắt đầu kiểm tra sau khi server chạy khoảng 60 giây và lặp lại mỗi 24 giờ khi container còn chạy. Mặc định **tắt** để không làm thay đổi hoạt động demo nếu chưa lựa chọn. Cũng có thể gọi `POST /api/internal/privacy/retention/scan` từ cron hoặc job scheduler độc lập; nhiều lần quét không tạo trùng review.
+- API của lõi `POST /rest/rpc/scan_citizen_retention` (lãnh đạo xã) phát hiện phiên bản giấy tờ quá hạn, đồng thời xem xét hồ sơ đã kết thúc nếu chính sách `case-retention` được phê duyệt và có thời hạn; có dedup và thông báo trong hệ thống.
+- API của lõi cho lãnh đạo xã: `rpc/citizen_privacy_requests` (danh sách trong đơn vị) và `rpc/review_citizen_privacy_request` quyết định trạng thái yêu cầu. `rpc/citizen_retention_reviews` (danh sách chờ xem xét) và `rpc/decide_citizen_retention` quyết định `restricted` / `archived` / `keep`; quyết định `restricted` hay `archived` sẽ chặn truy cập/tái sử dụng phiên bản giấy tờ liên quan. Có ghi nhật ký.
+- **Tự động quét:** đặt `CITIZEN_RETENTION_SCAN_ENABLED=true` tại `.env` và khởi động lại `citizen`. Plugin Nitro bắt đầu kiểm tra sau khi server chạy khoảng 60 giây và lặp lại mỗi 24 giờ khi container còn chạy. Mặc định **tắt** để không làm thay đổi hoạt động demo nếu chưa lựa chọn. Cũng có thể gọi `POST /rest/rpc/scan_citizen_retention` bằng token lãnh đạo xã từ job định kỳ; nhiều lần quét không tạo trùng review.
 - **Giới hạn:** Không xóa dữ liệu vật lý hay file object store. Máy chủ phải hoạt động để lịch quét chạy; nếu yêu cầu lịch chính xác tại một giờ nhất định, sử dụng bộ lập lịch ngoài và tắt plugin. Khi triển khai thực tế, tiêu hủy cần quy trình phê duyệt, đảm bảo nghĩa vụ lưu trữ và xóa an toàn cả bản sao lưu.
 
 ## Cập nhật và kiểm thử
@@ -62,9 +62,9 @@ make procedure-privacy-test
 
 Kiểm thử trình duyệt trong môi trường demo cô lập bằng `npm run test:e2e` (yêu cầu Playwright và các dịch vụ đã chạy). Không sử dụng dữ liệu cá nhân thật.
 
-### API công bố phiên bản (từ backend cán bộ tin cậy)
+### API công bố phiên bản (API của lõi, chỉ quản trị hệ thống)
 
-Gửi `Authorization: Bearer <CITIZEN_STAFF_BRIDGE_TOKEN>` và `X-CommuneOS-Governance-Token: <CITIZEN_GOVERNANCE_TOKEN>` cùng `X-CommuneOS-Tenant-ID` (UUID đơn vị) và `X-CommuneOS-Staff-ID` (định danh cán bộ do backend xác thực). Tạo token quản trị ngẫu nhiên dài ít nhất 32 ký tự (`openssl rand -hex 32`) tại `.env` trên máy chủ. Không đặt bất kỳ token nào trong Nuxt public runtimeConfig hoặc trình duyệt. Chỉ backend đáng tin được giữ cả hai token. Body JSON ví dụ về các **giá trị minh họa, không phải văn bản có thật**:
+`POST /rest/rpc/publish_procedure_version` qua cổng APISIX bằng token Keycloak của tài khoản `sys_admin`, thân `{"p_data": {...}}`. Ví dụ `p_data` với các **giá trị minh họa, không phải văn bản có thật**:
 
 ```json
 {

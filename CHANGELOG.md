@@ -11,6 +11,19 @@ Mọi thay đổi đáng chú ý của dự án được ghi tại đây.
 
 ## [Chưa phát hành]
 
+### Thay đổi (chức năng cán bộ của Kênh người dân chuyển vào lõi, 2026-11-24)
+
+- 22 API `/api/internal/*` của Kênh người dân (yêu cầu hỗ trợ, mã chuyển hồ sơ tại quầy, đề nghị điều chỉnh và chuyển
+  cơ quan, giao nhận kết quả, yêu cầu về dữ liệu cá nhân, rà soát lưu trữ, đồng bộ, báo cáo tổng hợp, công bố phiên bản
+  thủ tục, gửi nhắc việc) trở thành 24 hàm `api.*` của lõi (`core/db/init/26-citizen-staff-api.sql`), gọi qua cổng
+  `/rest/rpc/*` bằng token Keycloak của cán bộ. Xã lấy từ claim `tenant_id`, mã cán bộ từ `sub`, vai trò từ token:
+  lãnh đạo xã cho dữ liệu cá nhân, lưu trữ, đồng bộ, báo cáo; quản trị hệ thống cho công bố thủ tục, gửi nhắc việc.
+  Kiểm tra dữ liệu đầu vào của ứng dụng cũ chuyển vào các hàm này.
+- Dịch vụ tệp của lõi thêm `GET /files/handoffs/{id}/documents/{id}` để cán bộ xã tiếp nhận tải giấy tờ trong mã chuyển
+  hồ sơ tại quầy.
+- Bỏ khóa dùng chung `CITIZEN_STAFF_BRIDGE_TOKEN`, `CITIZEN_GOVERNANCE_TOKEN` và cơ chế truyền xã, mã cán bộ qua header.
+- `make test` thêm kiểm tra phân quyền cho các API này (47 kiểm tra).
+
 ## [0.1.0] - 2026-11-24
 
 Bản phát hành đầu tiên. Lõi headless đa xã (Keycloak, APISIX, PostgreSQL + PostgREST với RLS, Flowable, SeaweedFS,
