@@ -1,0 +1,597 @@
+# SPDX-FileCopyrightText: 2026 CommuneOS Contributors
+# SPDX-License-Identifier: Apache-2.0
+#
+# Đặc tả OpenAPI cho các dịch vụ Node.js của lõi (core/orchestrator, core/files, core/accounts, core/ai)
+# và tuyến công khai /public, viết tay theo mã nguồn. API dữ liệu /rest/* do PostgREST tự sinh, xem
+# mục "Dữ liệu – PostgREST" trên cùng trang tài liệu. Sửa mã dịch vụ thì sửa tệp này cho khớp.
+openapi: 3.0.3
+info:
+  title: CommuneOS – Dịch vụ lõi
+  version: 0.2.0
+  license:
+    name: Apache-2.0
+    url: https://www.apache.org/licenses/LICENSE-2.0
+  description: |
+    Mọi đường dẫn dưới đây đi qua cổng API APISIX (mặc định `http://localhost:9080`), cùng địa chỉ với trang này,
+    nên bấm **Try it out** là gọi thật vào hệ thống đang chạy.
+
+    **Lấy token:** bấm **Authorize** → mục `keycloak` → nhập tài khoản thử (ví dụ `canbo.xa-a` / `12345`,
+    lãnh đạo `lanhdao.xa-a`, quản trị `quantri`), `client_id` để `commune-app`, bỏ trống `client_secret`.
+    Token công dân: `client_id` = `citizen-app`, `client_secret` = giá trị `CITIZEN_KEYCLOAK_SECRET` trong `.env`,
+    tài khoản `congdan.demo` / `Demo@2026!`. Token đã lấy cũng được dùng khi chuyển sang mục "Dữ liệu – PostgREST".
+
+    Lấy token bằng dòng lệnh:
+    ```
+    curl -s -d grant_type=password -d client_id=commune-app -d username=canbo.xa-a -d password=12345 \
+      http://localhost:8080/realms/communeos/protocol/openid-connect/token | jq -r .access_token
+    ```
+
+    Lỗi luôn trả JSON `{"message": "..."}` bằng tiếng Việt. Dữ liệu trong hệ thống demo là dữ liệu giả lập.
+servers:
+  - url: /
+    description: Cổng API APISIX (cùng địa chỉ với trang tài liệu)
+tags:
+  - name: Quy trình
+    description: Dịch vụ điều phối (core/orchestrator) – chuyển bước hồ sơ theo sơ đồ BPMN trên Flowable.
+  - name: Tệp
+    description: Dịch vụ tệp (core/files) – giấy tờ lưu ở kho đối tượng S3, kiểm tra định dạng, mã băm SHA-256, quét mã độc (tùy chọn).
+  - name: Tài khoản
+    description: Dịch vụ tài khoản (core/accounts) – lãnh đạo xã quản lý cán bộ xử lý của xã mình qua Keycloak.
+  - name: AI
+    description: Cổng AI (core/ai) – mô hình chạy cục bộ trên Ollama, không gọi API AI bên ngoài.
+  - name: Công khai
+    description: Không cần token, có giới hạn số lần gọi theo địa chỉ IP.
+  - name: Tình trạng
+    description: Kiểm tra dịch vụ và thành phần phía sau.
+security:
+  - keycloak: []
+  - bearer: []
+
+paths:
+  # ---------------- Quy trình ----------------
+  /workflow/dossiers/{id}/actions:
+    parameters:
+      - $ref: '#/components/parameters/DossierId'
+    get:
+      tags: [Quy trình]
+      summary: Bước hiện tại và các bước được phép đi tiếp
+      description: Hồ sơ của xã khác trả 404 (RLS). Hồ sơ đã kết thúc trả `actions` rỗng.
+      responses:
+        '200':
+          description: Bước hiện tại
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DossierActions' }
+              example: { id: HS-2026-001235, status: processing, step: Xử lý hồ sơ, actions: [completed, supplement, rejected] }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+    post:
+      tags: [Quy trình]
+      summary: Thực hiện một bước
+      description: |
+        `action` phải nằm trong danh sách `actions` của GET. Cơ sở dữ liệu ghi trạng thái trước (kiểm tra xã, vai trò,
+        lý do), thành công mới cho quy trình đi tiếp. Từ chối (`rejected`) và yêu cầu bổ sung (`supplement`) cần `note`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [action]
+              properties:
+                action: { type: string, enum: [processing, supplement, completed, rejected], example: supplement }
+                note: { type: string, nullable: true, example: Bổ sung bản sao giấy chứng sinh }
+      responses:
+        '200':
+          description: Đã chuyển bước
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id: { type: string, example: HS-2026-001235 }
+                  status: { type: string, example: supplement }
+                  previous_status: { type: string, example: processing }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  # ---------------- Tệp ----------------
+  /files/dossiers/{id}/documents:
+    post:
+      tags: [Tệp]
+      summary: Cán bộ tải giấy tờ lên hồ sơ
+      description: Thân yêu cầu là nội dung tệp (không dùng multipart). Chỉ PDF, PNG, JPG, tối đa 5 MB; nội dung phải khớp định dạng khai báo.
+      parameters:
+        - $ref: '#/components/parameters/DossierId'
+        - { name: code, in: query, required: true, description: Mã loại giấy tờ của thủ tục, schema: { type: string, pattern: '^[a-z0-9-]{1,100}$', example: giay-chung-sinh } }
+        - { name: name, in: query, required: false, description: Tên tệp hiển thị, schema: { type: string, maxLength: 180, example: giay-chung-sinh.pdf } }
+      requestBody:
+        required: true
+        content:
+          application/pdf: { schema: { type: string, format: binary } }
+          image/png: { schema: { type: string, format: binary } }
+          image/jpeg: { schema: { type: string, format: binary } }
+      responses:
+        '201':
+          description: Đã lưu tệp và ghi giấy tờ
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DossierDocument' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '413': { description: Tệp quá 5 MB, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        '415': { description: Sai định dạng hoặc nội dung không khớp định dạng, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        '422': { description: Tệp có dấu hiệu mã độc (khi bật ClamAV), content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+  /files/documents/{id}:
+    get:
+      tags: [Tệp]
+      summary: Tải một giấy tờ của hồ sơ
+      description: Kiểm tra lại mã băm trước khi trả; tệp trong kho bị thay đổi thì trả 409. Header `X-Content-SHA256` chứa mã băm.
+      parameters:
+        - $ref: '#/components/parameters/Uuid'
+      responses:
+        '200':
+          description: Nội dung tệp
+          headers:
+            X-Content-SHA256: { schema: { type: string }, description: Mã băm SHA-256 của nội dung }
+          content:
+            application/pdf: { schema: { type: string, format: binary } }
+            image/png: { schema: { type: string, format: binary } }
+            image/jpeg: { schema: { type: string, format: binary } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /files/staff-documents:
+    post:
+      tags: [Tệp]
+      summary: Cán bộ nộp giấy tờ cá nhân (chờ lãnh đạo duyệt)
+      parameters:
+        - { name: doc_type, in: query, required: true, description: Loại giấy tờ, schema: { type: string, pattern: '^[a-z-]{2,30}$', example: bang-cap } }
+        - { name: title, in: query, required: true, schema: { type: string, maxLength: 160, example: Bằng cử nhân } }
+        - { name: note, in: query, required: false, schema: { type: string, maxLength: 1000 } }
+      requestBody:
+        required: true
+        content:
+          application/pdf: { schema: { type: string, format: binary } }
+          image/png: { schema: { type: string, format: binary } }
+          image/jpeg: { schema: { type: string, format: binary } }
+      responses:
+        '201':
+          description: Đã gửi đề nghị thêm giấy tờ
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id: { type: string, format: uuid, description: Mã đề nghị }
+                  document_id: { type: string, format: uuid }
+                  status: { type: string, example: pending }
+                  sha256: { type: string }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+  /files/staff-documents/{id}:
+    get:
+      tags: [Tệp]
+      summary: Tải giấy tờ cá nhân của cán bộ
+      description: Chủ giấy tờ hoặc lãnh đạo cùng xã.
+      parameters:
+        - $ref: '#/components/parameters/Uuid'
+      responses:
+        '200':
+          description: Nội dung tệp
+          content:
+            application/pdf: { schema: { type: string, format: binary } }
+            image/png: { schema: { type: string, format: binary } }
+            image/jpeg: { schema: { type: string, format: binary } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
+  # ---------------- Tài khoản ----------------
+  /accounts/staff:
+    get:
+      tags: [Tài khoản]
+      summary: Danh sách cán bộ của xã (chỉ lãnh đạo)
+      responses:
+        '200':
+          description: Lãnh đạo xếp trước, rồi theo tên đăng nhập
+          content:
+            application/json:
+              schema: { type: array, items: { $ref: '#/components/schemas/Staff' } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+    post:
+      tags: [Tài khoản]
+      summary: Tạo cán bộ xử lý (chỉ lãnh đạo)
+      description: Xã luôn là xã của người gọi, vai trò luôn là officer. Trả mật khẩu tạm một lần duy nhất; cán bộ phải đổi ở lần đăng nhập đầu.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [username, firstName, lastName]
+              properties:
+                username: { type: string, pattern: '^[a-z0-9][a-z0-9._-]{2,49}$', example: canbo4.xa-a }
+                firstName: { type: string, maxLength: 60, example: Minh }
+                lastName: { type: string, maxLength: 60, example: Trần }
+                email: { type: string, format: email, nullable: true }
+      responses:
+        '201':
+          description: Đã tạo
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id: { type: string, format: uuid }
+                  username: { type: string }
+                  role: { type: string, example: officer }
+                  temporaryPassword: { type: string, example: Hk7mPq2wXa9z }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /accounts/staff/{id}:
+    parameters:
+      - $ref: '#/components/parameters/Uuid'
+    patch:
+      tags: [Tài khoản]
+      summary: Sửa họ tên, email của cán bộ xử lý
+      requestBody:
+        content:
+          application/json:
+            schema:
+              type: object
+              properties:
+                firstName: { type: string, maxLength: 60 }
+                lastName: { type: string, maxLength: 60 }
+                email: { type: string, format: email, nullable: true }
+      responses:
+        '200':
+          description: Đã sửa
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id: { type: string, format: uuid }
+                  username: { type: string }
+                  firstName: { type: string }
+                  lastName: { type: string }
+                  email: { type: string, nullable: true }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    delete:
+      tags: [Tài khoản]
+      summary: Xóa hẳn tài khoản cán bộ (phải khóa trước)
+      description: Hồ sơ cá nhân, việc được giao, nhật ký vẫn giữ trong cơ sở dữ liệu.
+      responses:
+        '200':
+          description: Đã xóa
+          content:
+            application/json:
+              example: { id: d90c78d4-7a39-4d5f-b115-31a4015039a2, username: canbo3.xa-a, deleted: true }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /accounts/staff/{id}/status:
+    patch:
+      tags: [Tài khoản]
+      summary: Khóa hoặc mở tài khoản cán bộ xử lý
+      parameters:
+        - $ref: '#/components/parameters/Uuid'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [enabled]
+              properties:
+                enabled: { type: boolean, example: false }
+      responses:
+        '200':
+          description: Đã cập nhật
+          content:
+            application/json:
+              example: { id: d90c78d4-7a39-4d5f-b115-31a4015039a2, username: canbo3.xa-a, enabled: false }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /accounts/staff/{id}/reset-password:
+    post:
+      tags: [Tài khoản]
+      summary: Cấp mật khẩu tạm mới cho cán bộ xử lý
+      parameters:
+        - $ref: '#/components/parameters/Uuid'
+      responses:
+        '200':
+          description: Mật khẩu tạm (chỉ trả một lần)
+          content:
+            application/json:
+              example: { id: d90c78d4-7a39-4d5f-b115-31a4015039a2, username: canbo3.xa-a, temporaryPassword: Hk7mPq2wXa9z }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /accounts/me/password:
+    post:
+      tags: [Tài khoản]
+      summary: Người đang đăng nhập tự đổi mật khẩu (cán bộ hoặc công dân)
+      description: Mật khẩu mới 8–128 ký tự, có cả chữ và số. Tối đa 5 lần thử mỗi 15 phút.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/PasswordChange' }
+      responses:
+        '200': { description: Đã đổi, content: { application/json: { example: { changed: true } } } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '403': { description: Mật khẩu hiện tại không đúng, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        '429': { $ref: '#/components/responses/TooMany' }
+  /accounts/first-password:
+    post:
+      tags: [Tài khoản, Công khai]
+      summary: Cán bộ đổi mật khẩu tạm ở lần đăng nhập đầu
+      description: Không cần token; mật khẩu tạm được kiểm tra bằng Keycloak. Mật khẩu mới 8–64 ký tự, có cả chữ và số.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              allOf:
+                - type: object
+                  required: [username]
+                  properties:
+                    username: { type: string, example: canbo4.xa-a }
+                - $ref: '#/components/schemas/PasswordChange'
+      responses:
+        '200': { description: Đã đổi, content: { application/json: { example: { username: canbo4.xa-a, changed: true } } } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '429': { $ref: '#/components/responses/TooMany' }
+
+  # ---------------- AI ----------------
+  /ai/ask:
+    post:
+      tags: [AI]
+      summary: Hỏi trợ lý về thủ tục (cán bộ, công dân)
+      description: |
+        Chỉ dùng thủ tục xã của người hỏi đang mở (xã lấy từ token); cán bộ thấy thêm hướng dẫn nghiệp vụ.
+        Không đọc hồ sơ hay dữ liệu cá nhân; câu hỏi tra cứu thông tin người khác bị từ chối (`mode: refused`).
+        Mô hình chỉ chọn câu trích dẫn nguyên văn từ nguồn (`selections`), không tự viết nội dung. 30 câu hỏi/phút mỗi người.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AskRequest' }
+      responses:
+        '200':
+          description: Kết quả tìm kiếm và trích dẫn
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AskResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '429': { $ref: '#/components/responses/TooMany' }
+  /ai/status:
+    get:
+      tags: [AI, Tình trạng]
+      summary: Tình trạng mô hình, chỉ mục vector, thống kê (chỉ quản trị hệ thống)
+      responses:
+        '200':
+          description: Không chứa nội dung câu hỏi
+          content:
+            application/json:
+              example:
+                ollama: { reachable: true, installed: [{ name: 'qwen3:1.7b', sizeMB: 1296 }, { name: 'bge-m3:latest', sizeMB: 1104 }], loaded: ['bge-m3:latest', 'qwen3:1.7b'] }
+                models: { chat: { name: 'qwen3:1.7b', installed: true }, embed: { name: bge-m3, installed: true } }
+                vectors: { chunks: 59, embedded: 59, lastEmbeddedAt: '2026-11-22T15:33:03.375206+00:00' }
+                indexer: { lastRunAt: '2026-11-23T16:19:17.300Z', lastStored: 0, lastError: null }
+                usage: { asks: 6, modelAnswers: 0, failures: 0, averageMs: 657, lastAskAt: '2026-11-23T16:19:39.323Z', lastError: null }
+                externalApis: false
+        '403': { $ref: '#/components/responses/Forbidden' }
+
+  # ---------------- Công khai ----------------
+  /public/rpc/procedure_catalog:
+    get:
+      tags: [Công khai]
+      summary: Danh mục thủ tục đã công bố (khách)
+      security: []
+      parameters:
+        - { name: p_q, in: query, required: false, description: Từ khóa, schema: { type: string } }
+        - { name: p_category, in: query, required: false, description: Lĩnh vực, schema: { type: string, example: Hộ tịch } }
+      responses:
+        '200':
+          description: Danh sách thủ tục
+          content:
+            application/json:
+              example:
+                - { id: chung-thuc, title: Chứng thực bản sao, category: Chứng thực, summary: Yêu cầu chứng thực bản sao từ bản chính., icon: files, sla_days: 1, fee_note: Theo quy định hiện hành, published: true, version: 1.0.0, document_count: 1 }
+        '429': { $ref: '#/components/responses/TooMany' }
+  /public/rpc/procedure_detail:
+    get:
+      tags: [Công khai]
+      summary: Chi tiết một thủ tục (khách)
+      security: []
+      parameters:
+        - { name: p_procedure_id, in: query, required: true, schema: { type: string, example: khai-sinh } }
+      responses:
+        '200': { description: Thông tin thủ tục, thành phần hồ sơ, biểu mẫu }
+        '429': { $ref: '#/components/responses/TooMany' }
+  /public/ai/ask:
+    post:
+      tags: [Công khai, AI]
+      summary: Hỏi trợ lý (khách)
+      description: Như `/ai/ask` nhưng không gắn với xã nào và không có hướng dẫn nghiệp vụ. 10 câu hỏi/phút mỗi địa chỉ IP.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/AskRequest' }
+      responses:
+        '200':
+          description: Kết quả
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/AskResponse' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '429': { $ref: '#/components/responses/TooMany' }
+  /public/ai/ready:
+    get:
+      tags: [Công khai, AI]
+      summary: Đã tải đủ mô hình AI chưa
+      security: []
+      responses:
+        '200': { description: Trạng thái, content: { application/json: { example: { ready: true } } } }
+
+  # ---------------- Tình trạng ----------------
+  /workflow/health:
+    get:
+      tags: [Tình trạng]
+      summary: Dịch vụ điều phối và động cơ Flowable
+      responses:
+        '200': { description: Hoạt động, content: { application/json: { example: { status: ok, flowable: { ok: true, ms: 18 } } } } }
+        '503': { description: Flowable không trả lời, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+  /files/health:
+    get:
+      tags: [Tình trạng]
+      summary: Dịch vụ tệp và kho đối tượng
+      responses:
+        '200': { description: Hoạt động, content: { application/json: { example: { ok: true, storage: { ok: true, ms: 51 }, antivirus: { configured: false } } } } }
+        '503': { description: Kho đối tượng không trả lời }
+  /accounts/health:
+    get:
+      tags: [Tình trạng]
+      summary: Dịch vụ tài khoản và quyền vào Keycloak Admin API
+      responses:
+        '200': { description: Hoạt động, content: { application/json: { example: { ok: true, keycloakAdmin: { ok: true, ms: 12 } } } } }
+        '503': { description: Không lấy được token dịch vụ từ Keycloak }
+
+components:
+  securitySchemes:
+    keycloak:
+      type: oauth2
+      description: Đăng nhập Keycloak bằng tên đăng nhập và mật khẩu (qua cổng API, đường dẫn /docs/token).
+      flows:
+        password:
+          tokenUrl: /docs/token
+          scopes: {}
+    bearer:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Dán access_token đã lấy bằng cách khác (không kèm chữ "Bearer").
+  parameters:
+    DossierId:
+      name: id
+      in: path
+      required: true
+      description: Mã hồ sơ
+      schema: { type: string, example: HS-2026-001235 }
+    Uuid:
+      name: id
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+  responses:
+    BadRequest: { description: Dữ liệu gửi lên không hợp lệ, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+    Unauthorized: { description: Thiếu token, token hết hạn hoặc sai mật khẩu, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+    Forbidden: { description: Vai trò hoặc xã không được phép, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+    NotFound: { description: Không tồn tại hoặc thuộc xã khác, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+    Conflict: { description: Xung đột trạng thái, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+    TooMany: { description: Gọi quá nhiều lần, thử lại sau, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+  schemas:
+    Error:
+      type: object
+      properties:
+        message: { type: string, example: Không có đường dẫn này }
+    DossierActions:
+      type: object
+      properties:
+        id: { type: string }
+        status: { type: string, enum: [submitted, processing, supplement, completed, rejected] }
+        step: { type: string, nullable: true, description: Tên bước trong sơ đồ BPMN; null khi hồ sơ đã kết thúc }
+        actions: { type: array, items: { type: string } }
+    DossierDocument:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        dossier_id: { type: string }
+        document_code: { type: string }
+        original_name: { type: string }
+        size_bytes: { type: integer }
+        sha256: { type: string }
+        uploaded_at: { type: string, format: date-time }
+    Staff:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        username: { type: string, example: canbo.xa-a }
+        firstName: { type: string }
+        lastName: { type: string }
+        email: { type: string, nullable: true }
+        role: { type: string, enum: [leader, officer] }
+        enabled: { type: boolean }
+        createdAt: { type: string, format: date-time }
+        isMe: { type: boolean }
+        manageable: { type: boolean, description: Người gọi được khóa, sửa, xóa tài khoản này }
+    PasswordChange:
+      type: object
+      required: [currentPassword, newPassword]
+      properties:
+        currentPassword: { type: string, format: password }
+        newPassword: { type: string, format: password }
+    AskRequest:
+      type: object
+      required: [question]
+      properties:
+        question: { type: string, minLength: 2, maxLength: 500, example: Đăng ký khai sinh cần giấy tờ gì }
+        procedureId: { type: string, description: Chỉ tìm trong một thủ tục, example: khai-sinh }
+        select: { type: boolean, default: true, description: false = chỉ tìm kiếm, không gọi mô hình chọn trích dẫn (nhanh hơn) }
+    AskResponse:
+      type: object
+      properties:
+        mode:
+          type: string
+          enum: [model, semantic, text, refused]
+          description: model = có trích dẫn do mô hình chọn; semantic/text = chỉ kết quả tìm kiếm; refused = từ chối
+        refusal: { type: string, description: Lý do từ chối (chỉ khi mode = refused) }
+        chunks:
+          type: array
+          items:
+            type: object
+            properties:
+              id: { type: string, example: 'procedure:khai-sinh:instructions' }
+              source_type: { type: string, enum: [procedure, faq, staff_guide] }
+              procedure_id: { type: string, nullable: true }
+              field: { type: string }
+              source_title: { type: string, example: Đăng ký khai sinh }
+              content: { type: string }
+              score: { type: number }
+              similarity: { type: number, nullable: true }
+              matched: { type: string, enum: [text, semantic, both] }
+        selections:
+          type: array
+          description: Câu trích nguyên văn từ chunks (tối đa 3)
+          items:
+            type: object
+            properties:
+              id: { type: string, description: id của chunk chứa câu }
+              quote: { type: string }
+        masked: { type: boolean, description: Câu hỏi có số định danh, số điện thoại, email đã được che }
+        models:
+          type: object
+          properties:
+            chat: { type: string, example: 'qwen3:1.7b' }
+            embed: { type: string, example: bge-m3 }
+        timings:
+          type: object
+          additionalProperties: { type: integer }
+          example: { embedMs: 120, searchMs: 15, selectMs: 2400, totalMs: 2540 }

@@ -153,4 +153,52 @@ routes:
         read: 120
       nodes:
         "ai-gateway:3000": 1
+  # Trang tài liệu API (Swagger UI, dịch vụ api-docs): công khai, chỉ là trang tĩnh và đặc tả.
+  - id: api-docs
+    uris: ["/docs", "/docs/*"]
+    methods: ["GET", "HEAD"]
+    upstream:
+      type: roundrobin
+      nodes:
+        "api-docs:8080": 1
+  # Đặc tả OpenAPI do PostgREST tự sinh (cấu trúc API, không có dữ liệu). Bỏ token để mọi người xem như nhau.
+  - id: api-docs-rest
+    uri: /docs/rest-openapi.json
+    methods: ["GET"]
+    priority: 10
+    plugins:
+      limit-count:
+        count: 60
+        time_window: 60
+        key_type: var
+        key: remote_addr
+        rejected_code: 429
+      proxy-rewrite:
+        uri: /
+        headers:
+          set:
+            Accept: application/openapi+json
+          remove: ["Authorization"]
+    upstream:
+      type: roundrobin
+      nodes:
+        "rest:3000": 1
+  # Nút "Authorize" của trang tài liệu: lấy token Keycloak cùng địa chỉ với trang (không vướng CORS).
+  - id: api-docs-token
+    uri: /docs/token
+    methods: ["POST"]
+    priority: 10
+    plugins:
+      limit-count:
+        count: 20
+        time_window: 60
+        key_type: var
+        key: remote_addr
+        rejected_code: 429
+      proxy-rewrite:
+        uri: /realms/communeos/protocol/openid-connect/token
+    upstream:
+      type: roundrobin
+      nodes:
+        "identity:8080": 1
 #END
