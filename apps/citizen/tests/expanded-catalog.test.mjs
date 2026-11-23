@@ -9,7 +9,7 @@ const compose=read('../../../docker-compose.yml')
 const list=read('../pages/thu-tuc/index.vue')
 const card=read('../components/ProcedureCard.vue')
 const detail=read('../pages/thu-tuc/[slug].vue')
-const submit=read('../server/api/applications/[id]/submit.post.ts')
+const coreSubmit=read('../../../core/db/init/21-citizen-api-core-flow.sql')
 const recommended=read('../server/api/procedures/recommended.get.ts')
 
 test('36 additional demo procedures use distinct IDs and preserve existing rows',()=>{
@@ -40,7 +40,7 @@ test('citizen UI paginates results and preserves filtering/search',()=>{
 test('unknown SLA is never presented as 0 days or manufactured as due date',()=>{
   assert.match(card,/sla_days>0/)
   assert.match(detail,/sla_days>0/)
-  assert.match(submit,/CASE WHEN sla_days > 0 THEN CURRENT_DATE \+ sla_days ELSE NULL END/)
+  assert.match(coreSubmit,/due_at\s*=\s*CURRENT_DATE\s*\+\s*\(SELECT\s+NULLIF\(sla_days,\s*0\)/)
 })
 
 test('recommendations exclude procedures not enabled for current tenant',()=>{

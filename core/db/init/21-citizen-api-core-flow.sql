@@ -436,8 +436,9 @@ BEGIN
   WHERE d.procedure_id = r.procedure_id AND d.is_required AND NOT EXISTS (
     SELECT 1 FROM application_documents f WHERE f.application_id = r.id AND f.document_code = d.document_code);
   IF v_missing IS NOT NULL THEN PERFORM public.citizen_fail(422, 'Thiếu giấy tờ: ' || v_missing); END IF;
+  -- NULLIF turns an unverified demo SLA (0) into NULL instead of a fake due date.
   UPDATE applications SET status = 'submitted', submitted_at = now(), updated_at = now(),
-    due_at = CURRENT_DATE + (SELECT sla_days FROM procedures WHERE id = r.procedure_id),
+    due_at = CURRENT_DATE + (SELECT NULLIF(sla_days, 0) FROM procedures WHERE id = r.procedure_id),
     submitted_procedure_version_id = v_version
   WHERE id = r.id;
   INSERT INTO application_events(application_id, event_type, note, actor_name)
