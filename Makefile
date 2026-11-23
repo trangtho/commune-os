@@ -2,15 +2,23 @@
 # SPDX-License-Identifier: Apache-2.0
 COMPOSE ?= docker compose
 .DEFAULT_GOAL := help
-.PHONY: backup restore citizen-api-test procedure-privacy-test help up down logs ps seed test test-citizen citizen-dev reset-demo rls-test rag-test chat-history-test personalization-test representation-test citizen-experience-test handoff-support-test guidance-batches-test preflight-counter-test repair-db doctor
+.PHONY: check-env backup restore citizen-api-test procedure-privacy-test help up down logs ps seed test test-citizen citizen-dev reset-demo rls-test rag-test chat-history-test personalization-test representation-test citizen-experience-test handoff-support-test guidance-batches-test preflight-counter-test repair-db doctor
 help: ## Liệt kê lệnh
 	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*## "}; {printf "  make %-14s %s\n", $$1, $$2}'
 .env:
 	@echo "Thiếu .env. Chạy cp .env.example .env và đổi các mật khẩu trước." && exit 1
-up: .env ## Dựng và khởi động toàn bộ dịch vụ, tự nạp schema, dữ liệu mẫu và mô hình AI (lần đầu)
+check-env: .env ## Kiểm tra .env có đủ biến bắt buộc (biến docker-compose.yml dùng mà không có giá trị mặc định)
+	@# .env tạo từ bản cũ có thể thiếu biến mới thêm; để trống thì dịch vụ vẫn chạy nhưng đăng nhập, gọi API lỗi khó hiểu.
+	@missing=""; for k in $$(grep -oE '[$$][{][A-Z_]+[}]' docker-compose.yml | tr -d '$$' | tr -d '{}' | sort -u); do \
+	  grep -qE "^$$k=.+" .env || missing="$$missing $$k"; done; \
+	if [ -n "$$missing" ]; then \
+	  echo "Tệp .env thiếu hoặc để trống các biến bắt buộc:$$missing"; \
+	  echo "Chép các dòng tương ứng từ .env.example sang .env (đổi giá trị bí mật), rồi chạy lại."; exit 1; fi
+up: check-env ## Dựng và khởi động toàn bộ dịch vụ, tự nạp schema, dữ liệu mẫu và mô hình AI (lần đầu)
 	$(COMPOSE) up -d --build
-	@# Tệp cấu hình cổng gắn từng tệp vào container: git pull thay tệp mới thì container vẫn giữ tệp cũ.
-	$(COMPOSE) up -d --force-recreate --no-deps gateway
+	@# Cổng API và các dịch vụ Node của lõi chạy thẳng mã nguồn gắn từ core/ vào container: sau git pull, compose
+	@# thấy cấu hình không đổi nên không khởi động lại, container vẫn chạy mã cũ (thiếu API mới, đăng nhập, nộp hồ sơ lỗi).
+	$(COMPOSE) up -d --force-recreate --no-deps gateway orchestrator accounts files ai-gateway
 
 down: ## Dừng dịch vụ nhưng không xóa dữ liệu
 	$(COMPOSE) down
