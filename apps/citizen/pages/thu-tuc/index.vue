@@ -26,8 +26,8 @@ const reasons=(id:string)=>ranked.value?recommendations.value?.items.find(p=>p.i
 function reset(){q.value='';category.value='';showRecommended.value=false}
 </script>
 <template>
-<div class="space-y-5">
- <div class="space-y-3">
+<div class="citizen-subpage citizen-procedures-page space-y-5">
+ <div class="panel citizen-filter-panel space-y-3 p-4 sm:p-5">
   <div class="relative"><Search class="pointer-events-none absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" :size="20"/><label for="procedure-search" class="sr-only">Tìm kiếm thủ tục hành chính</label>
    <input id="procedure-search" v-model="q" class="field !h-12 !pl-10 !pr-10 !text-base" placeholder="Tìm theo tên thủ tục, ví dụ: khai sinh"/>
    <button v-if="isFiltering" type="button" class="absolute right-2 top-1/2 -translate-y-1/2 rounded p-1.5 text-slate-500 hover:bg-slate-100" aria-label="Bỏ tìm kiếm và lọc" @click="reset"><X :size="18"/></button></div>
@@ -37,7 +37,7 @@ function reset(){q.value='';category.value='';showRecommended.value=false}
   </div>
  </div>
 
- <div class="flex flex-wrap items-center gap-2 text-sm">
+ <div class="citizen-list-toolbar flex flex-wrap items-center gap-2 text-sm">
   <span class="font-medium text-slate-700">{{list.length}} thủ tục</span>
   <template v-if="recommendations?.personalized">
    <span class="text-slate-300" aria-hidden="true">·</span>

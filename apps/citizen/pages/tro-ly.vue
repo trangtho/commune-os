@@ -202,7 +202,7 @@ async function copyAnswer(message: ChatMessage) {
 </script>
 
 <template>
-  <div class="space-y-4 pb-1">
+  <div class="citizen-subpage citizen-assistant-page space-y-4 pb-1">
     <section class="relative overflow-hidden rounded-2xl bg-gradient-to-r from-[#083b86] via-[#085eb3] to-[#137bc1] px-4 py-5 text-white sm:px-6 sm:py-6">
       <div class="pointer-events-none absolute -right-6 -top-12 h-44 w-44 rounded-full border-[28px] border-white/10 sm:h-56 sm:w-56" aria-hidden="true"/>
       <div class="relative flex flex-wrap items-start justify-between gap-3">

@@ -57,7 +57,7 @@ async function changeExpiry(v:VaultVersion){
 }
 </script>
 <template>
-<div class="space-y-5">
+<div class="citizen-subpage citizen-documents-page space-y-5">
  <div class="flex flex-wrap items-start justify-between gap-4"><div><NuxtLink to="/ho-so-ca-nhan" class="mb-2 inline-flex items-center gap-1 text-xs font-bold text-brand-700"><ArrowLeft :size="15"/> Hồ sơ cá nhân</NuxtLink><h2 class="text-2xl font-black text-brand-900">Kho giấy tờ số cá nhân</h2><p class="mt-1 max-w-2xl text-sm text-muted">Lưu một lần, quản lý phiên bản và chủ động chia sẻ giấy tờ phù hợp khi nộp hồ sơ.</p></div><button class="btn-primary" @click="startNew"><FilePlus2 :size="17"/>Thêm giấy tờ</button></div>
  <div class="grid gap-3 sm:grid-cols-3"><div class="panel flex items-center gap-3 p-4"><FolderLock class="text-brand-600" :size="25"/><div><p class="text-2xl font-black">{{currentDocs}}</p><p class="text-xs text-muted">Nhóm giấy tờ đang sử dụng</p></div></div><div class="panel flex items-center gap-3 p-4"><Files class="text-brand-600" :size="25"/><div><p class="text-2xl font-black">{{versionCount}}</p><p class="text-xs text-muted">Phiên bản đã lưu</p></div></div><div class="panel flex items-center gap-3 p-4"><ShieldCheck class="text-green-600" :size="25"/><div><p class="text-2xl font-black">{{shares.length}}</p><p class="text-xs text-muted">Lượt chia sẻ gần đây</p></div></div></div>
  <div class="rounded-xl border border-blue-200 bg-blue-50 p-3 text-sm leading-6 text-blue-900"><ShieldCheck class="mr-1 inline" :size="17"/>Chỉ tài khoản của bạn được xem kho giấy tờ. Chia sẻ sang hồ sơ cần xác nhận riêng từng lần; tài liệu gốc không bị thay đổi. Dữ liệu đang ở môi trường demo, không tải giấy tờ thật.</div>

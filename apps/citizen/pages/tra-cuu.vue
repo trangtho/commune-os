@@ -26,7 +26,7 @@ async function search() {
 watch(status, async() => { if (submitted.value) { page.value = 1; await refresh() } })
 </script>
 <template>
-  <div class="space-y-4">
+  <div class="citizen-subpage citizen-lookup-page space-y-4">
     <header><h2 class="text-xl font-black">Tra cứu tiến độ hồ sơ</h2><p class="text-sm text-muted">Tìm trực tiếp trong cơ sở dữ liệu các hồ sơ của tài khoản đang đăng nhập, không giới hạn 100 hồ sơ đầu tiên.</p></header>
     <form class="panel flex flex-wrap items-end gap-3 p-4" role="search" @submit.prevent="search">
       <div class="min-w-0 flex-[1_1_260px]"><label for="case-search" class="field-label">Mã hồ sơ, tên thủ tục hoặc người nộp</label><div class="flex items-center gap-2"><Search :size="20" class="text-brand-600"/><input id="case-search" v-model="input" class="field" maxlength="100" required placeholder="Ví dụ: HS-2026, khai sinh..." /></div></div>

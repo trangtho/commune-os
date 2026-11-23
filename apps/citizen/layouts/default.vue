@@ -88,7 +88,7 @@ async function logout(){await $fetch('/api/auth/logout',{method:'POST'});await r
     <ol v-if="isFiling" class="citizen-steps scrollbar-hide mt-4 flex w-full min-w-0 gap-1.5 overflow-x-auto rounded-xl bg-white p-1.5 text-ink shadow-sm xl:grid xl:grid-cols-4 xl:overflow-visible" aria-label="Các bước nộp hồ sơ"><li v-for="(step,index) in steps" :key="step.title" :aria-current="currentStep===index+1?'step':undefined" :class="['flex min-w-[200px] shrink-0 items-center gap-2 rounded-lg px-2.5 py-2 xl:min-w-0',currentStep===index+1?'bg-brand-50':'']"><span :class="['grid h-8 w-8 shrink-0 place-items-center rounded-full border text-sm font-semibold',currentStep===index+1?'border-brand-600 bg-brand-600 text-white':currentStep>index+1?'border-emerald-600 bg-emerald-600 text-white':'border-slate-300 bg-white text-slate-600']"><component :is="step.icon" :size="17"/></span><div class="min-w-0"><p class="text-sm font-semibold leading-tight text-slate-900">{{index+1}}. {{step.title}}</p><p class="mt-0.5 text-xs text-slate-600">{{step.desc}}</p></div></li></ol>
    </div>
   </section>
-  <div class="citizen-workspace mx-auto flex min-h-0 w-full max-w-[1280px] min-w-0 flex-1 flex-col overflow-hidden px-2 py-3 sm:px-5">
+  <div class="citizen-workspace mx-auto flex min-h-0 w-full max-w-[1280px] min-w-0 flex-1 flex-col overflow-hidden px-2 py-3 sm:px-5" :class="{ 'citizen-home-workspace': route.path === '/', 'citizen-subpage-workspace': route.path !== '/' }">
    <main ref="mainScroll" id="citizen-main" class="citizen-inner-scroll scrollbar-hide min-h-0 min-w-0 max-w-full flex-1 overflow-x-hidden overflow-y-auto overscroll-contain" tabindex="0" aria-label="Nội dung chính, cuộn để xem thêm"><div class="citizen-sheet"><slot/></div></main>
   </div>
  </div>

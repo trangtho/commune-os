@@ -6,7 +6,7 @@ import type { Procedure } from '~/types/models'
 const route=useRoute()
 const {data:p,error}=await useFetch<Procedure>(`/api/procedures/${route.params.slug}`, {key:`citizen-procedure:${String(route.params.slug)}`})
 </script>
-<template><div class="space-y-5">
+<template><div class="citizen-subpage citizen-procedure-detail-page space-y-5">
  <NuxtLink to="/thu-tuc" class="inline-flex items-center gap-1 text-sm font-semibold text-brand-700 hover:underline"><ArrowLeft :size="16"/> Danh mục thủ tục</NuxtLink>
  <div v-if="error" class="panel p-6 text-rose-700">Không tìm thấy thủ tục.</div>
  <template v-else-if="p">
