@@ -9,7 +9,7 @@ const dir=resolve(import.meta.dirname,'..')
 const root=resolve(dir,'../..')
 const get=(file)=>readFileSync(resolve(root,file),'utf8')
 test('Required pages exist',()=>{
- for(const page of ['index.vue','thu-tuc/index.vue','thu-tuc/[slug].vue','nop-ho-so/[slug].vue','ho-so/index.vue','ho-so/[id].vue','ho-so/[id]/bo-sung.vue','ho-so/[id]/ket-qua.vue','thong-bao.vue','dang-nhap.vue','tro-ly.vue','huong-dan.vue','ho-so-ca-nhan.vue','bao-mat.vue','lien-he.vue'])
+ for(const page of ['index.vue','thu-tuc/index.vue','thu-tuc/[slug].vue','nop-ho-so/[slug].vue','ho-so/index.vue','ho-so/[id]/index.vue','ho-so/[id]/bo-sung.vue','ho-so/[id]/ket-qua.vue','thong-bao.vue','dang-nhap.vue','tro-ly.vue','huong-dan.vue','ho-so-ca-nhan.vue','bao-mat.vue','lien-he.vue'])
    assert.ok(existsSync(resolve(dir,'pages',page)),page)
 })
 test('Database has policies and required citizen entities',()=>{

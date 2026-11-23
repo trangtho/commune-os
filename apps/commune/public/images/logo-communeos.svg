@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="CommuneOS">
+  <!-- SPDX-FileCopyrightText: 2026 CommuneOS Contributors -->
+  <!-- SPDX-License-Identifier: Apache-2.0 -->
+  <rect width="64" height="64" rx="14" fill="#0f766e"/>
+  <path d="M32 12 50 22v4H14v-4z" fill="#fff"/>
+  <path d="M18 29h5v16h-5zm10.5 0h7v16h-7zM41 29h5v16h-5z" fill="#fff"/>
+  <rect x="13" y="47" width="38" height="5" rx="1.5" fill="#fff"/>
+</svg>

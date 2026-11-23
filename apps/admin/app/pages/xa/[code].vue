@@ -79,7 +79,7 @@ async function toggleTenant() {
 
 <template>
   <section>
-    <NuxtLink to="/xa" class="inline-flex items-center gap-1 text-sm font-semibold text-blue-700 hover:underline">
+    <NuxtLink to="/xa" class="inline-flex items-center gap-1 text-sm font-semibold text-brand-700 hover:underline">
       <ArrowLeft class="h-4 w-4" aria-hidden="true" /> Danh sách xã
     </NuxtLink>
 
@@ -119,7 +119,7 @@ async function toggleTenant() {
           role="tab"
           :aria-selected="tab === t.id"
           class="-mb-px border-b-2 px-4 py-2 text-sm font-semibold"
-          :class="tab === t.id ? 'border-blue-700 text-blue-700' : 'border-transparent text-slate-600 hover:text-slate-900'"
+          :class="tab === t.id ? 'border-brand-700 text-brand-700' : 'border-transparent text-slate-600 hover:text-slate-900'"
           @click="tab = t.id as typeof tab"
         >
           {{ t.label }}
@@ -159,7 +159,7 @@ async function toggleTenant() {
 
         <div class="rounded-lg border border-slate-200 bg-white p-5">
           <h2 class="flex items-center gap-2 text-lg font-semibold">
-            <Users class="h-5 w-5 text-blue-700" aria-hidden="true" /> Tài khoản cán bộ
+            <Users class="h-5 w-5 text-brand-700" aria-hidden="true" /> Tài khoản cán bộ
           </h2>
           <ul class="mt-2 list-disc space-y-1 pl-5 text-sm text-slate-700">
             <li>
@@ -177,7 +177,7 @@ async function toggleTenant() {
               :href="config.communeUrl"
               target="_blank"
               rel="noopener"
-              class="inline-flex h-10 items-center gap-2 rounded-md bg-blue-700 px-4 text-sm font-semibold text-white hover:bg-blue-800"
+              class="inline-flex h-10 items-center gap-2 rounded-md bg-brand-700 px-4 text-sm font-semibold text-white hover:bg-brand-800"
             >
               Mở màn hình cán bộ xã <ExternalLink class="h-4 w-4" aria-hidden="true" />
             </a>
@@ -246,7 +246,7 @@ async function toggleTenant() {
             <tbody>
               <tr v-for="p in visible" :key="p.id" class="border-t border-slate-200">
                 <td class="px-4 py-3">
-                  <NuxtLink :to="`/thu-tuc/${p.id}`" class="font-semibold text-blue-700 hover:underline">{{ p.title }}</NuxtLink>
+                  <NuxtLink :to="`/thu-tuc/${p.id}`" class="font-semibold text-brand-700 hover:underline">{{ p.title }}</NuxtLink>
                   <span class="block font-mono text-xs text-slate-500">{{ p.id }}</span>
                 </td>
                 <td class="px-4 py-3">{{ p.category }}</td>

@@ -8,8 +8,11 @@ export default defineNuxtConfig({
   compatibilityDate: "2025-07-15",
   devtools: { enabled: true },
   modules: ["@nuxtjs/tailwindcss"],
+  // Phông Be Vietnam Pro (OFL-1.1) đóng gói cùng ứng dụng, không tải từ máy chủ ngoài lúc chạy.
+  css: ['@fontsource/be-vietnam-pro/400.css', '@fontsource/be-vietnam-pro/500.css', '@fontsource/be-vietnam-pro/600.css', '@fontsource/be-vietnam-pro/700.css', '~/assets/css/main.css'],
   // Bảng quản trị chạy hoàn toàn trên trình duyệt (không cần SEO), đơn giản hơn.
   ssr: false,
+  app: { head: { title: "CommuneOS – Quản trị hệ thống", link: [{ rel: "icon", type: "image/svg+xml", href: "/images/logo-communeos.svg" }] } },
   runtimeConfig: {
     // Chỉ dùng phía máy chủ Nuxt (server/api/dang-nhap.post.ts).
     keycloakUrl: process.env.KEYCLOAK_URL || "http://localhost:8080",

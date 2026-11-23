@@ -198,12 +198,12 @@ const label: Record<State, string> = { ok: "Hoạt động", warn: "Cần chú �
       </div>
       <div class="flex flex-wrap items-center gap-3">
         <label class="flex items-center gap-2 text-sm text-slate-600">
-          <input v-model="autoRefresh" type="checkbox" class="h-4 w-4 accent-blue-700" />
+          <input v-model="autoRefresh" type="checkbox" class="h-4 w-4 accent-brand-700" />
           Tự kiểm tra mỗi 30 giây
         </label>
         <button
           type="button"
-          class="inline-flex h-11 items-center gap-2 rounded-md bg-blue-700 px-4 font-semibold text-white hover:bg-blue-800 disabled:opacity-60"
+          class="inline-flex h-11 items-center gap-2 rounded-md bg-brand-700 px-4 font-semibold text-white hover:bg-brand-800 disabled:opacity-60"
           :disabled="checking"
           @click="checkAll"
         >

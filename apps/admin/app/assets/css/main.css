@@ -1,0 +1,16 @@
+/* SPDX-FileCopyrightText: 2026 CommuneOS Contributors
+ * SPDX-License-Identifier: Apache-2.0 */
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+/* Hình nền trống đồng, hoa sen của dự án; nội dung luôn nằm trên tấm nền đặc để chữ không chìm vào ảnh. */
+body {
+  @apply bg-[#f5f5fc] text-slate-900 antialiased font-sans;
+  background-image: url('/images/nen-trong-dong.webp');
+  background-position: center bottom;
+  background-size: cover;
+  background-repeat: no-repeat;
+  background-attachment: fixed;
+}
+.admin-sheet { @apply min-h-full rounded-2xl border border-[#e0dff5] bg-[#f5f5fc]/[.97] p-4 sm:p-6 lg:p-8; }
+@media print { body { background: white; } .admin-sheet { border: 0; padding: 0; } }

@@ -18,7 +18,7 @@ async function submit() {
   loading.value = true;
   error.value = await login(username.value.trim(), password.value, otp.value.trim());
   loading.value = false;
-  if (!error.value) await navigateTo("/xa");
+  if (!error.value) await navigateTo("/");
 }
 </script>
 
@@ -80,7 +80,7 @@ async function submit() {
       <button
         type="submit"
         :disabled="loading"
-        class="mt-5 h-11 w-full rounded-md bg-blue-700 font-semibold text-white hover:bg-blue-800 disabled:opacity-60"
+        class="mt-5 h-11 w-full rounded-md bg-brand-700 font-semibold text-white hover:bg-brand-800 disabled:opacity-60"
       >
         {{ loading ? "Đang đăng nhập..." : "Đăng nhập" }}
       </button>

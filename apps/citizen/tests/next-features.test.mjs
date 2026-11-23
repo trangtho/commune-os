@@ -66,6 +66,6 @@ test('Feedback and case support histories use existing RLS-backed tables', () =>
     assert.match(handler, /LIMIT 50/)
   }
   assert.match(read('pages/lien-he.vue'), /Lịch sử phản hồi đã gửi/)
-  assert.match(read('pages/ho-so/[id].vue'), /citizen-support:/)
+  assert.match(read('pages/ho-so/[id]/index.vue'), /citizen-support:/)
   assert.match(read('components/DocUploader.vue'), /URL\.createObjectURL/)
 })

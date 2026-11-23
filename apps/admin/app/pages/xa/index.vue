@@ -68,7 +68,7 @@ async function confirmToggle(tenant: Tenant) {
       </div>
       <button
         type="button"
-        class="inline-flex h-11 items-center gap-2 rounded-md bg-blue-700 px-4 font-semibold text-white hover:bg-blue-800"
+        class="inline-flex h-11 items-center gap-2 rounded-md bg-brand-700 px-4 font-semibold text-white hover:bg-brand-800"
         @click="openForm"
       >
         <Plus class="h-4 w-4" aria-hidden="true" />
@@ -136,7 +136,7 @@ async function confirmToggle(tenant: Tenant) {
       <div class="mt-5 flex gap-3">
         <button
           type="submit"
-          class="h-11 rounded-md bg-blue-700 px-5 font-semibold text-white hover:bg-blue-800"
+          class="h-11 rounded-md bg-brand-700 px-5 font-semibold text-white hover:bg-brand-800"
         >
           Tạo xã
         </button>
@@ -204,7 +204,7 @@ async function confirmToggle(tenant: Tenant) {
           >
             <td class="px-4 py-3 font-mono">{{ tenant.code }}</td>
             <td class="px-4 py-3">
-              <NuxtLink :to="`/xa/${tenant.code}`" class="font-semibold text-blue-700 hover:underline">
+              <NuxtLink :to="`/xa/${tenant.code}`" class="font-semibold text-brand-700 hover:underline">
                 {{ tenant.name }}
               </NuxtLink>
             </td>

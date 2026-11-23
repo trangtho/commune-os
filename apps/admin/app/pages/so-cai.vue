@@ -28,13 +28,21 @@ interface LedgerRow {
 
 const ACTIONS: Record<string, string> = {
   submitted: "Nộp hồ sơ",
+  assigned: "Phân công cán bộ",
+  document_upload: "Tải lên giấy tờ",
+  document_delete: "Xóa giấy tờ",
   processing: "Chuyển xử lý",
   supplement: "Yêu cầu bổ sung",
+  supplement_received: "Nhận bổ sung",
   completed: "Hoàn thành",
   rejected: "Từ chối",
+  withdrawn: "Rút hồ sơ",
 };
 
 const { api } = useApi();
+// Hiện tên xã thay cho mã (mã vẫn ghi kèm để đối chiếu).
+const { tenants, load: loadTenants } = useTenants();
+const tenantName = (code: string) => tenants.value.find((t) => t.code === code)?.name ?? code;
 const results = ref<VerifyRow[]>([]);
 const rows = ref<LedgerRow[]>([]);
 const loading = ref(false);
@@ -58,7 +66,10 @@ async function check() {
   }
 }
 
-onMounted(check);
+onMounted(() => {
+  check();
+  if (!tenants.value.length) loadTenants();
+});
 </script>
 
 <template>
@@ -74,7 +85,7 @@ onMounted(check);
       </div>
       <button
         type="button"
-        class="inline-flex h-11 items-center gap-2 rounded-md bg-blue-700 px-4 font-semibold text-white hover:bg-blue-800 disabled:opacity-60"
+        class="inline-flex h-11 items-center gap-2 rounded-md bg-brand-700 px-4 font-semibold text-white hover:bg-brand-800 disabled:opacity-60"
         :disabled="loading"
         @click="check"
       >
@@ -104,7 +115,8 @@ onMounted(check);
             aria-hidden="true"
           />
           <ShieldAlert v-else class="h-5 w-5 text-red-700" aria-hidden="true" />
-          <span class="font-mono font-semibold">{{ r.tenant_code }}</span>
+          <span class="font-semibold">{{ tenantName(r.tenant_code) }}</span>
+          <span class="font-mono text-xs text-slate-600">{{ r.tenant_code }}</span>
         </div>
         <p v-if="r.ok" class="mt-2 text-sm text-green-800">
           Nguyên vẹn. Đã kiểm tra {{ r.entries }} dòng.
@@ -122,7 +134,7 @@ onMounted(check);
     <div
       class="mt-3 overflow-x-auto rounded-lg border border-slate-200 bg-white"
     >
-      <table class="w-full min-w-[720px] text-left text-sm">
+      <table class="w-full min-w-[960px] whitespace-nowrap text-left text-sm">
         <thead class="border-b border-slate-200 bg-slate-50 text-slate-600">
           <tr>
             <th scope="col" class="px-4 py-3 font-semibold">Số dòng</th>
@@ -141,7 +153,7 @@ onMounted(check);
             class="border-b border-slate-100 last:border-0"
           >
             <td class="px-4 py-3">{{ row.seq }}</td>
-            <td class="px-4 py-3 font-mono">{{ row.tenant_code }}</td>
+            <td class="px-4 py-3">{{ tenantName(row.tenant_code) }}</td>
             <td class="px-4 py-3 font-mono">{{ row.dossier_id }}</td>
             <td class="px-4 py-3">{{ ACTIONS[row.action] ?? row.action }}</td>
             <td class="px-4 py-3">{{ row.actor }}</td>

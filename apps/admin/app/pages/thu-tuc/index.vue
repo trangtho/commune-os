@@ -61,7 +61,7 @@ async function onFileChosen(event: Event) {
         />
         <button
           type="button"
-          class="inline-flex h-11 items-center gap-2 rounded-md bg-blue-700 px-4 font-semibold text-white hover:bg-blue-800"
+          class="inline-flex h-11 items-center gap-2 rounded-md bg-brand-700 px-4 font-semibold text-white hover:bg-brand-800"
           @click="fileInput?.click()"
         >
           <Upload class="h-4 w-4" aria-hidden="true" />
@@ -107,7 +107,7 @@ async function onFileChosen(event: Event) {
         <tbody>
           <tr v-for="p in visible" :key="p.id" class="border-t border-slate-200">
             <td class="px-4 py-3">
-              <NuxtLink :to="`/thu-tuc/${p.id}`" class="font-semibold text-blue-700 hover:underline">{{ p.title }}</NuxtLink>
+              <NuxtLink :to="`/thu-tuc/${p.id}`" class="font-semibold text-brand-700 hover:underline">{{ p.title }}</NuxtLink>
               <span class="block font-mono text-xs text-slate-500">{{ p.id }}</span>
             </td>
             <td class="px-4 py-3">{{ p.category }}</td>

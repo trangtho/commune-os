@@ -20,7 +20,8 @@ function deadlineNotice(c:Application){
 }
 const searchInput = ref('')
 const searchQuery = ref('')
-const status = ref('')
+// Cho phép mở sẵn một bộ lọc từ đường dẫn, ví dụ /ho-so?status=supplement từ cảnh báo ở trang chủ.
+const status = ref(['draft','submitted','processing','supplement','completed','rejected','withdrawn'].includes(String(useRoute().query.status)) ? String(useRoute().query.status) : '')
 const page = ref(1)
 const query = computed(() => ({ paged: '1', q: searchQuery.value, status: status.value, page: String(page.value) }))
 const { data: casesPage, error, pending, refresh } = await useFetch<CasePage>('/api/applications', {
