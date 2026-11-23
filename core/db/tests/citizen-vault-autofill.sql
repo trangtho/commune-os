@@ -15,11 +15,16 @@ END $$;
 SET LOCAL ROLE communeos_app;
 SELECT set_config('app.citizen_id','20000000-0000-4000-8000-000000000001',true);
 SELECT set_config('app.tenant_id','10000000-0000-4000-8000-000000000001',true);
+-- Kiểm tra theo giấy tờ do chính test tạo, không phụ thuộc giấy tờ người dùng đã tải lên trước đó.
 DO $$DECLARE n integer; BEGIN
- SELECT count(*) INTO n FROM citizen_vault_documents;
- IF n<>1 THEN RAISE EXCEPTION 'A should see exactly one document: %',n; END IF;
- SELECT count(*) INTO n FROM citizen_vault_versions;
- IF n<>1 THEN RAISE EXCEPTION 'A should see exactly one version: %',n; END IF;
+ SELECT count(*) INTO n FROM citizen_vault_documents WHERE id='e1000000-0000-4000-8000-000000000001';
+ IF n<>1 THEN RAISE EXCEPTION 'A should see own test document: %',n; END IF;
+ SELECT count(*) INTO n FROM citizen_vault_documents WHERE citizen_id<>'20000000-0000-4000-8000-000000000001';
+ IF n<>0 THEN RAISE EXCEPTION 'A must see no document of another citizen: %',n; END IF;
+ SELECT count(*) INTO n FROM citizen_vault_versions WHERE id='e2000000-0000-4000-8000-000000000001';
+ IF n<>1 THEN RAISE EXCEPTION 'A should see own test version: %',n; END IF;
+ SELECT count(*) INTO n FROM citizen_vault_versions WHERE id='e2000000-0000-4000-8000-000000000002';
+ IF n<>0 THEN RAISE EXCEPTION 'A must not see B version'; END IF;
  UPDATE citizen_vault_documents SET title='Hacked' WHERE id='e1000000-0000-4000-8000-000000000002';
  GET DIAGNOSTICS n=ROW_COUNT;
  IF n<>0 THEN RAISE EXCEPTION 'A must not edit B document'; END IF;
@@ -27,8 +32,12 @@ END $$;
 SELECT set_config('app.citizen_id','20000000-0000-4000-8000-000000000002',true);
 SELECT set_config('app.tenant_id','10000000-0000-4000-8000-000000000002',true);
 DO $$DECLARE n integer; BEGIN
- SELECT count(*) INTO n FROM citizen_vault_versions;
- IF n<>1 THEN RAISE EXCEPTION 'B should see exactly one version: %',n; END IF;
+ SELECT count(*) INTO n FROM citizen_vault_versions WHERE id='e2000000-0000-4000-8000-000000000002';
+ IF n<>1 THEN RAISE EXCEPTION 'B should see own test version: %',n; END IF;
+ SELECT count(*) INTO n FROM citizen_vault_versions WHERE id='e2000000-0000-4000-8000-000000000001';
+ IF n<>0 THEN RAISE EXCEPTION 'B must not see A version'; END IF;
+ SELECT count(*) INTO n FROM citizen_vault_documents WHERE citizen_id<>'20000000-0000-4000-8000-000000000002';
+ IF n<>0 THEN RAISE EXCEPTION 'B must see no document of another citizen: %',n; END IF;
 END $$;
 RESET ROLE;
 ROLLBACK;
