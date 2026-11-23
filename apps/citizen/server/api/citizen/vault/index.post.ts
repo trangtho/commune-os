@@ -1,8 +1,10 @@
 // SPDX-FileCopyrightText: 2026 CommuneOS Contributors
 // SPDX-License-Identifier: Apache-2.0
+// Thêm giấy tờ hoặc phiên bản mới vào kho: kiểm tra và lưu tệp vào kho đối tượng của lõi, rồi ghi siêu dữ liệu
+// qua API của lõi (api.citizen_vault_add). Lõi từ chối thì xóa tệp vừa lưu.
 import { z } from 'zod'
 import { putObject,deleteObject } from '../../../utils/object-store'
-import { citizenTx } from '../../../utils/database'
+import { citizenRpc } from '../../../utils/identity'
 import { requireCitizen } from '../../../utils/session'
 import { documentSchema,expirySchema,uploadPart,partText } from '../../../utils/vault'
 import { validate } from '../../../utils/validation'
@@ -16,23 +18,10 @@ export default defineEventHandler(async event=>{
  const meta=options.documentId?null:validate(documentSchema,{title:partText(parts,'title'),category:partText(parts,'category')})
  const {key,sha256}=await putObject(file.bytes,file.mime)
  try{
-  const result=await citizenTx(event,async(client,actor)=>{
-   let documentId=options.documentId
-   if(documentId){
-    const doc=(await client.query('SELECT id,archived_at FROM citizen_vault_documents WHERE id=$1 FOR UPDATE',[documentId])).rows[0]
-    if(!doc || doc.archived_at)throw createError({statusCode:404,statusMessage:'Giấy tờ đã lưu trữ hoặc không tồn tại'})
-   }else{
-    const count=(await client.query('SELECT count(*)::int AS total FROM citizen_vault_documents')).rows[0].total
-    if(count>=100)throw createError({statusCode:422,statusMessage:'Kho tối đa 100 nhóm giấy tờ'})
-    documentId=(await client.query(`INSERT INTO citizen_vault_documents(citizen_id,tenant_id,title,category)
-      VALUES($1,$2,$3,$4) RETURNING id`,[actor.id,actor.tenantId,meta!.title,meta!.category])).rows[0].id
-   }
-   const last=(await client.query('SELECT COALESCE(max(version_no),0)::int AS last FROM citizen_vault_versions WHERE document_id=$1',[documentId])).rows[0].last
-   if(last>=100)throw createError({statusCode:422,statusMessage:'Giấy tờ tối đa 100 phiên bản'})
-   const row=(await client.query(`INSERT INTO citizen_vault_versions(document_id,version_no,original_name,storage_key,mime_type,size_bytes,sha256,expires_on)
-    VALUES($1,$2,$3,$4,$5,$6,$7,$8) RETURNING id,version_no`,[documentId,last+1,file.name,key,file.mime,file.bytes.length,sha256,options.expiresOn])).rows[0]
-   await client.query('UPDATE citizen_vault_documents SET updated_at=now() WHERE id=$1',[documentId])
-   return {documentId,...row}
+  const result=await citizenRpc(event,'citizen_vault_add',{
+   p_document_id:options.documentId??null, p_title:meta?.title??null, p_category:meta?.category??null,
+   p_original_name:file.name, p_storage_key:key, p_mime_type:file.mime, p_size_bytes:file.bytes.length,
+   p_sha256:sha256, p_expires_on:options.expiresOn??null,
   })
   setResponseStatus(event,201)
   return result

@@ -61,9 +61,11 @@ test('Consent is citizen-controlled, other bases cannot be toggled and vault reu
  assert.match(consent,/legal_basis='consent'/)
  assert.match(consent,/pg_advisory_xact_lock/)
  assert.match(consent,/consent_withdrawn/)
- const vault=readRoute('applications/[id]/documents/from-vault.post.ts')
- assert.equal((vault.match(/activeConsent\(client,'vault_case_reuse'\)/g)||[]).length,2)
- assert.match(vault,/recordPersonalDataUse/)
+ const vaultApi=read('../../../core/db/init/27-citizen-api-vault.sql')
+ // Quyền tái sử dụng kiểm tra cả trước khi đọc tệp nguồn và trong giao dịch gắn vào hồ sơ (có khóa tư vấn).
+ assert.equal((vaultApi.match(/public\.citizen_active_consent\('vault_case_reuse'\)/g)||[]).length,2)
+ assert.match(vaultApi,/pg_advisory_xact_lock\(hashtext\(v_citizen::text \|\| ':vault_case_reuse'\)\)/)
+ assert.match(vaultApi,/citizen_record_access\('share_vault_to_case'/)
  assert.match(read('../pages/quyen-chia-se.vue'),/Căn cứ pháp lý khác/)
 })
 test('Retention is staff-review first, access log does not expose sensitive values',()=>{

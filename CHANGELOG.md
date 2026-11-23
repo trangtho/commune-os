@@ -11,6 +11,16 @@ Mọi thay đổi đáng chú ý của dự án được ghi tại đây.
 
 ## [Chưa phát hành]
 
+### Thay đổi (kho giấy tờ, tự điền biểu mẫu của Kênh người dân qua lõi, 2026-11-24)
+
+- Kho giấy tờ cá nhân (xem, thêm giấy tờ và phiên bản, đổi tên, lưu trữ, đặt hạn, tải tệp), tự điền biểu mẫu và dùng
+  giấy tờ trong kho cho hồ sơ gọi 9 hàm `api.*` của lõi qua cổng (`core/db/init/27-citizen-api-vault.sql`) thay cho
+  truy vấn PostgreSQL trực tiếp. Mỗi giao dịch cũ là một hàm, chạy bằng quyền công dân nên RLS giữ nguyên; kiểm tra
+  quyền tái sử dụng, hạn dùng, quyết định lưu trữ và nhật ký sử dụng dữ liệu cá nhân nằm trong lõi.
+- Vai trò `citizen-app` của lõi nhận đúng các quyền vai trò `communeos_app` đang có (trừ hàm dành cho cán bộ), để các
+  đợt sau chuyển tiếp mà không đổi chính sách RLS.
+- Ngày hết hạn giấy tờ trả về dạng `YYYY-MM-DD` (trước đây kèm giờ), ô sửa hạn hiện đúng ngày.
+
 ### Thay đổi (chức năng cán bộ của Kênh người dân chuyển vào lõi, 2026-11-24)
 
 - 22 API `/api/internal/*` của Kênh người dân (yêu cầu hỗ trợ, mã chuyển hồ sơ tại quầy, đề nghị điều chỉnh và chuyển

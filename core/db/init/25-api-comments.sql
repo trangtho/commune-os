@@ -161,6 +161,22 @@ BEGIN
      'p_data: procedureId, title, summary, instructions, feeNote, slaDays, formRevision, documents, sourceUrl (trang HTTPS gov.vn, chinhphu.vn, vbpl.vn), sourceTitle, sourceReference, issuingAuthority, scopeNote, effectiveFrom, changeNote, confirmed: true. Các bản nháp chịu ảnh hưởng được thông báo.'),
     ('dispatch_citizen_reminders', 'Gửi nhắc việc đến hạn vào hộp thông báo của công dân (chỉ sys_admin)', 'Chỉ trong ứng dụng, không SMS hay email.'),
 
+    -- ===== Hàm: kho giấy tờ, tự điền biểu mẫu của công dân (27-citizen-api-vault.sql) =====
+    ('citizen_vault', 'Kho giấy tờ của công dân', 'Các giấy tờ kèm mọi phiên bản, và 100 lần chia sẻ gần nhất vào hồ sơ.'),
+    ('citizen_vault_add', 'Thêm giấy tờ hoặc phiên bản mới vào kho',
+     'p_document_id rỗng thì tạo giấy tờ mới (cần p_title, p_category). Tệp đã được Kênh người dân lưu vào kho đối tượng; hàm chỉ ghi siêu dữ liệu. Tối đa 100 giấy tờ, mỗi giấy tờ 100 phiên bản.'),
+    ('citizen_vault_update', 'Sửa tên, loại hoặc lưu trữ một giấy tờ trong kho', 'Tham số để NULL là giữ nguyên.'),
+    ('citizen_vault_version_update', 'Đặt hoặc bỏ ngày hết hạn của một phiên bản giấy tờ', NULL),
+    ('citizen_vault_file', 'Thông tin để tải tệp một phiên bản giấy tờ',
+     'Từ chối khi giấy tờ đang bị hạn chế theo quyết định lưu trữ; ghi nhật ký sử dụng dữ liệu cá nhân.'),
+    ('citizen_vault_source', 'Kiểm tra giấy tờ trong kho trước khi dùng cho hồ sơ',
+     'Cần quyền tái sử dụng (vault_case_reuse) còn hiệu lực, giấy tờ chưa lưu trữ, chưa hết hạn, không bị hạn chế.'),
+    ('citizen_vault_attach', 'Gắn bản sao giấy tờ trong kho vào hồ sơ đang soạn hoặc đang bổ sung',
+     'Kiểm tra lại quyền tái sử dụng, hạn dùng, loại giấy tờ của thủ tục trong cùng giao dịch; ghi lần chia sẻ và nhật ký sử dụng dữ liệu.'),
+    ('citizen_autofill_sources', 'Dữ liệu của chính công dân để đề xuất tự điền biểu mẫu',
+     'Hồ sơ cá nhân, thông tin tự khai và thông tin đã xác minh; ghi nhật ký sử dụng dữ liệu cá nhân.'),
+    ('citizen_self_facts_update', 'Lưu ngày sinh, số định danh công dân tự khai', 'Dữ liệu tự khai, chưa xác minh qua cơ quan định danh.'),
+
     -- ===== Hàm: trợ lý AI (chỉ dịch vụ ai-gateway gọi) =====
     ('knowledge_search', 'Tìm kiếm lai toàn văn và ngữ nghĩa trên tri thức thủ tục (chỉ ai-gateway gọi)',
      'Ứng dụng hỏi trợ lý qua POST /ai/ask hoặc /public/ai/ask.'),
