@@ -11,6 +11,17 @@ Mọi thay đổi đáng chú ý của dự án được ghi tại đây.
 
 ## [Chưa phát hành]
 
+### Thêm mới (trang tài liệu API của lõi, 2026-11-23)
+
+- Trang tài liệu API (Swagger UI, dịch vụ `api-docs`) tại `/docs/` của cổng APISIX (mặc định
+  http://localhost:9080/docs/): đặc tả viết tay cho `/workflow`, `/files`, `/accounts`, `/ai`, `/public` (tham số,
+  phản hồi mẫu, mã lỗi) và đặc tả PostgREST tự sinh cho toàn bộ `/rest`. Nút **Authorize** đăng nhập Keycloak qua
+  cổng, token được tự gắn vào lời gọi thử của cả hai đặc tả.
+- `core/db/init/25-api-comments.sql`: mô tả tiếng Việt cho mọi hàm, bảng ảo của schema `api`, hiện trong tài liệu
+  OpenAPI của PostgREST.
+- PostgREST xuất tài liệu OpenAPI đầy đủ (`PGRST_OPENAPI_MODE=ignore-privileges`, chỉ cấu trúc, không có dữ liệu),
+  kèm cơ chế xác thực JWT và địa chỉ cổng `/rest`.
+
 ### Sửa lỗi (đăng nhập sau khi cập nhật mã, kiểm thử, tài liệu, 2026-11-23)
 
 - Máy đã cài từ trước, `git pull` rồi `make up` thì `orchestrator`, `accounts`, `files`, `ai-gateway` vẫn chạy mã cũ
@@ -23,7 +34,9 @@ Mọi thay đổi đáng chú ý của dự án được ghi tại đây.
   vậy khi Keycloak trả lỗi sai mật khẩu, còn lại báo hệ thống định danh đang khởi động hoặc cấu hình chưa đúng.
 - Kiểm tra phạm vi trợ lý AI trong `make test` tự tắt thủ tục kết hôn ở xã A trong lúc kiểm tra rồi trả lại trạng thái cũ;
   trước đây chỉ đạt trên máy đã tắt thủ tục này bằng tay, lỗi trên bản cài mới.
-- README: hướng dẫn sau `git pull`, đổi `POSTGRES_PORT` khi cổng 5432 đã dùng; bỏ dòng lặp ở mục Cấu hình.
+- README: hướng dẫn sau `git pull`, đổi `POSTGRES_PORT` khi cổng 5432 đã dùng; bỏ dòng lặp ở mục Cấu hình; sửa
+  "đa thuê ước" thành "đa xã", "sổ cái" thành "sổ ghi nhận" cho thống nhất; mục Kênh người dân đưa lên trước phần
+  Đóng góp.
 - `make vault-autofill-test` chỉ kiểm tra giấy tờ do chính bài kiểm thử tạo, không còn lỗi khi công dân mẫu đã có
   giấy tờ trong kho; kiểm tra thêm hai chiều: mỗi công dân không thấy giấy tờ, phiên bản giấy tờ của người khác.
 - Sửa liên kết hỏng trong `apps/admin/README.md`; cập nhật `docs/QUAN_LY_NHAN_VIEN.md` theo mục "Việc được giao" mới.
