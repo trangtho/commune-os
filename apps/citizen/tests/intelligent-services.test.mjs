@@ -87,8 +87,12 @@ test('SQL uses RLS, staff authorization and non-destructive migration',()=>{
  assert.match(read('../../../docker-compose.yml'),/17-citizen-intelligent-services\.sql/)
 })
 test('Private-case advice requires session-scoped SQL; staff analytics restricted',()=>{
- assert.match(read('../server/api/applications/[id]/ask.post.ts'),/citizenTx\(event/)
- assert.match(read('../server/api/applications/[id]/insights.get.ts'),/citizenTx\(event/)
+ // Dữ liệu hồ sơ cá nhân chỉ lấy qua API của lõi bằng token công dân (RLS theo công dân), có ghi nhật ký sử dụng.
+ assert.match(read('../server/api/applications/[id]/ask.post.ts'),/citizenRpc<Facts>\(event,'citizen_case_facts'/)
+ assert.match(read('../server/api/applications/[id]/insights.get.ts'),/citizenRpc<Facts>\(event,'citizen_case_insight_facts'/)
+ const caseApi=read('../../../core/db/init/28-citizen-api-case.sql')
+ assert.match(caseApi,/citizen_record_access\('view_case', 'Trả lời câu hỏi về hồ sơ cá nhân'/)
+ assert.match(caseApi,/citizen_record_access\('view_case', 'Gợi ý bước tiếp theo và cảnh báo hồ sơ'/)
  const staffApi=read('../../../core/db/init/26-citizen-staff-api.sql')
  assert.match(staffApi,/FUNCTION api\.citizen_unanswered_summary[\s\S]*?staff_tenant_id\(true\)/)
  assert.match(staffApi,/FUNCTION api\.citizen_sync_queue[\s\S]*?staff_tenant_id\(true\)/)

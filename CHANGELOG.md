@@ -11,6 +11,17 @@ Mọi thay đổi đáng chú ý của dự án được ghi tại đây.
 
 ## [Chưa phát hành]
 
+### Thay đổi (trang chi tiết hồ sơ của Kênh người dân qua lõi, 2026-11-24)
+
+- 25 API của trang chi tiết hồ sơ (bổ sung theo yêu cầu, hạn giải quyết, công đoạn, lộ trình, nhận kết quả, mã chuyển
+  hồ sơ tại quầy, đề nghị điều chỉnh / chuyển cơ quan, đánh giá giai đoạn, kiểm tra trước khi nộp, xem trước bộ hồ sơ,
+  cập nhật phiên bản thủ tục, tạo lại hồ sơ, mã kiểm chứng kết quả, trợ lý hồ sơ) gọi 27 hàm `api.*` của lõi
+  (`core/db/init/28-citizen-api-case.sql`) thay cho truy vấn PostgreSQL trực tiếp. Diễn giải trạng thái, gợi ý bước
+  tiếp và kiểm tra biểu mẫu vẫn dùng mã dùng chung `shared/`.
+- Tạo lại hồ sơ từ hồ sơ đã kết thúc dùng chung quy tắc với tạo bản nháp mới (`api.citizen_application_create`): ghim
+  phiên bản thủ tục, kiểm tra xã đã mở thủ tục.
+- Mã chuyển hồ sơ tại quầy và mã kiểm chứng kết quả: lõi chỉ nhận mã băm SHA-256, mã gốc chỉ trả cho công dân.
+
 ### Thay đổi (kho giấy tờ, tự điền biểu mẫu của Kênh người dân qua lõi, 2026-11-24)
 
 - Kho giấy tờ cá nhân (xem, thêm giấy tờ và phiên bản, đổi tên, lưu trữ, đặt hạn, tải tệp), tự điền biểu mẫu và dùng

@@ -50,9 +50,12 @@ test('consultation requests are owner/tenant isolated and cannot be self-confirm
 test('per-stage reviews require ownership, stage eligibility and one write per stage',()=>{
  assert.match(migration,/citizen_stage_reviews FORCE ROW LEVEL SECURITY/)
  assert.match(migration,/UNIQUE\(application_id,citizen_id,stage\)/)
- assert.match(reviewCreate,/SELECT status FROM applications WHERE id=\$1 FOR UPDATE/)
- assert.match(reviewCreate,/stageEligible/)
- assert.match(reviewCreate,/ON CONFLICT\(application_id,citizen_id,stage\) DO NOTHING/)
+ assert.match(reviewCreate,/'citizen_stage_review_create'/)
+ const caseApi=read('../../../core/db/init/28-citizen-api-case.sql')
+ const sqlCreate=caseApi.slice(caseApi.indexOf('FUNCTION api.citizen_stage_review_create(')).split('END $$;')[0]
+ assert.match(sqlCreate,/SELECT status INTO v_status FROM applications WHERE id = p_application_id FOR UPDATE/)
+ assert.match(sqlCreate,/Hồ sơ chưa đến giai đoạn có thể đánh giá/)
+ assert.match(sqlCreate,/ON CONFLICT \(application_id, citizen_id, stage\) DO NOTHING/)
  assert.match(read('../pages/ho-so/[id]/danh-gia.vue'),/Mức độ hài lòng/)
  assert.match(read('../pages/ho-so/[id]/index.vue'),/Đánh giá trải nghiệm/)
 })
