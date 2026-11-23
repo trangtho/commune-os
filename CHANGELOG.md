@@ -11,6 +11,19 @@ Mọi thay đổi đáng chú ý của dự án được ghi tại đây.
 
 ## [Chưa phát hành]
 
+## [0.1.0] - 2026-11-24
+
+Bản phát hành đầu tiên. Lõi headless đa xã (Keycloak, APISIX, PostgreSQL + PostgREST với RLS, Flowable, SeaweedFS,
+sổ ghi nhận chống sửa, AI chạy cục bộ, trang tài liệu API) và ba ứng dụng: Kênh người dân, màn hình cán bộ xã, bảng
+quản trị hệ thống. Kiểm thử: `make test` 46 kiểm tra qua cổng API, `make test-citizen` 124 kiểm tra, các bộ
+`make *-test` (RLS, ROLLBACK), `reuse lint`.
+
+### Thêm mới (quy trình phát hành, 2026-11-24)
+
+- `.github/workflows/release.yml`: đẩy tag `v*.*.*` thì kiểm tra giấy phép, kiểm tra số phiên bản khớp tag, đóng gói
+  mã nguồn, tạo SBOM (SPDX và CycloneDX), mã băm SHA-256 và bản nháp GitHub Release kèm các tệp đó.
+- Số phiên bản ba ứng dụng và đặc tả API dịch vụ lõi thống nhất là 0.1.0.
+
 ### Thêm mới (trang tài liệu API của lõi, 2026-11-23)
 
 - Trang tài liệu API (Swagger UI, dịch vụ `api-docs`) tại `/docs/` của cổng APISIX (mặc định
@@ -340,19 +353,6 @@ Mọi thay đổi đáng chú ý của dự án được ghi tại đây.
 
 - Bỏ khóa ký token khỏi tệp realm; mỗi nơi cài đặt tự sinh khóa riêng khi khởi động lần đầu.
 
-<!--
-Mẫu cho mỗi bản phát hành:
-
-## [0.1.0] - 2026-11-15
-
-### Thêm mới
-
-### Thay đổi
-
-### Sửa lỗi
-
--->
-
 ### Thêm mới (Kênh người dân bản đầu, Nuxt + PostgreSQL, 2026-11-13)
 
 - Giao diện Kênh người dân dùng chung hệ thống thiết kế theo bản phác thảo thống nhất.
@@ -368,3 +368,6 @@ Mẫu cho mỗi bản phát hành:
 - Đồng bộ mật khẩu role `communeos_app` khi triển khai lại; giữ nguyên dữ liệu.
 - Cải tiến `/api/health` để kiểm tra bảng, quyền và thủ tục đã được nạp.
 - Thêm `make repair-db`, `make doctor` và thông báo lỗi dễ xử lý trên giao diện.
+
+[Chưa phát hành]: https://github.com/trangtho/commune-os/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/trangtho/commune-os/releases/tag/v0.1.0
