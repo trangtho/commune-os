@@ -11,6 +11,23 @@ Mọi thay đổi đáng chú ý của dự án được ghi tại đây.
 
 ## [Chưa phát hành]
 
+### Sửa lỗi (đăng nhập sau khi cập nhật mã, kiểm thử, tài liệu, 2026-11-23)
+
+- Máy đã cài từ trước, `git pull` rồi `make up` thì `orchestrator`, `accounts`, `files`, `ai-gateway` vẫn chạy mã cũ
+  (mã nguồn gắn từ `core/` vào container, compose thấy cấu hình không đổi nên không khởi động lại): thiếu API mới, đăng
+  nhập và nộp hồ sơ lỗi. `make up` nay khởi động lại các dịch vụ này cùng `gateway`. Đã kiểm tra nâng cấp từ bản `ceb241b`
+  giữ nguyên dữ liệu: đăng nhập ba ứng dụng và `make test` đều đạt.
+- `.env` tạo từ bản cũ thiếu biến mới (ví dụ `CITIZEN_KEYCLOAK_SECRET`) thì dịch vụ vẫn chạy nhưng đăng nhập công dân
+  lỗi. `make up` nay chạy `make check-env` trước: thiếu hoặc để trống biến bắt buộc thì dừng và báo tên biến.
+- Màn hình cán bộ và bảng quản trị báo "sai tên đăng nhập hoặc mật khẩu" cả khi Keycloak chưa khởi động xong; nay chỉ báo
+  vậy khi Keycloak trả lỗi sai mật khẩu, còn lại báo hệ thống định danh đang khởi động hoặc cấu hình chưa đúng.
+- Kiểm tra phạm vi trợ lý AI trong `make test` tự tắt thủ tục kết hôn ở xã A trong lúc kiểm tra rồi trả lại trạng thái cũ;
+  trước đây chỉ đạt trên máy đã tắt thủ tục này bằng tay, lỗi trên bản cài mới.
+- README: hướng dẫn sau `git pull`, đổi `POSTGRES_PORT` khi cổng 5432 đã dùng; bỏ dòng lặp ở mục Cấu hình.
+- `make vault-autofill-test` chỉ kiểm tra giấy tờ do chính bài kiểm thử tạo, không còn lỗi khi công dân mẫu đã có
+  giấy tờ trong kho; kiểm tra thêm hai chiều: mỗi công dân không thấy giấy tờ, phiên bản giấy tờ của người khác.
+- Sửa liên kết hỏng trong `apps/admin/README.md`; cập nhật `docs/QUAN_LY_NHAN_VIEN.md` theo mục "Việc được giao" mới.
+
 ### Thay đổi (làm mới giao diện ba ứng dụng, 2026-11-23)
 
 - Cùng một hệ thống giao diện cho ba ứng dụng, mỗi ứng dụng một màu chủ đạo (người dân xanh dương, cán bộ xanh ngọc,
@@ -305,11 +322,6 @@ Mọi thay đổi đáng chú ý của dự án được ghi tại đây.
 - Cửa ngõ kiểm chữ ký và nơi cấp của JWT do Keycloak phát hành trên tuyến `/api/*`.
 - Biến `KEYCLOAK_PUBLIC_URL` và `GATEWAY_PORT` trong `.env`.
 - Bảng quản trị lõi (`core/admin`): khung giao diện, màn hình quản lý xã và gói thủ tục, dùng dữ liệu giả lập.
-- PostgREST sau cổng /rest/\*.
-- Thêm schema api + RLS cách ly xã.
-- Bảng quản trị dùng dữ liệu thật.
-- make test
-- Biến mới POSTGRES_REST_PASSWORD
 
 ### Sửa lỗi
 
@@ -328,18 +340,18 @@ Mẫu cho mỗi bản phát hành:
 
 -->
 
-## Unreleased — Kênh Công dân Nuxt + PostgreSQL mẫu
+### Thêm mới (Kênh người dân bản đầu, Nuxt + PostgreSQL, 2026-11-13)
 
-- Bổ sung giao diện Công dân dùng chung design system theo bản mockup thống nhất.
+- Giao diện Kênh người dân dùng chung hệ thống thiết kế theo bản phác thảo thống nhất.
 - Bổ sung bảng, dữ liệu seed và RLS cho PostgreSQL 17.
 - Bổ sung API đăng nhập demo ký cookie; danh mục thủ tục, hồ sơ, tệp, thông báo,
   phản hồi và hồ sơ cá nhân.
-- Triển khai luồng bản nháp → tải giấy tờ → kiểm tra Poka-yoke → nộp hồ sơ.
-- Bổ sung Docker Compose và tài liệu chạy thử; không cam kết OIDC/AI/OTP thật.
+- Luồng bản nháp → tải giấy tờ → kiểm tra chống sai sót (Poka-yoke) → nộp hồ sơ.
+- Docker Compose và tài liệu chạy thử (khi đó chưa có OIDC, AI, OTP thật).
 
-## Citizen database connectivity fix (2026-11-13)
+### Sửa lỗi (kết nối cơ sở dữ liệu Kênh người dân, 2026-11-13)
 
 - Chạy `db-setup` cho cả volume PostgreSQL cũ, tự tạo schema và seed thủ tục.
 - Đồng bộ mật khẩu role `communeos_app` khi triển khai lại; giữ nguyên dữ liệu.
 - Cải tiến `/api/health` để kiểm tra bảng, quyền và thủ tục đã được nạp.
-- Thêm `make repair-db`, `make doctor` và thông báo lỗi dễ xử lý trong UI.
+- Thêm `make repair-db`, `make doctor` và thông báo lỗi dễ xử lý trên giao diện.

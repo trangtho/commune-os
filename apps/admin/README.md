@@ -40,7 +40,7 @@ Mở http://localhost:3001 và đăng nhập bằng `quantri`.
 - Dữ liệu: mọi lời gọi `/rest/...` (và `/workflow`, `/files`, `/accounts`, `/ai` của trang Tình trạng hệ thống)
   được Nuxt chuyển tiếp sang cổng APISIX (`routeRules` trong `nuxt.config.ts`), nên không có lỗi CORS.
 - Một chỗ duy nhất gọi API: `app/composables/useApi.ts`. Danh sách API xem
-  [core/rest/README.md](../rest/README.md).
+  [core/rest/README.md](../../core/rest/README.md).
 
 | Biến môi trường | Mặc định                | Ý nghĩa          |
 | --------------- | ----------------------- | ---------------- |
