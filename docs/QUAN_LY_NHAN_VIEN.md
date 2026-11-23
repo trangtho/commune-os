@@ -52,6 +52,7 @@ Cố ý không lưu số CCCD, dân tộc, tôn giáo: chỉ giữ thông tin c�
 
 ## Giao diện (Màn hình cán bộ, cổng 3002)
 
-- **Hồ sơ cá nhân** (`/ho-so-ca-nhan`, mọi cán bộ): Thông tin, Giấy tờ, Yêu cầu của tôi, Việc được giao.
+- **Hồ sơ cá nhân** (`/ho-so-ca-nhan`, mọi cán bộ): Thông tin, Giấy tờ, Yêu cầu của tôi.
+- **Việc được giao** (`/viec-duoc-giao`, mục riêng trên menu, có số việc chưa xong; trang Tổng quan cũng hiện các việc này): bắt đầu làm, báo đã xong kèm ghi chú kết quả.
 - **Nhân viên** (`/tai-khoan`, chỉ lãnh đạo): Tài khoản, Hồ sơ nhân viên, Chờ duyệt, Giao việc, Giám sát công việc.
 - **Chi tiết hồ sơ** (`/ho-so/:id`): khối "Phân công & duyệt".

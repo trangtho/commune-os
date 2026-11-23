@@ -258,7 +258,14 @@ if [ "$(curl -s "$GW/public/ai/ready" | python3 -c 'import json,sys; print(json.
       -d "{\"question\":\"$2\",\"select\":false}" "$GW/ai/ask" |
       python3 -c 'import json,sys; d=json.load(sys.stdin); print(d.get("mode")+":"+",".join(sorted(set(c["procedure_id"] or c["source_type"] for c in d.get("chunks",[])))))'
   }
+  # Tự tắt thủ tục kết hôn ở xã A trong lúc kiểm tra (bản cài mới bật sẵn mọi thủ tục), xong trả lại trạng thái cũ.
+  hon_was=$(curl -s -H "Authorization: Bearer $QT" "$GW/rest/procedures?id=eq.ket-hon&select=enabled_tenants" |
+    python3 -c 'import json,sys; r=json.load(sys.stdin); print("on" if r and "xa-a" in (r[0].get("enabled_tenants") or []) else "off")')
+  set_hon() { curl -s -o /dev/null -X POST -H "Authorization: Bearer $QT" -H 'Content-Type: application/json' \
+    -d "{\"tenant_code\":\"xa-a\",\"procedure_ids\":[\"ket-hon\"],\"enabled\":$1}" "$GW/rest/rpc/set_tenant_procedures"; }
+  set_hon false
   hon=$(scope "$CA" "Đăng ký kết hôn cần giấy tờ gì"); guide_c=$(scope "$CA" "Cán bộ trình lãnh đạo duyệt trả kết quả hồ sơ")
+  [ "$hon_was" = "on" ] && set_hon true
   guide_s=$(scope "$TA" "Cán bộ trình lãnh đạo duyệt trả kết quả hồ sơ"); lookup=$(scope "$TA" "Cho tôi số điện thoại của công dân Nguyễn Văn An")
   case "$hon$guide_c" in *ket-hon*|*staff_guide*) bad=1 ;; *) bad=0 ;; esac
   case "$guide_s" in *staff_guide*) seen=1 ;; *) seen=0 ;; esac

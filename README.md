@@ -84,6 +84,12 @@ make test                 # 46 kiểm tra qua gateway: cách ly xã, quy trình,
 make test-citizen         # kiểm thử đơn vị Kênh người dân
 ```
 
+Sau mỗi lần `git pull`, chạy lại `make up`: lệnh này dừng ngay nếu `.env` thiếu biến bắt buộc mới thêm
+(`make check-env` báo tên biến, chép dòng tương ứng từ `.env.example`), và khởi động lại các dịch vụ lõi chạy thẳng
+mã nguồn (`gateway`, `orchestrator`, `accounts`, `files`, `ai-gateway`) để không còn chạy mã cũ. Máy đã có PostgreSQL
+dùng cổng 5432 thì đổi `POSTGRES_PORT` trong `.env`. Vừa khởi động lại máy mà đăng nhập báo "Hệ thống định danh
+đang khởi động" thì chờ khoảng 1 phút cho Keycloak chạy xong.
+
 `make seed` chỉ cần khi muốn nạp lại dữ liệu mẫu bằng tay (idempotent).
 `make backup` / `make restore BACKUP=...` sao lưu và khôi phục cơ sở dữ liệu, kho tệp ([core/backup](core/backup/README.md)).
 `make help` liệt kê mọi lệnh, gồm các bài kiểm thử RLS của Kênh người dân (`make rls-test`, ...).
@@ -105,7 +111,7 @@ Xem chú thích từng biến trong [.env.example](.env.example).
 Với kho lưu trữ tệp, cần đặt `S3_SECRET_KEY` và `FILES_SERVICE_TOKEN` bằng giá trị ngẫu nhiên
 (`openssl rand -hex 24`); tương tự với `CITIZEN_KEYCLOAK_SECRET`, bí mật của client `citizen-app`
 mà chỉ máy chủ Kênh người dân giữ. Giá trị trong `.env.example` chỉ dùng trên máy phát triển.
-(`openssl rand -hex 24`). Bật quét mã độc: `docker compose --profile antivirus up -d antivirus`
+Bật quét mã độc: `docker compose --profile antivirus up -d antivirus`
 rồi đặt `CLAMAV_HOST=antivirus`.
 
 ## Tài khoản thử
