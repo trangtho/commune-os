@@ -1,14 +1,8 @@
 // SPDX-FileCopyrightText: 2026 CommuneOS Contributors
 // SPDX-License-Identifier: Apache-2.0
-import { citizenTx } from '../../utils/database'
-import {recordPersonalDataUse} from '../../utils/privacy-events'
-export default defineEventHandler(async(event)=>citizenTx(event,async(client,actor)=>{
-  const id=getRouterParam(event,'id')
-  const row=(await client.query(`SELECT a.*,p.title AS procedure_title,p.category FROM applications a JOIN procedures p ON p.id=a.procedure_id WHERE a.id=$1`,[id])).rows[0]
-  if(!row)throw createError({statusCode:404,statusMessage:'Hồ sơ không tồn tại hoặc bạn không có quyền xem'})
-  const events=(await client.query('SELECT id,event_type,note,actor_name,created_at FROM application_events WHERE application_id=$1 ORDER BY created_at,id',[id])).rows
-  const documents=(await client.query('SELECT id,document_code,original_name,size_bytes,uploaded_at FROM application_documents WHERE application_id=$1 ORDER BY uploaded_at DESC',[id])).rows
-  const requirements=(await client.query('SELECT document_code,document_name,is_required FROM procedure_documents WHERE procedure_id=$1 ORDER BY document_code',[row.procedure_id])).rows
-  await recordPersonalDataUse(client,actor,{action:'view_case',purpose:'Tra cứu hồ sơ cá nhân',resourceKind:'application',resourceReference:String(id)})
-  return {...row,events,documents,requirements}
-}))
+import { citizenRpc } from '../../utils/identity'
+import { requireCitizen } from '../../utils/session'
+export default defineEventHandler(async (event) => {
+  requireCitizen(event)
+  return citizenRpc(event, 'citizen_application', { p_application_id: String(getRouterParam(event, 'id') || '') })
+})

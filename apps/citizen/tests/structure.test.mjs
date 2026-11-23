@@ -9,7 +9,7 @@ const dir=resolve(import.meta.dirname,'..')
 const root=resolve(dir,'../..')
 const get=(file)=>readFileSync(resolve(root,file),'utf8')
 test('Required pages exist',()=>{
- for(const page of ['index.vue','thu-tuc/index.vue','thu-tuc/[slug].vue','nop-ho-so/[slug].vue','ho-so/index.vue','ho-so/[id].vue','ho-so/[id]/bo-sung.vue','ho-so/[id]/ket-qua.vue','thong-bao.vue','dang-nhap.vue','tro-ly.vue','huong-dan.vue','ho-so-ca-nhan.vue','bao-mat.vue','lien-he.vue'])
+ for(const page of ['index.vue','thu-tuc/index.vue','thu-tuc/[slug].vue','nop-ho-so/[slug].vue','ho-so/index.vue','ho-so/[id]/index.vue','ho-so/[id]/bo-sung.vue','ho-so/[id]/ket-qua.vue','thong-bao.vue','dang-nhap.vue','tro-ly.vue','huong-dan.vue','ho-so-ca-nhan.vue','bao-mat.vue','lien-he.vue'])
    assert.ok(existsSync(resolve(dir,'pages',page)),page)
 })
 test('Database has policies and required citizen entities',()=>{
@@ -20,10 +20,11 @@ test('Database has policies and required citizen entities',()=>{
  assert.match(sql,/citizen_login_lookup/)
 })
 test('Poka-yoke is enforced by the API, not only the button',()=>{
- const submit=get('apps/citizen/server/api/applications/[id]/submit.post.ts')
- assert.match(submit,/NOT EXISTS/)
- assert.match(submit,/missing\.length/)
- assert.match(submit,/422/)
+ // Poka-yoke nằm trong lõi (api.citizen_application_submit): thiếu giấy tờ bắt buộc thì không nộp được.
+ assert.match(get('apps/citizen/server/api/applications/[id]/submit.post.ts'),/citizen_application_submit/)
+ const core=get('core/db/init/21-citizen-api-core-flow.sql')
+ assert.match(core,/AND d\.is_required AND NOT EXISTS/)
+ assert.match(core,/citizen_fail\(422, 'Thiếu giấy tờ: '/)
 })
 test('No real ID data in seed and files are validated',()=>{
  const seed=get('core/db/seed/seed.sql')

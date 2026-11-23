@@ -1,13 +1,16 @@
 # SPDX-FileCopyrightText: 2026 CommuneOS Contributors
 # SPDX-License-Identifier: Apache-2.0
 #
-# Các dịch vụ lõi CommuneOS: db, identity, gateway.
-# Bổ sung db-setup và citizen cho Kênh Công dân; chỉ mở cổng PostgreSQL và
-# Citizen trên localhost, giữ nguyên các cổng phát triển của lõi.
+# Toàn bộ CommuneOS: các dịch vụ lõi (db, db-setup, identity, identity-setup, gateway, rest,
+# workflow-engine, orchestrator, accounts, storage, files, antivirus tùy chọn, ai-models, ai, ai-gateway)
+# và ba ứng dụng Tầng 2
+# (citizen, commune, admin). Cổng ứng dụng và PostgreSQL chỉ mở trên 127.0.0.1.
 
 services:
   db:
-    image: postgres:17
+    # PostgreSQL 17 kèm pgvector (tìm kiếm ngữ nghĩa cho trợ lý AI). Bản trixie dùng cùng glibc với ảnh
+    # postgres:17 chính thức, nên dùng tiếp volume cũ mà không lệch thứ tự sắp xếp chữ (collation).
+    image: pgvector/pgvector:0.8.1-pg17-trixie
     restart: unless-stopped
     environment:
       POSTGRES_DB: ${POSTGRES_DB}
@@ -37,6 +40,7 @@ services:
 
   identity:
     image: quay.io/keycloak/keycloak:26.8.2
+    restart: unless-stopped
     command: start-dev --import-realm
     environment:
       KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN}
@@ -47,6 +51,8 @@ services:
       KC_DB_PASSWORD: ${POSTGRES_PASSWORD}
       KC_HOSTNAME: ${KEYCLOAK_PUBLIC_URL}
       KC_HOSTNAME_BACKCHANNEL_DYNAMIC: "true"
+      KEYCLOAK_ACCOUNTS_SECRET: ${KEYCLOAK_ACCOUNTS_SECRET}
+      CITIZEN_KEYCLOAK_SECRET: ${CITIZEN_KEYCLOAK_SECRET}
     volumes:
       - ./core/identity/realm:/opt/keycloak/data/import:ro
     depends_on:
@@ -55,8 +61,25 @@ services:
     ports:
       - "8080:8080"
 
+  # Bổ sung vai trò, client, người dùng mới của tệp realm vào realm đã có (chạy một lần rồi dừng).
+  # Keycloak chỉ nạp tệp realm khi tạo mới; dịch vụ này không ghi đè mục đã có.
+  identity-setup:
+    image: node:22-alpine
+    restart: "no"
+    command: ["node", "/app/setup.mjs"]
+    environment:
+      KEYCLOAK_URL: http://identity:8080
+      KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN}
+      KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD}
+      CITIZEN_KEYCLOAK_SECRET: ${CITIZEN_KEYCLOAK_SECRET}
+    volumes:
+      - ./core/identity:/app:ro
+    depends_on:
+      - identity
+
   gateway:
     image: apache/apisix:3.20.0-debian
+    restart: unless-stopped
     environment:
       APISIX_STAND_ALONE: "true"
     volumes:
@@ -129,6 +152,14 @@ services:
         psql -v ON_ERROR_STOP=1 -f /setup/init/16-citizen-procedure-privacy.sql
         psql -v ON_ERROR_STOP=1 -f /setup/init/17-citizen-intelligent-services.sql
         psql -v ON_ERROR_STOP=1 -f /setup/init/18-citizen-life-journeys.sql
+        psql -v ON_ERROR_STOP=1 -f /setup/init/16-nhat-ky-can-bo.sql
+        psql -v ON_ERROR_STOP=1 -f /setup/init/17-nhan-vien.sql
+        psql -v ON_ERROR_STOP=1 -f /setup/init/19-citizen-rest-api.sql
+        psql -v ON_ERROR_STOP=1 -f /setup/init/20-citizen-procedure-lock.sql
+        psql -v ON_ERROR_STOP=1 -f /setup/init/21-citizen-api-core-flow.sql
+        psql -v ON_ERROR_STOP=1 -f /setup/init/22-ai-knowledge-vectors.sql
+        psql -v ON_ERROR_STOP=1 -f /setup/init/23-staff-notifications.sql
+        psql -v ON_ERROR_STOP=1 -f /setup/init/24-staff-guide.sql
         psql -v ON_ERROR_STOP=1 -c "SELECT count(*) AS published_procedures FROM procedures WHERE published = true"
         echo 'PostgreSQL setup finished successfully.'
 
@@ -150,9 +181,12 @@ services:
     environment:
       PGRST_DB_URI: postgres://authenticator:${POSTGRES_REST_PASSWORD}@db:5432/${POSTGRES_DB}
       PGRST_DB_SCHEMAS: api
-      PGRST_DB_ANON_ROLE: ""
       PGRST_JWT_SECRET: "@/keys/jwks.json"
       PGRST_JWT_ROLE_CLAIM_KEY: ".azp"
+      # Đặt biến RLS của công dân từ token (core/db/init/19-citizen-rest-api.sql).
+      PGRST_DB_PRE_REQUEST: public.rest_pre_request
+      # Khách chưa đăng nhập: chỉ gọi được hàm cấp cho web_anon (danh mục thủ tục), qua cổng /public/rpc.
+      PGRST_DB_ANON_ROLE: web_anon
       PGRST_SERVER_PORT: "3000"
     volumes:
       - rest-keys:/keys:ro
@@ -193,7 +227,25 @@ services:
       - workflow-engine
       - rest
 
-      # Kho đối tượng chuẩn S3 cho dữ liệu phi cấu trúc (SeaweedFS, Apache-2.0). Không mở cổng ra ngoài.
+  # Dịch vụ tài khoản cán bộ: lãnh đạo xã quản lý cán bộ xử lý của xã mình qua Keycloak Admin API.
+  accounts:
+    image: node:22-alpine
+    restart: unless-stopped
+    working_dir: /app
+    command: ["node", "server.mjs"]
+    environment:
+      KEYCLOAK_URL: http://identity:8080
+      ACCOUNTS_CLIENT_SECRET: ${KEYCLOAK_ACCOUNTS_SECRET}
+      CITIZEN_CLIENT_SECRET: ${CITIZEN_KEYCLOAK_SECRET}
+      REST_URL: http://rest:3000
+      WORKFLOW_TOKEN: ${WORKFLOW_TOKEN}
+    volumes:
+      - ./core/accounts:/app:ro
+    depends_on:
+      - identity
+      - rest
+
+  # Kho đối tượng chuẩn S3 cho dữ liệu phi cấu trúc (SeaweedFS, Apache-2.0). Không mở cổng ra ngoài.
   storage:
     image: chrislusf/seaweedfs:4.53
     restart: unless-stopped
@@ -232,6 +284,57 @@ services:
     profiles: ["antivirus"]
     restart: unless-stopped
 
+  # ===== Trí tuệ nhân tạo chạy cục bộ (core/ai) =====
+  # Tải mô hình một lần vào volume ai-models; đã có thì bỏ qua. Dịch vụ duy nhất của AI cần Internet.
+  ai-models:
+    image: ollama/ollama:0.12.6
+    restart: "no"
+    entrypoint: ["/bin/sh", "/script/pull-models.sh"]
+    environment:
+      AI_CHAT_MODEL: ${AI_CHAT_MODEL:-qwen3:1.7b}
+      AI_EMBED_MODEL: ${AI_EMBED_MODEL:-bge-m3}
+    volumes:
+      - ai-models:/root/.ollama
+      - ./core/ai:/script:ro
+
+  # Chạy mô hình (Ollama). Chỉ nằm trong mạng ai-internal: không ra được Internet, không mở cổng.
+  ai:
+    image: ollama/ollama:0.12.6
+    restart: unless-stopped
+    environment:
+      OLLAMA_KEEP_ALIVE: 24h
+      OLLAMA_NUM_PARALLEL: "1"
+    volumes:
+      - ai-models:/root/.ollama
+    networks:
+      - ai-internal
+    depends_on:
+      ai-models:
+        condition: service_completed_successfully
+
+  # Cổng AI của lõi sau APISIX (/ai/*, /public/ai/*): kiểm token, giới hạn số lần gọi, che dữ liệu cá nhân,
+  # tìm kiếm lai (toàn văn + vector), mô hình chỉ chọn trích dẫn nguyên văn; tạo vector cho chỉ mục tri thức.
+  ai-gateway:
+    image: node:22-alpine
+    restart: unless-stopped
+    working_dir: /app
+    command: ["node", "server.mjs"]
+    environment:
+      OLLAMA_URL: http://ai:11434
+      REST_URL: http://rest:3000
+      KEYCLOAK_URL: http://identity:8080
+      WORKFLOW_TOKEN: ${WORKFLOW_TOKEN}
+      AI_CHAT_MODEL: ${AI_CHAT_MODEL:-qwen3:1.7b}
+      AI_EMBED_MODEL: ${AI_EMBED_MODEL:-bge-m3}
+    volumes:
+      - ./core/ai:/app:ro
+    networks:
+      - default
+      - ai-internal
+    depends_on:
+      - ai
+      - rest
+
   citizen:
     build:
       context: ./apps/citizen
@@ -240,6 +343,10 @@ services:
     depends_on:
       db-setup:
         condition: service_completed_successfully
+      identity:
+        condition: service_started
+      gateway:
+        condition: service_started
     environment:
       NODE_ENV: production
       CITIZEN_STAFF_BRIDGE_TOKEN: ${CITIZEN_STAFF_BRIDGE_TOKEN:-}
@@ -263,6 +370,10 @@ services:
       NUXT_DB_USER: communeos_app
       NUXT_DB_PASSWORD: ${POSTGRES_APP_PASSWORD}
       NUXT_SESSION_SECRET: ${SESSION_SECRET}
+      # Đăng nhập công dân bằng Keycloak (client citizen-app), gọi lõi qua cổng APISIX.
+      NUXT_KEYCLOAK_URL: http://identity:8080
+      NUXT_GATEWAY_URL: http://gateway:9080
+      NUXT_KEYCLOAK_CLIENT_SECRET: ${CITIZEN_KEYCLOAK_SECRET}
       CITIZEN_OIDC_PROVIDER: ${CITIZEN_OIDC_PROVIDER:-identity}
       CITIZEN_OIDC_RESIDENCE_TENANT_CLAIM: ${CITIZEN_OIDC_RESIDENCE_TENANT_CLAIM:-}
       CITIZEN_OIDC_TEMPORARY_TENANT_CLAIM: ${CITIZEN_OIDC_TEMPORARY_TENANT_CLAIM:-}
@@ -303,19 +414,7 @@ services:
       NUXT_STORAGE_DIR: /app/storage
       NUXT_FILES_URL: http://files:3000
       NUXT_FILES_SERVICE_TOKEN: ${FILES_SERVICE_TOKEN}
-      # Optional server-side, OpenAI-compatible answer model and legacy classifier.
-      # Do not expose tokens via Nuxt public runtimeConfig.
-      CITIZEN_AI_ENDPOINT: ${CITIZEN_AI_ENDPOINT:-}
-      CITIZEN_AI_MODEL: ${CITIZEN_AI_MODEL:-}
-      CITIZEN_AI_TOKEN: ${CITIZEN_AI_TOKEN:-}
-      CITIZEN_RAG_ENDPOINT: ${CITIZEN_RAG_ENDPOINT:-}
-      CITIZEN_RAG_TOKEN: ${CITIZEN_RAG_TOKEN:-}
-      # Nitro runtime overrides (NUXT_* must be available at container runtime).
-      NUXT_AI_ENDPOINT: ${CITIZEN_AI_ENDPOINT:-}
-      NUXT_AI_MODEL: ${CITIZEN_AI_MODEL:-}
-      NUXT_AI_TOKEN: ${CITIZEN_AI_TOKEN:-}
-      NUXT_RAG_ENDPOINT: ${CITIZEN_RAG_ENDPOINT:-}
-      NUXT_RAG_TOKEN: ${CITIZEN_RAG_TOKEN:-}
+      # Trợ lý AI dùng cổng AI của lõi (/ai/ask qua APISIX); không cấu hình API AI bên ngoài.
     volumes:
       - citizen-uploads:/app/storage
     ports:
@@ -328,23 +427,33 @@ services:
       dockerfile: Dockerfile
     restart: unless-stopped
     depends_on:
-      - gateway
-      - identity
+      db-setup:
+        condition: service_completed_successfully
+      gateway:
+        condition: service_started
+      identity:
+        condition: service_started
     environment:
       NODE_ENV: production
       HOST: 0.0.0.0
       PORT: 3000
       # Biến NUXT_* ghi đè runtimeConfig lúc chạy container.
       NUXT_SESSION_SECRET: ${SESSION_SECRET}
+      # Thông báo và xác nhận bổ sung hồ sơ còn đọc PostgreSQL trực tiếp (vai trò có RLS).
+      NUXT_DB_HOST: db
+      NUXT_DB_PORT: "5432"
+      NUXT_DB_NAME: ${POSTGRES_DB}
+      NUXT_DB_USER: communeos_app
+      NUXT_DB_PASSWORD: ${POSTGRES_APP_PASSWORD}
       NUXT_KEYCLOAK_URL: http://identity:8080
       NUXT_GATEWAY_URL: http://gateway:9080
     ports:
       - "127.0.0.1:${COMMUNE_PORT:-3002}:3000"
 
-  # Bảng quản trị hệ thống của lõi. Chỉ tài khoản có vai trò sys_admin đăng nhập được.
+  # Bảng quản trị hệ thống (Tầng 2, gọi lõi qua cổng API). Chỉ tài khoản có vai trò sys_admin đăng nhập được.
   admin:
     build:
-      context: ./core/admin
+      context: ./apps/admin
       dockerfile: Dockerfile
     restart: unless-stopped
     depends_on:
@@ -358,7 +467,13 @@ services:
     ports:
       - "127.0.0.1:${ADMIN_PORT:-3001}:3000"
 
+networks:
+  # Mạng riêng của AI, không có đường ra Internet.
+  ai-internal:
+    internal: true
+
 volumes:
+  ai-models:
   db-data:
   rest-keys:
   citizen-uploads:

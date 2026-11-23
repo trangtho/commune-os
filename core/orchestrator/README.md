@@ -22,7 +22,7 @@ Cán bộ bấm nút → APISIX /workflow/* (kiểm tra token)
 | -------------------------------------- | ---------------------------------------------------------- |
 | `GET /workflow/dossiers/<mã>/actions`  | Bước hiện tại và các bước được phép đi tiếp                |
 | `POST /workflow/dossiers/<mã>/actions` | Thực hiện một bước: `{"action":"processing","note":"..."}` |
-| `GET /workflow/health`                 | Kiểm tra dịch vụ còn chạy                                  |
+| `GET /workflow/health`                 | Kiểm tra dịch vụ và động cơ Flowable (Flowable không trả lời thì 503) |
 
 | Mã lỗi | Nghĩa                                                  |
 | ------ | ------------------------------------------------------ |

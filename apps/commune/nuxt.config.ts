@@ -6,6 +6,8 @@ export default defineNuxtConfig({
   // Không dùng app manifest; tắt để tránh lỗi "#app-manifest" khi chạy dev.
   experimental: { appManifest: false },
   modules: ['@nuxtjs/tailwindcss'],
+  // Phông Be Vietnam Pro (OFL-1.1) đóng gói cùng ứng dụng, không tải từ máy chủ ngoài lúc chạy.
+  css: ['@fontsource/be-vietnam-pro/400.css', '@fontsource/be-vietnam-pro/500.css', '@fontsource/be-vietnam-pro/600.css', '@fontsource/be-vietnam-pro/700.css'],
   tailwindcss: { cssPath: '~/assets/css/main.css' },
   app: {
     head: {
@@ -16,7 +18,7 @@ export default defineNuxtConfig({
         { name: 'viewport', content: 'width=device-width, initial-scale=1' }
       ],
       link: [
-        { rel: 'icon', type: 'image/png', href: '/images/logo-bo-cong-an.png' }
+        { rel: 'icon', type: 'image/svg+xml', href: '/images/logo-communeos.svg' }
       ]
     }
   },

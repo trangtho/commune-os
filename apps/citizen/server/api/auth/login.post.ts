@@ -1,23 +1,21 @@
 // SPDX-FileCopyrightText: 2026 CommuneOS Contributors
 // SPDX-License-Identifier: Apache-2.0
-import { scryptSync, timingSafeEqual } from 'node:crypto'
-import { publicQuery } from '../../utils/database'
+// Đăng nhập công dân: Keycloak kiểm tra mật khẩu, hồ sơ công dân đọc qua cổng APISIX (/rest).
+import { gatewayFetch, passwordLogin, saveTokens } from '../../utils/identity'
 import { signSession } from '../../utils/session'
 import { loginSchema, validate } from '../../utils/validation'
-function validPassword(password:string,hash:string){
-  const [method,salt,digest]=hash.split('$')
-  if(method!=='scrypt'||!salt||!digest) return false
-  const current=scryptSync(password,salt,64)
-  const expected=Buffer.from(digest,'hex')
-  return current.length===expected.length&&timingSafeEqual(current,expected)
-}
-export default defineEventHandler(async(event)=>{
-  if(!useRuntimeConfig().public.demoMode) throw createError({statusCode:403,statusMessage:'Chế độ đăng nhập demo đã tắt; cần cấu hình OIDC'})
-  const credentials=validate(loginSchema,await readBody(event))
-  const rows=await publicQuery<{id:string;tenant_id:string;display_name:string;password_hash:string}>(
-    'SELECT * FROM citizen_login_lookup($1)',[credentials.username])
-  const user=rows[0]
-  if(!user||!validPassword(credentials.password,user.password_hash)) throw createError({statusCode:401,statusMessage:'Tên đăng nhập hoặc mật khẩu không đúng'})
-  signSession(event,{id:user.id,tenantId:user.tenant_id,name:user.display_name,authMethod:'demo'})
-  return {authenticated:true,role:'citizen',name:user.display_name}
+type Profile = { id: string; tenant_id: string; display_name: string }
+export default defineEventHandler(async (event) => {
+  const credentials = validate(loginSchema, await readBody(event))
+  const tokens = await passwordLogin(credentials.username, credentials.password)
+  let profile: Profile | undefined
+  try {
+    profile = (await gatewayFetch<Profile[]>(tokens.access_token, '/rest/my_citizen_profile?select=id,tenant_id,display_name'))[0]
+  } catch {
+    throw createError({ statusCode: 503, statusMessage: 'Chưa kết nối được máy chủ dữ liệu, vui lòng thử lại sau' })
+  }
+  if (!profile) throw createError({ statusCode: 403, statusMessage: 'Tài khoản chưa được liên kết với hồ sơ công dân' })
+  saveTokens(event, tokens)
+  signSession(event, { id: profile.id, tenantId: profile.tenant_id, name: profile.display_name, authMethod: 'keycloak' })
+  return { authenticated: true, role: 'citizen', name: profile.display_name }
 })

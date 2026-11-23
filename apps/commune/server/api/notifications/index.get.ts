@@ -1,13 +1,7 @@
 // SPDX-FileCopyrightText: 2026 CommuneOS Contributors
 // SPDX-License-Identifier: Apache-2.0
-import { staffTx } from '../../utils/database'
-export default defineEventHandler(async(event)=>{
-  try {
-    return await staffTx(event,async(client)=>{
-      const rows=(await client.query(`SELECT n.id,n.application_id,n.title,n.body,n.category,n.is_read,n.created_at FROM citizen_notifications n ORDER BY n.created_at DESC LIMIT 200`)).rows
-      return rows
-    })
-  } catch {
-    return []
-  }
-})
+// Thông báo của cán bộ: lõi tự sinh khi có sự kiện, đọc qua cổng API; RLS chỉ trả thông báo của xã,
+// gửi cho cán bộ này hoặc cho vai trò của cán bộ này.
+import { coreGet } from '../../utils/core-api'
+export default defineEventHandler((event) =>
+  coreGet(event, '/staff_notifications?order=created_at.desc&limit=200'))

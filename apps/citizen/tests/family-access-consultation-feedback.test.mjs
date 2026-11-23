@@ -54,7 +54,7 @@ test('per-stage reviews require ownership, stage eligibility and one write per s
  assert.match(reviewCreate,/stageEligible/)
  assert.match(reviewCreate,/ON CONFLICT\(application_id,citizen_id,stage\) DO NOTHING/)
  assert.match(read('../pages/ho-so/[id]/danh-gia.vue'),/Mức độ hài lòng/)
- assert.match(read('../pages/ho-so/[id].vue'),/Đánh giá trải nghiệm/)
+ assert.match(read('../pages/ho-so/[id]/index.vue'),/Đánh giá trải nghiệm/)
 })
 test('idempotent migration and rollback test are wired into existing conventions',()=>{
  assert.match(compose,/06-citizen-assistance-family-consultation\.sql/)

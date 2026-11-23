@@ -30,27 +30,38 @@ Giấy phép của các thành phần bên thứ ba được liệt kê trong
 
 ## Kiến trúc
 
-| Tầng                  | Thư mục         | Nội dung                                                                           |
-| --------------------- | --------------- | ---------------------------------------------------------------------------------- |
-| Tầng 1 - Lõi headless | core/           | Cửa ngõ API, định danh, dữ liệu, lưu trữ tệp, quy trình, sổ cái, AI, bảng quản trị |
-| Tầng 2 - Ứng dụng     | `apps/commune/` | Ứng dụng xã cho cán bộ, lãnh đạo, cấp trên                                         |
-| Tầng 2 - Ứng dụng     | `apps/citizen/` | Kênh nộp hồ sơ trực tuyến cho người dân                                            |
-| Cấu hình              | `packs/`        | Gói thủ tục: BPMN, biểu mẫu, bảng kiểm giấy tờ, wiki                               |
+| Tầng                  | Thư mục         | Nội dung                                                                          |
+| --------------------- | --------------- | --------------------------------------------------------------------------------- |
+| Tầng 1 - Lõi headless | core/           | Cửa ngõ API, định danh, dữ liệu, lưu trữ tệp, quy trình, sổ cái (không giao diện) |
+| Tầng 2 - Ứng dụng     | `apps/commune/` | Ứng dụng xã cho cán bộ, lãnh đạo, cấp trên                                        |
+| Tầng 2 - Ứng dụng     | `apps/citizen/` | Kênh nộp hồ sơ trực tuyến cho người dân                                           |
+| Tầng 2 - Ứng dụng     | `apps/admin/`   | Bảng quản trị hệ thống: xã, thủ tục, sổ ghi nhận                                  |
+| Cấu hình              | `packs/`        | Gói thủ tục: BPMN, biểu mẫu, bảng kiểm giấy tờ, wiki                              |
 
-Lõi không cấp giao diện cho người dùng cuối; nó chỉ có bảng quản trị cho quản
-trị viên hệ thống. Ứng dụng ở Tầng 2 chỉ gọi lõi qua cửa ngõ API.
+Lõi hoàn toàn không có giao diện: chỉ có dịch vụ và API. Bảng quản trị (`apps/admin`) và
+phần xử lý hồ sơ của màn hình cán bộ (`apps/commune`) gọi lõi qua cửa ngõ API.
+Kênh người dân (`apps/citizen`) đăng nhập qua Keycloak; luồng chính (thủ tục, bản nháp, nộp hồ sơ,
+giấy tờ, hồ sơ của tôi, thông báo, hồ sơ cá nhân) gọi lõi qua cửa ngõ. Các chức năng phụ còn lại vẫn
+đọc ghi PostgreSQL trực tiếp bằng vai trò `communeos_app` (có RLS).
+Mỗi xã tự có danh sách thủ tục được mở. Cán bộ và người dân chỉ thấy, chỉ nộp được thủ tục xã mình đang mở; cơ sở dữ liệu tự chặn nếu ai đó vượt qua giao diện. Quản trị hệ thống cấu hình xã và thủ tục nhưng không đọc được nội dung hồ sơ.
 
 ### Dịch vụ của lõi
 
-| Dịch vụ (docker compose)          | Thành phần            | Vai trò                                                                         |
-| --------------------------------- | --------------------- | ------------------------------------------------------------------------------- |
-| `identity`                        | Keycloak              | Đăng nhập một lần, cấp token có `tenant_id`                                     |
-| `gateway`                         | Apache APISIX         | Cửa ngõ API: `/rest`, `/workflow`, `/files`, kiểm tra token                     |
-| `db`, `rest`                      | PostgreSQL, PostgREST | Dữ liệu có cấu trúc, API tự sinh, cách ly xã bằng RLS                           |
-| `workflow-engine`, `orchestrator` | Flowable, Node.js     | Quy trình xử lý hồ sơ theo sơ đồ BPMN                                           |
-| `storage`                         | SeaweedFS             | Kho đối tượng chuẩn S3 cho giấy tờ (dữ liệu phi cấu trúc)                       |
-| `files`                           | Node.js               | Dịch vụ tệp: kiểm tra, lưu, mã băm SHA-256 ([core/files](core/files/README.md)) |
-| `antivirus` (tùy chọn)            | ClamAV                | Quét mã độc tệp tải lên                                                         |
+| Dịch vụ (docker compose)          | Thành phần            | Vai trò                                                                                      |
+| --------------------------------- | --------------------- | -------------------------------------------------------------------------------------------- |
+| `identity`, `identity-setup`      | Keycloak              | Đăng nhập một lần cho cán bộ và công dân; `identity-setup` bổ sung mục mới vào realm đã có  |
+| `gateway`                         | Apache APISIX         | Cửa ngõ API: `/rest`, `/workflow`, `/files`, `/accounts`, `/ai` (kiểm tra token), `/public` (khách) |
+| `db`, `rest`                      | PostgreSQL, PostgREST | Dữ liệu có cấu trúc, API tự sinh, cách ly xã bằng RLS                                        |
+| `workflow-engine`, `orchestrator` | Flowable, Node.js     | Quy trình xử lý hồ sơ theo sơ đồ BPMN                                                        |
+| `storage`                         | SeaweedFS             | Kho đối tượng chuẩn S3 cho giấy tờ (dữ liệu phi cấu trúc)                                    |
+| `files`                           | Node.js               | Dịch vụ tệp: kiểm tra, lưu, mã băm SHA-256 ([core/files](core/files/README.md))              |
+| `antivirus` (tùy chọn)            | ClamAV                | Quét mã độc tệp tải lên                                                                      |
+| `accounts`                        | Node.js               | Lãnh đạo xã quản lý tài khoản cán bộ qua Keycloak ([core/accounts](core/accounts/README.md)) |
+| `ai`, `ai-gateway`, `ai-models`   | Ollama, Node.js       | AI chạy cục bộ: tìm kiếm ngữ nghĩa, chọn trích dẫn ([core/ai](core/ai/README.md))            |
+
+AI của lõi chạy hoàn toàn trên máy chủ: mô hình (mặc định `qwen3:1.7b` và `bge-m3`) nằm trong mạng
+Docker không có đường ra Internet, không gọi API AI bên ngoài. Mô hình không nằm trong kho mã;
+`make up` tự tải ở lần chạy đầu (cần Internet lần đó, khoảng 2,6 GB).
 
 Chi tiết: [docs/](docs/).
 
@@ -58,7 +69,8 @@ Chi tiết: [docs/](docs/).
 
 - Docker Engine và Docker Compose (hoặc Podman)
 - GNU Make
-- Khoảng 6 GB RAM để chạy đầy đủ, kể cả mô hình AI cục bộ
+- Khoảng 8 GB RAM cho toàn bộ dịch vụ, trong đó khoảng 2,5 GB cho mô hình AI cục bộ
+- Khoảng 4 GB ổ đĩa cho mô hình AI (volume `ai-models`); chạy được chỉ với CPU
 - Thêm khoảng 1,5 GB RAM nếu bật quét mã độc (dịch vụ antivirus)
 
 ## Dựng từ mã nguồn
@@ -67,10 +79,14 @@ Chi tiết: [docs/](docs/).
 git clone https://github.com/trangtho/commune-os.git
 cd commune-os
 cp .env.example .env      # sửa mật khẩu trong .env
-make up                   # dựng và khởi động toàn bộ dịch vụ
-make seed                 # nạp dữ liệu mẫu giả lập
-make test                 # kiểm thử cách ly xã qua gateway (cần DEMO_PASSWORD, xem core/tests)
+make up                   # dựng, khởi động toàn bộ dịch vụ và tự nạp dữ liệu mẫu (db-setup)
+make test                 # 46 kiểm tra qua gateway: cách ly xã, quy trình, tệp, tài khoản, công dân, AI (xem core/tests)
+make test-citizen         # kiểm thử đơn vị Kênh người dân
 ```
+
+`make seed` chỉ cần khi muốn nạp lại dữ liệu mẫu bằng tay (idempotent).
+`make backup` / `make restore BACKUP=...` sao lưu và khôi phục cơ sở dữ liệu, kho tệp ([core/backup](core/backup/README.md)).
+`make help` liệt kê mọi lệnh, gồm các bài kiểm thử RLS của Kênh người dân (`make rls-test`, ...).
 
 Mọi cấu hình nằm trong tệp `.env`; không cần sửa tệp mã nguồn nào.
 
@@ -87,6 +103,8 @@ Sau khi `make up` chạy xong, mở trình duyệt:
 
 Xem chú thích từng biến trong [.env.example](.env.example).
 Với kho lưu trữ tệp, cần đặt `S3_SECRET_KEY` và `FILES_SERVICE_TOKEN` bằng giá trị ngẫu nhiên
+(`openssl rand -hex 24`); tương tự với `CITIZEN_KEYCLOAK_SECRET`, bí mật của client `citizen-app`
+mà chỉ máy chủ Kênh người dân giữ. Giá trị trong `.env.example` chỉ dùng trên máy phát triển.
 (`openssl rand -hex 24`). Bật quét mã độc: `docker compose --profile antivirus up -d antivirus`
 rồi đặt `CLAMAV_HOST=antivirus`.
 
@@ -94,13 +112,19 @@ rồi đặt `CLAMAV_HOST=antivirus`.
 
 Các tài khoản dưới đây là dữ liệu giả lập, chỉ dùng trên máy phát triển.
 
-| Tên đăng nhập | Mật khẩu | Xã (`tenant_id`) | Vai          | Dùng ở đâu                         |
-| ------------- | -------- | ---------------- | ------------ | ---------------------------------- |
-| `canbo.xa-a`  | `12345`  | `xa-a`           | receptionist | API `/rest`, màn hình cán bộ xã    |
-| `canbo.xa-b`  | `12345`  | `xa-b`           | receptionist | API `/rest`, màn hình cán bộ xã    |
-| `quantri`     | `12345`  | (để trống)       | sys_admin    | Bảng quản trị hệ thống (cổng 3001) |
+| Tên đăng nhập  | Mật khẩu     | Xã               | Vai trò   | Dùng ở đâu                              |
+| -------------- | ------------ | ---------------- | --------- | --------------------------------------- |
+| `canbo.xa-a`   | `12345`      | `xa-a`           | officer   | Màn hình cán bộ xã, API `/rest`         |
+| `canbo.xa-b`   | `12345`      | `xa-b`           | officer   | Màn hình cán bộ xã, API `/rest`         |
+| `lanhdao.xa-a` | `12345`      | `xa-a`           | leader    | Màn hình cán bộ xã, quản lý cán bộ xã A |
+| `lanhdao.xa-b` | `12345`      | `xa-b`           | leader    | Màn hình cán bộ xã, quản lý cán bộ xã B |
+| `quantri`      | `12345`      | (để trống)       | sys_admin | Bảng quản trị hệ thống (cổng 3001)      |
+| `congdan.demo` | `Demo@2026!` | `xa-a`           | citizen   | Kênh người dân (cổng 3000)              |
+| `congdan.khac` | `Demo@2026!` | `xa-b`           | citizen   | Kênh người dân, thử cách ly dữ liệu     |
 
-Cả ba tài khoản có sẵn trong tệp realm và được nạp tự động khi dựng lần đầu.
+Cả bảy tài khoản có sẵn trong tệp realm Keycloak, được nạp tự động khi dựng lần đầu; trên máy đã cài
+từ trước, dịch vụ `identity-setup` tự bổ sung hai tài khoản công dân. Xã của cán bộ nằm ở thuộc tính
+`tenant_id`, của công dân ở `citizen_tenant` (kèm `citizen_id` trùng mã trong `core/db/seed/seed.sql`).
 
 Trang quản trị Keycloak: http://localhost:8080 (tài khoản quản trị lấy từ tệp `.env`).
 
@@ -122,59 +146,31 @@ Hướng dẫn chi tiết trong [docs/](docs/).
 
 Danh sách người đóng góp: [Contributors](https://github.com/trangtho/commune-os/graphs/contributors).
 
-## Kênh Công dân – giao diện & PostgreSQL mô phỏng
+## Kênh người dân (`apps/citizen`)
 
-Từ bản cập nhật này, `apps/citizen/` chứa ứng dụng Nuxt 3, Vue 3, TypeScript,
-Tailwind CSS có thể điều hướng và thao tác qua API Nitro, với PostgreSQL làm
-nguồn dữ liệu mẫu. Giao diện tái sử dụng header, banner xanh, bộ bước thực
-hiện, danh mục bên trái và bảng hỗ trợ bên phải theo mẫu CommuneOS.
+Ứng dụng Nuxt 3 cho người dân: danh mục thủ tục theo xã, nộp hồ sơ nhiều bước có
+Poka-yoke, kho giấy tờ cá nhân, tự điền biểu mẫu, theo dõi tiến độ, bổ sung hồ sơ,
+đại diện nộp thay, lịch hẹn một cửa, thông báo thời gian thực (PostgreSQL
+`LISTEN/NOTIFY` → SSE) và trợ lý hỏi đáp thủ tục.
 
-**Chạy bản demo:**
+Hiện trạng cần biết (chi tiết trong [docs/CITIZEN_SETUP.md](docs/CITIZEN_SETUP.md)):
 
-```bash
-cp .env.example .env
-# DÙNG MẬT KHẨU RIÊNG, KHÔNG GIỮ CÁC GIÁ TRỊ CHANGE_ME
-# Trong .env, đặt SESSION_SECRET bằng giá trị từ: openssl rand -hex 32
-make up
-# Mở http://localhost:3000
-```
+- Đăng nhập công dân qua Keycloak (client bí mật `citizen-app`); đổi mật khẩu qua `/accounts/me/password`.
+  Kết nối OIDC bên ngoài là tùy chọn, tắt mặc định.
+- Luồng chính gọi các hàm `api.*` của lõi qua cổng `/rest` (khách xem thủ tục qua `/public`); lõi kiểm tra
+  lại mọi ràng buộc khi ghi, kể cả đủ giấy tờ bắt buộc. Giấy tờ lưu qua dịch vụ tệp `files` của lõi
+  (SeaweedFS, SHA-256, ClamAV tùy chọn).
+- Các chức năng phụ còn lại (kho giấy tờ, đại diện, lịch hẹn, lộ trình, trợ lý...) vẫn đọc ghi
+  PostgreSQL trực tiếp (vai trò `communeos_app`, RLS theo công dân và xã).
+- Trợ lý hỏi đáp dùng AI của lõi: tìm kiếm lai toàn văn + ngữ nghĩa trên thủ tục đã công bố, mô hình chỉ chọn
+  câu trích dẫn nguyên văn; câu trả lời luôn có nguồn. AI chưa sẵn sàng thì dùng tìm kiếm toàn văn.
+  Nút "Hỏi trợ lý AI" có trên mọi trang, cả ở màn hình cán bộ (thêm hướng dẫn nghiệp vụ). Trợ lý chỉ dùng thủ tục
+  xã của người hỏi đang mở, không đọc hồ sơ hay dữ liệu cá nhân, từ chối câu hỏi tra cứu thông tin của người khác.
+- Kết quả giải quyết là phiếu mô phỏng, chưa ký số.
 
-Lệnh `make up` sử dụng dịch vụ `db-setup` để nạp schema và dữ liệu mẫu cả trên
-**volume trống và volume đã tồn tại**. Thủ tục mẫu trùng mã sẽ không bị ghi đè.
-Để sửa trực tiếp khi đã chạy bản cũ, dùng `make repair-db`; xem thêm
-[docs/CITIZEN_SETUP.md](docs/CITIZEN_SETUP.md).
+Không nhập, tải lên hoặc đưa vào kho mã bất kỳ dữ liệu cá nhân thật nào.
+Không đưa bản demo ra Internet khi `DEMO_MODE=true`.
 
-Tài khoản demo **chỉ dành cho phát triển cục bộ**:
-`congdan.demo` / `Demo@2026!`.
-
-Cổng có danh mục thủ tục, chi tiết thủ tục, nộp hồ sơ nhiều bước có Poka-yoke,
-tải file PDF/JPG/PNG, danh sách và chi tiết hồ sơ, tra cứu tiến độ, bổ sung,
-kết quả mô phỏng, thông báo, trợ lý FAQ, hướng dẫn, hồ sơ cá nhân, đổi mật
-khẩu và phản hồi. Các thay đổi được ghi vào PostgreSQL.
-
-**Giới hạn:** Đây là demo, không phải hệ thống dịch vụ công thật: chưa triển
-khai Keycloak OIDC, cổng APISIX, Flowable, ký số, OCR, RAG hoặc kiểm dịch
-ClamAV. Không nhập, tải lên hoặc đưa vào kho mã bất kỳ dữ liệu cá nhân thật nào.
-Không triển khai public Internet ở chế độ DEMO_MODE.
-
-Chi tiết cấu hình, kiến trúc API, cách thử và hạn chế bảo mật:
-[docs/CITIZEN_SETUP.md](docs/CITIZEN_SETUP.md).
-
-### PostgreSQL: khắc phục thiếu thủ tục trên volume cũ
-
-Từ phiên bản sửa lỗi này, `make up` tự chạy `db-setup` (idempotent) để tạo bảng,
-cấp quyền và nạp dữ liệu mẫu cho volume đã tồn tại. Nếu trang Công dân báo
-"Không tải được thủ tục từ PostgreSQL", chạy `make repair-db`, `make doctor`,
-rồi kiểm tra `http://localhost:3000/api/health` và `/api/procedures`.
-Không xóa Docker volume có dữ liệu cần giữ. Chi tiết: `docs/CITIZEN_SETUP.md`.
-
-**Kết nối PostgreSQL cho ứng dụng Nuxt trong Docker:** Các giá trị runtime
-`NUXT_DB_HOST=db`, `NUXT_DB_NAME`, `NUXT_DB_USER`, `NUXT_DB_PASSWORD` và
-`NUXT_SESSION_SECRET` được cấu hình trong `docker-compose.yml`. Chỉ đặt biến
-`PGHOST` trong Compose là chưa đủ để bảo đảm Nuxt runtimeConfig nhận đúng
-địa chỉ khi build image trước khi container chạy. Chi tiết tại
-`docs/CITIZEN_SETUP.md`.
-
-### Tự động cập nhật dữ liệu trên kênh Công dân
-
-Kênh Công dân hỗ trợ đồng bộ không cần tải lại trang bằng PostgreSQL `LISTEN/NOTIFY` → Nuxt SSE → Vue `refreshNuxtData`. Trên database volume cũ, chạy `make repair-db` **một lần** để cài các trigger, sau đó truy cập như bình thường. Nếu SSE bị gián đoạn, trình duyệt tự đối soát dữ liệu bằng gọi API định kỳ. Hướng dẫn kiểm tra và giới hạn demo: [docs/REALTIME_CITIZEN.md](docs/REALTIME_CITIZEN.md).
+Nếu trang báo "Không tải được thủ tục từ PostgreSQL": `make repair-db`, `make doctor`,
+rồi mở `http://localhost:3000/api/health`. Không xóa volume có dữ liệu cần giữ.
+Cập nhật thời gian thực: [docs/REALTIME_CITIZEN.md](docs/REALTIME_CITIZEN.md).

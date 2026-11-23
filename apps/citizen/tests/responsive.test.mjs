@@ -20,17 +20,19 @@ test('Lock browser viewport and preserve independent, accessible inner scrolling
  assert.match(layout, /citizen-workspace[^"\n]*flex-1[^"\n]*overflow-hidden/)
  assert.match(layout, /<main ref="mainScroll"[^>]*overflow-y-auto[^>]*tabindex="0"/)
  assert.match(layout, /mainScroll\.value\.scrollTop=0/)
- assert.match(layout, /citizen-inner-scroll[^"\n]*overflow-y-auto[^"\n]*2xl:block/)
+ // Nội dung nằm trên tấm nền đặc để chữ không đè lên ảnh nền.
+ assert.match(layout, /<div class="citizen-sheet"><slot\/><\/div>/)
+ assert.match(css, /\.citizen-sheet\s*\{[^}]*bg-/s)
  assert.match(blank, /citizen-inner-scroll[^"\n]*overflow-y-auto/)
 })
 
 test('Navigation adapts to tablets and mobile and supports menu access', () => {
  const layout = read('layouts/default.vue')
- assert.match(layout, /2xl:flex/)
- assert.match(layout, /2xl:hidden/)
+ assert.match(layout, /hidden min-w-0 items-center gap-1 xl:flex/)
+ assert.match(layout, /xl:hidden/)
  assert.match(layout, /aria-expanded="showMobile"/)
  assert.match(layout, /scrollbar-hide[^"\n]*overflow-x-auto/)
- assert.match(layout, /xl:grid-cols-\[205px_minmax\(0,1fr\)\]/)
+ assert.match(layout, /id="citizen-mobile-menu"[^>]*overflow-y-auto/)
 })
 
 test('Case list uses cards on mobile and a table on desktop', () => {

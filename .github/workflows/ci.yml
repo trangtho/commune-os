@@ -43,7 +43,7 @@ jobs:
           sh -n core/db/init/02-create-api-roles.sh
 
       - name: Dựng và khởi động các dịch vụ lõi
-        run: docker compose up -d --build db identity db-setup rest-keys rest gateway workflow-engine orchestrator storage files
+        run: docker compose up -d --build db identity db-setup rest-keys rest gateway workflow-engine orchestrator storage files accounts
 
       - name: Chờ Keycloak và cổng API sẵn sàng
         run: |
@@ -60,6 +60,9 @@ jobs:
 
       - name: Kiểm thử cách ly xã, xử lý hồ sơ, sổ ghi nhận
         run: DEMO_PASSWORD=12345 make test
+
+      - name: Kiểm thử API luồng chính của công dân trong lõi (ROLLBACK)
+        run: make citizen-api-test
 
       - name: Kiểm thử Kênh người dân
         run: make test-citizen

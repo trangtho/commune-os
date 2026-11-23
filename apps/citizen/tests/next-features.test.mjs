@@ -8,6 +8,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 import { spawnSync } from 'node:child_process'
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const read = path => readFileSync(resolve(root, path), 'utf8')
+const core = read('../../core/db/init/21-citizen-api-core-flow.sql')
 
 test('Forms support all six published demonstration procedures, with validation in both draft and submit APIs', () => {
   const config = read('shared/procedure-forms.ts')
@@ -39,10 +40,11 @@ test('Form logic rejects missing, future or out-of-range values and drops unrela
 
 test('Case list uses server pagination without changing legacy homepage array API', () => {
   const api = read('server/api/applications/index.get.ts')
-  assert.match(api, /query\.paged !== '1'/)
-  assert.match(api, /LIMIT \$5 OFFSET \$6/)
-  assert.match(api, /translate\(lower\(p\.title\)/)
-  assert.match(api, /citizenTx/)
+  assert.match(api, /query\.paged === '1'/)
+  assert.match(core, /LIMIT v_size OFFSET \(pg\.page - 1\) \* v_size/)
+  assert.match(core, /citizen_fold\(p\.title\)/)
+  assert.match(core, /SELECT translate\(lower/)
+  assert.match(api, /citizenRpc/)
   const list = read('pages/ho-so/index.vue')
   assert.match(list, /citizen-applications-page/)
   assert.match(list, /casesPage\.page/)
@@ -64,6 +66,6 @@ test('Feedback and case support histories use existing RLS-backed tables', () =>
     assert.match(handler, /LIMIT 50/)
   }
   assert.match(read('pages/lien-he.vue'), /Lịch sử phản hồi đã gửi/)
-  assert.match(read('pages/ho-so/[id].vue'), /citizen-support:/)
+  assert.match(read('pages/ho-so/[id]/index.vue'), /citizen-support:/)
   assert.match(read('components/DocUploader.vue'), /URL\.createObjectURL/)
 })

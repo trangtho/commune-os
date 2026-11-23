@@ -21,6 +21,7 @@ Qua cổng APISIX, cần token Keycloak (cổng kiểm tra token, PostgreSQL ki�
 | ----------- | ------------------------------------------------------------- | -------------------------------------------------------------------------------------------------------------------- |
 | POST        | `/files/dossiers/{mã hồ sơ}/documents?code={loại}&name={tên}` | Đính kèm tệp. Thân là nội dung tệp, `Content-Type` là `application/pdf`, `image/png` hoặc `image/jpeg`, tối đa 5 MB. |
 | GET         | `/files/documents/{id}`                                       | Tải tệp. Đầu trả về có `X-Content-SHA256`.                                                                           |
+| GET         | `/files/health`                                               | Kiểm tra dịch vụ và kho đối tượng SeaweedFS (kho không trả lời thì 503); cho biết quét mã độc có bật không.          |
 
 Danh sách giấy tờ của hồ sơ lấy ở API dữ liệu: `GET /rest/dossier_documents?dossier_id=eq.{mã}`.
 

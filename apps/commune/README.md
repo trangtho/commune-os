@@ -10,7 +10,14 @@ Bảng quản trị cán bộ (Nuxt) cho CommuneOS. Dùng để duyệt, giải 
 - `pages/` – các trang quản trị (tổng quan, hồ sơ, thủ tục, thông báo, báo cáo, nhân viên)
 - `components/` – MetricCard, StatusPill, ProcedureCard, CaseTimeline, DocUploader
 - `server/api/` – API route xử lý nghiệp vụ (auth, hồ sơ, thủ tục, thông báo, nhân viên)
-- `server/utils/` – kết nối PostgreSQL, phiên làm việc, xác thực đầu vào
+- `server/utils/` – gọi API lõi (`core-api.ts`, `core-files.ts`, `core-accounts.ts`), phiên làm việc, xác thực đầu vào.
+  `database.ts` (kết nối PostgreSQL trực tiếp bằng vai trò `communeos_app`) chỉ còn dùng cho xác nhận
+  bổ sung hồ sơ và `/api/health`; biến kết nối `NUXT_DB_*` khai báo trong `docker-compose.yml`.
+- Thông báo (`/thong-bao`): thông báo cho cán bộ do lõi tự sinh (hồ sơ mới, được giao hồ sơ, hồ sơ đã bổ sung,
+  yêu cầu và kết quả duyệt), đọc qua `/rest/staff_notifications`; trạng thái đã đọc tính riêng từng cán bộ.
+  Chỉ lãnh đạo xã gửi được thông báo cho công dân của xã.
+- Trợ lý AI nghiệp vụ: nút nổi trên mọi trang (`components/StaffAssistant.vue`, `server/api/tro-ly.post.ts`), gọi cổng AI
+  của lõi bằng token cán bộ; chỉ dùng thủ tục xã đang mở và hướng dẫn nghiệp vụ, không truy cập hồ sơ hay dữ liệu công dân.
 - `types/models.ts` – TypeScript interfaces chia sẻ với cổng Công dân
 
 ## Cài đặt và chạy
@@ -21,7 +28,8 @@ npm install
 npm run dev
 ```
 
-Tài khoản thử (Keycloak): `canbo.xa-a` / `canbo.xa-b`, mật khẩu `12345`.
+Tài khoản thử (Keycloak): `canbo.xa-a`, `canbo.xa-b` (cán bộ xử lý), `lanhdao.xa-a`, `lanhdao.xa-b`
+(lãnh đạo, thấy thêm khu Nhân viên), mật khẩu `12345`.
 
 Chạy: `SESSION_SECRET=$(openssl rand -hex 32) npm run dev -- --port 3002`
 (cần `docker compose up -d` ở thư mục gốc).

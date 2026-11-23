@@ -1,51 +1,23 @@
 // SPDX-FileCopyrightText: 2026 CommuneOS Contributors
 // SPDX-License-Identifier: Apache-2.0
+// Nộp hồ sơ. Kênh người dân kiểm tra biểu mẫu và số điện thoại của bản nháp đã lưu; lõi
+// (api.citizen_application_submit) khóa thủ tục và hồ sơ, kiểm tra bản nháp chưa đổi kể từ lúc kiểm tra,
+// phiên bản thủ tục đã xác nhận, xã còn mở thủ tục, tuyến tiếp nhận, người kê khai hoặc quyền đại diện,
+// đủ giấy tờ bắt buộc (Poka-yoke), rồi mới chuyển trạng thái và ghi sự kiện, thông báo.
 import { validateProcedureForm } from '../../../../shared/procedure-forms'
-import { citizenTx } from '../../../utils/database'
-import { permittedReceivingTenant } from '../../../utils/citizen-preferences'
-import { requireApprovedRepresentation,requireOwnApplicant,auditRepresentativeAction } from '../../../utils/representations'
-import { reviewStoredDraft } from '../../../utils/preflight'
-import {latestProcedureVersion} from '../../../utils/procedure-version'
-export default defineEventHandler(async(event)=>citizenTx(event,async(client,actor)=>{
-  const id=getRouterParam(event,'id')
-  const body=await readBody(event)
-  if(body?.confirmed!==true)throw createError({statusCode:400,statusMessage:'Bạn phải xác nhận thông tin trước khi nộp'})
-  // Lock procedure first, matching the staff publication lock order, to prevent
-  // a revision being committed between version verification and final submission.
-  const reference=(await client.query('SELECT procedure_id FROM applications WHERE id=$1',[id])).rows[0]
-  if(!reference)throw createError({statusCode:404,statusMessage:'Không tìm thấy hồ sơ'})
-  await client.query('SELECT id FROM procedures WHERE id=$1 FOR SHARE',[reference.procedure_id])
-  const row=(await client.query('SELECT * FROM applications WHERE id=$1 FOR UPDATE',[id])).rows[0]
-  if(!row||row.status!=='draft')throw createError({statusCode:409,statusMessage:'Hồ sơ không ở trạng thái bản nháp'})
-  const version=await latestProcedureVersion(client,row.procedure_id)
-  if(row.acknowledged_procedure_version_id!==version.id)
-    throw createError({statusCode:409,statusMessage:'Quy định thủ tục đã thay đổi. Vui lòng xem nội dung thay đổi và xác nhận phiên bản mới trước khi nộp.'})
-  // A published procedure might have been withdrawn while the user edited the draft.
-  const active=(await client.query('SELECT 1 FROM procedures WHERE id=$1 AND published',[row.procedure_id])).rowCount
-  if(!active)throw createError({statusCode:409,statusMessage:'Thủ tục không còn được công bố; vui lòng chọn thủ tục khác'})
-  if (!(await permittedReceivingTenant(client,{procedureId:row.procedure_id,sourceTenantId:actor.tenantId,receivingTenantId:row.receiving_tenant_id || actor.tenantId})))
-    throw createError({statusCode:409,statusMessage:'Tuyến tiếp nhận không còn hiệu lực; vui lòng chỉnh sửa bản nháp và chọn lại địa phương'})
-  // Quản trị có thể đã tắt thủ tục ở xã tiếp nhận trong lúc người dân soạn bản nháp.
-  const enabled=(await client.query('SELECT public.procedure_enabled_for($1::uuid,$2) AS ok',[row.receiving_tenant_id || actor.tenantId,row.procedure_id])).rows[0]?.ok
-  if(!enabled)throw createError({statusCode:409,statusMessage:'Xã tiếp nhận đã ngừng nhận hồ sơ cho thủ tục này'})
-  if (row.representation_id) {
-    // Recheck approval, scope and expiry under lock at final submission.
-    await requireApprovedRepresentation(client,row.representation_id,row.procedure_id,row.applicant_name)
-  } else {
-    await requireOwnApplicant(client,actor.id,row.applicant_name)
-  }
-  const issues = validateProcedureForm(row.procedure_id, row.form_data || {})
-  if (issues.length) throw createError({statusCode:422,statusMessage:issues[0].message})
-  const missing=(await client.query(`SELECT d.document_name FROM procedure_documents d
-    WHERE d.procedure_id=$1 AND d.is_required AND NOT EXISTS
-      (SELECT 1 FROM application_documents f WHERE f.application_id=$2 AND f.document_code=d.document_code)`,[row.procedure_id,id])).rows
-  if(missing.length)throw createError({statusCode:422,statusMessage:'Thiếu giấy tờ: '+missing.map(d=>d.document_name).join(', ')})
-  // Re-evaluate the persisted draft and its documents inside this same transaction.
-  const preflight=await reviewStoredDraft(client,actor,String(id))
-  if(!preflight.ready)throw createError({statusCode:422,statusMessage:preflight.blocking.map(x=>x.message).join('; ').slice(0,400)})
-  await client.query("UPDATE applications SET status='submitted',submitted_at=now(),updated_at=now(),due_at=(SELECT CASE WHEN sla_days > 0 THEN CURRENT_DATE + sla_days ELSE NULL END FROM procedures WHERE id=$2),submitted_procedure_version_id=$3 WHERE id=$1",[id,row.procedure_id,version.id])
-  await client.query("INSERT INTO application_events(application_id,event_type,note,actor_name) VALUES($1,'submitted','Công dân đã nộp hồ sơ và xác nhận đầy đủ giấy tờ.',$2)",[id,actor.name])
-  if(row.representation_id)await auditRepresentativeAction(client,row.representation_id,actor,'application_submitted',id)
-  await client.query("INSERT INTO citizen_notifications(citizen_id,tenant_id,application_id,title,body) VALUES($1,$2,$3,'Nộp hồ sơ thành công','Hồ sơ '||$3||' đã được ghi nhận.')",[actor.id,actor.tenantId,id])
-  return {id,status:'submitted'}
-}))
+import { phoneIssue } from '../../../../shared/identity-validation'
+import { citizenRpc } from '../../../utils/identity'
+import { requireCitizen } from '../../../utils/session'
+type Draft = { procedure_id: string; status: string; form_data: Record<string, unknown> | null; applicant_phone: string | null; updated_at: string }
+export default defineEventHandler(async (event) => {
+  requireCitizen(event)
+  const id = String(getRouterParam(event, 'id') || '')
+  const body = await readBody(event)
+  if (body?.confirmed !== true) throw createError({ statusCode: 400, statusMessage: 'Bạn phải xác nhận thông tin trước khi nộp' })
+  const draft = await citizenRpc<Draft>(event, 'citizen_application_draft', { p_application_id: id })
+  if (draft.status !== 'draft') throw createError({ statusCode: 409, statusMessage: 'Hồ sơ không ở trạng thái bản nháp' })
+  const issues = validateProcedureForm(draft.procedure_id, draft.form_data || {})
+  if (issues.length) throw createError({ statusCode: 422, statusMessage: issues[0].message })
+  if (phoneIssue(draft.applicant_phone || '')) throw createError({ statusCode: 422, statusMessage: 'Số điện thoại liên hệ chưa hợp lệ.' })
+  return citizenRpc(event, 'citizen_application_submit', { p_application_id: id, p_expected_updated_at: draft.updated_at })
+})

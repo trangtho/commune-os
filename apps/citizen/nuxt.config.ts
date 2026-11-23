@@ -12,6 +12,8 @@ export default defineNuxtConfig({
     }
   },
   modules: ['@nuxtjs/tailwindcss'],
+  // Phông Be Vietnam Pro (OFL-1.1) đóng gói cùng ứng dụng, không tải từ máy chủ ngoài lúc chạy.
+  css: ['@fontsource/be-vietnam-pro/400.css', '@fontsource/be-vietnam-pro/500.css', '@fontsource/be-vietnam-pro/600.css', '@fontsource/be-vietnam-pro/700.css'],
   tailwindcss: { cssPath: '~/assets/css/main.css' },
   app: {
     head: {
@@ -22,12 +24,16 @@ export default defineNuxtConfig({
         { name: 'viewport', content: 'width=device-width, initial-scale=1' }
       ],
       link: [
-        { rel: 'icon', type: 'image/png', href: '/images/logo-hoc-vien-ky-thuat-cong-nghe-an-ninh.png' }
+        { rel: 'icon', type: 'image/svg+xml', href: '/images/logo-communeos.svg' }
       ]
     }
   },
   runtimeConfig: {
     sessionSecret: process.env.SESSION_SECRET || '',
+    // Đăng nhập công dân bằng Keycloak và gọi lõi qua cổng APISIX.
+    keycloakUrl: process.env.KEYCLOAK_URL || 'http://localhost:8080',
+    gatewayUrl: process.env.GATEWAY_URL || 'http://localhost:9080',
+    keycloakClientSecret: process.env.CITIZEN_KEYCLOAK_SECRET || '',
     oidcIssuer: process.env.CITIZEN_OIDC_ISSUER || '',
     oidcAuthorizeUrl: process.env.CITIZEN_OIDC_AUTHORIZE_URL || '',
     oidcTokenUrl: process.env.CITIZEN_OIDC_TOKEN_URL || '',
@@ -35,11 +41,6 @@ export default defineNuxtConfig({
     oidcClientId: process.env.CITIZEN_OIDC_CLIENT_ID || '',
     oidcClientSecret: process.env.CITIZEN_OIDC_CLIENT_SECRET || '',
     oidcRedirectUri: process.env.CITIZEN_OIDC_REDIRECT_URI || '',
-    aiEndpoint: process.env.CITIZEN_AI_ENDPOINT || '',
-    aiModel: process.env.CITIZEN_AI_MODEL || '',
-    aiToken: process.env.CITIZEN_AI_TOKEN || '',
-    ragEndpoint: process.env.CITIZEN_RAG_ENDPOINT || '',
-    ragToken: process.env.CITIZEN_RAG_TOKEN || '',
     resultEndpoint: process.env.CITIZEN_RESULTS_ENDPOINT || '',
     resultToken: process.env.CITIZEN_RESULTS_TOKEN || '',
     ocrEndpoint: process.env.CITIZEN_OCR_ENDPOINT || '',

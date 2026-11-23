@@ -63,4 +63,94 @@ routes:
       type: roundrobin
       nodes:
         "files:3000": 1
+  # Dịch vụ tài khoản cán bộ: cổng kiểm tra token, dịch vụ kiểm tra vai trò và xã.
+  - id: accounts
+    uri: /accounts/*
+    plugins:
+      openid-connect:
+        client_id: commune-app
+        client_secret: khong-dung
+        discovery: http://identity:8080/realms/communeos/.well-known/openid-configuration
+        bearer_only: true
+        use_jwks: true
+    upstream:
+      type: roundrobin
+      nodes:
+        "accounts:3000": 1
+  # Đổi mật khẩu tạm lần đầu (chưa có token). Mật khẩu tạm do dịch vụ kiểm tra bằng Keycloak.
+  - id: accounts-first-password
+    uri: /accounts/first-password
+    methods: ["POST"]
+    priority: 10
+    plugins:
+      limit-count:
+        count: 20
+        time_window: 60
+        key_type: var
+        key: remote_addr
+        rejected_code: 429
+    upstream:
+      type: roundrobin
+      nodes:
+        "accounts:3000": 1
+  # API công khai cho khách chưa đăng nhập: chỉ danh mục và chi tiết thủ tục đã công bố.
+  # Không nhận token (bỏ header Authorization), PostgREST dùng vai trò web_anon; có giới hạn số lần gọi.
+  - id: public-procedures
+    uris: ["/public/rpc/procedure_catalog", "/public/rpc/procedure_detail"]
+    methods: ["GET", "POST"]
+    plugins:
+      limit-count:
+        count: 120
+        time_window: 60
+        key_type: var
+        key: remote_addr
+        rejected_code: 429
+      proxy-rewrite:
+        regex_uri: ["^/public/(.*)", "/$1"]
+        headers:
+          remove: ["Authorization"]
+    upstream:
+      type: roundrobin
+      nodes:
+        "rest:3000": 1
+  # Cổng AI của lõi (core/ai): mô hình chạy cục bộ, không gọi API AI bên ngoài.
+  - id: ai
+    uri: /ai/*
+    plugins:
+      openid-connect:
+        client_id: commune-app
+        client_secret: khong-dung
+        discovery: http://identity:8080/realms/communeos/.well-known/openid-configuration
+        bearer_only: true
+        use_jwks: true
+    upstream:
+      type: roundrobin
+      timeout:
+        connect: 5
+        send: 30
+        read: 120
+      nodes:
+        "ai-gateway:3000": 1
+  # Trợ lý cho khách chưa đăng nhập: không nhận token, giới hạn chặt.
+  - id: public-ai
+    uris: ["/public/ai/ask", "/public/ai/ready"]
+    methods: ["GET", "POST"]
+    plugins:
+      limit-count:
+        count: 20
+        time_window: 60
+        key_type: var
+        key: remote_addr
+        rejected_code: 429
+      proxy-rewrite:
+        headers:
+          remove: ["Authorization"]
+    upstream:
+      type: roundrobin
+      timeout:
+        connect: 5
+        send: 30
+        read: 120
+      nodes:
+        "ai-gateway:3000": 1
 #END

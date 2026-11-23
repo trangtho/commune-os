@@ -1,31 +1,19 @@
 // SPDX-FileCopyrightText: 2026 CommuneOS Contributors
 // SPDX-License-Identifier: Apache-2.0
+// Sửa bản nháp: kiểm tra biểu mẫu ở đây, lõi kiểm tra trạng thái, tuyến tiếp nhận, người kê khai rồi ghi.
 import { validateProcedureForm, sanitizeProcedureForm } from '../../../shared/procedure-forms'
-import { citizenTx } from '../../utils/database'
-import { permittedReceivingTenant } from '../../utils/citizen-preferences'
-import { applicationSchema,validate } from '../../utils/validation'
-import {requireApprovedRepresentation,requireOwnApplicant} from '../../utils/representations'
-export default defineEventHandler(async(event)=>{
-  const body=validate(applicationSchema,await readBody(event))
-  const id=getRouterParam(event,'id')
-  return citizenTx(event,async(client,actor)=>{
-    const receivingTenantId = body.receivingTenantId || actor.tenantId
-    if (!(await permittedReceivingTenant(client,{procedureId:body.procedureId,sourceTenantId:actor.tenantId,receivingTenantId})))
-      throw createError({statusCode:422,statusMessage:'Địa phương tiếp nhận chưa được cho phép đối với thủ tục này'})
-    const row=(await client.query('SELECT id,status,procedure_id FROM applications WHERE id=$1 FOR UPDATE',[id])).rows[0]
-    if(!row||row.status!=='draft'||row.procedure_id!==body.procedureId)
-      throw createError({statusCode:409,statusMessage:'Không thể sửa hồ sơ đã nộp hoặc khác thủ tục'})
-    if (body.representationId) {
-      await requireApprovedRepresentation(client,body.representationId,body.procedureId,body.applicantName)
-    } else {
-      await requireOwnApplicant(client,actor.id,body.applicantName)
-    }
-    const issues = validateProcedureForm(body.procedureId, body.formData)
-    if (issues.length) throw createError({statusCode: 422, statusMessage: issues[0].message})
-    await client.query(`UPDATE applications SET applicant_name=$1,applicant_phone=$2,description=$3,
-       form_data=$4::jsonb,receiving_tenant_id=$6,representation_id=$7,updated_at=now() WHERE id=$5`,
-       [body.applicantName,body.phone,body.description,JSON.stringify(sanitizeProcedureForm(body.procedureId, body.formData)),id,receivingTenantId,body.representationId || null])
-    await client.query('UPDATE citizen_draft_cursors SET revision=revision+1,updated_at=now() WHERE application_id=$1',[id])
-    return {id,status:'draft'}
+import { citizenRpc } from '../../utils/identity'
+import { requireCitizen } from '../../utils/session'
+import { applicationSchema, validate } from '../../utils/validation'
+export default defineEventHandler(async (event) => {
+  requireCitizen(event)
+  const body = validate(applicationSchema, await readBody(event))
+  const issues = validateProcedureForm(body.procedureId, body.formData)
+  if (issues.length) throw createError({ statusCode: 422, statusMessage: issues[0].message })
+  return citizenRpc(event, 'citizen_application_update', {
+    p_application_id: String(getRouterParam(event, 'id') || ''), p_procedure_id: body.procedureId,
+    p_applicant_name: body.applicantName, p_phone: body.phone, p_description: body.description,
+    p_form_data: sanitizeProcedureForm(body.procedureId, body.formData),
+    p_receiving_tenant_id: body.receivingTenantId || null, p_representation_id: body.representationId || null,
   })
 })

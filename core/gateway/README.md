@@ -11,8 +11,20 @@ Cửa ngõ API của lõi, dùng Apache APISIX ở chế độ đọc cấu hìn
 - `apisix.yaml`: các tuyến đường. APISIX tự nạp lại khi tệp thay đổi; tệp phải
   kết thúc bằng dòng `#END`.
 
-Mọi tuyến `/api/*` yêu cầu JWT do Keycloak cấp (plugin `openid-connect`,
-kiểm chữ ký bằng JWKS và kiểm nơi cấp).
+| Tuyến | Chuyển tới | Ghi chú |
+| --- | --- | --- |
+| `/rest/*` | PostgREST (`core/rest`) | Bắt buộc JWT Keycloak |
+| `/workflow/*` | Dịch vụ điều phối (`core/orchestrator`) | Bắt buộc JWT |
+| `/files/*` | Dịch vụ tệp (`core/files`) | Bắt buộc JWT |
+| `/accounts/*` | Dịch vụ tài khoản (`core/accounts`) | Bắt buộc JWT |
+| `/accounts/first-password` | Dịch vụ tài khoản | Không cần token, giới hạn số lần thử |
+| `/public/rpc/procedure_catalog`, `/public/rpc/procedure_detail` | PostgREST, vai trò `web_anon` | Không cần token (header `Authorization` bị bỏ), giới hạn 120 lần/phút; khách xem danh mục thủ tục |
+| `/ai/*` | Cổng AI (`core/ai`) | Bắt buộc JWT; chờ tối đa 120 giây |
+| `/public/ai/ask`, `/public/ai/ready` | Cổng AI | Không cần token (bỏ header `Authorization`), giới hạn 20 lần/phút |
+| `/api/ping` | Keycloak | Tuyến thử |
+
+Các tuyến bắt buộc JWT dùng plugin `openid-connect` (kiểm chữ ký bằng JWKS và kiểm nơi cấp);
+PostgREST và các dịch vụ phía sau kiểm tra lại token một lần nữa.
 
 ## Thử nhanh
 

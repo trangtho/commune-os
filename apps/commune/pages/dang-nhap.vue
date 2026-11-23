@@ -8,10 +8,34 @@ const username = ref("");
 const password = ref("");
 const loading = ref(false);
 const errorText = ref("");
+// Lần đầu đăng nhập bằng mật khẩu tạm: hiện thêm ô đặt mật khẩu mới ngay tại đây.
+const mustChange = ref(false);
+const newPassword = ref("");
+const confirmPassword = ref("");
+const infoText = ref("");
+async function changeFirstPassword() {
+  if (newPassword.value !== confirmPassword.value) {
+    errorText.value = "Hai lần nhập mật khẩu mới không khớp.";
+    return;
+  }
+  await $fetch("/api/auth/first-password", {
+    method: "POST",
+    body: { username: username.value, currentPassword: password.value, newPassword: newPassword.value },
+  });
+  password.value = newPassword.value;
+  newPassword.value = "";
+  confirmPassword.value = "";
+  mustChange.value = false;
+  infoText.value = "Đã đặt mật khẩu mới. Đang đăng nhập...";
+}
 async function login() {
   loading.value = true;
   errorText.value = "";
   try {
+    if (mustChange.value) {
+      await changeFirstPassword();
+      if (mustChange.value || errorText.value) return;
+    }
     await $fetch("/api/auth/login", {
       method: "POST",
       body: { username: username.value, password: password.value },
@@ -21,8 +45,13 @@ async function login() {
     await navigateTo(
       next.startsWith("/") && !next.startsWith("//") ? next : "/",
     );
-  } catch (e) {
-    errorText.value = readableError(e);
+  } catch (e: any) {
+    if (e?.data?.data?.code === "password_change_required") {
+      mustChange.value = true;
+      infoText.value = "Đây là mật khẩu tạm. Hãy đặt mật khẩu mới (ít nhất 8 ký tự, có cả chữ và số).";
+    } else {
+      errorText.value = readableError(e);
+    }
   } finally {
     loading.value = false;
   }
@@ -31,15 +60,8 @@ async function login() {
 <template>
   <div class="grid min-h-screen lg:grid-cols-2">
     <div
-      class="hero-gradient hero-pattern relative hidden items-center justify-center overflow-hidden p-12 text-white lg:flex"
+      class="hero-gradient relative hidden items-center justify-center overflow-hidden p-12 text-white lg:flex"
     >
-      <div class="absolute inset-y-0 right-0 w-full opacity-30">
-        <img
-          src="/images/ubnd-hero-clean.png"
-          class="h-full w-full object-contain object-top"
-          alt="Trụ sở UBND minh họa"
-        />
-      </div>
       <div class="relative z-10 max-w-lg">
         <span
           class="mb-6 flex h-20 w-20 items-center justify-center rounded-2xl border border-white/40 bg-white/20"
@@ -69,7 +91,8 @@ async function login() {
           class="rounded-lg border border-brand-200 bg-brand-50 p-3 text-sm text-brand-800"
         >
           <b>Thông tin đăng nhập demo</b>
-          <p>Tên đăng nhập: <code>canbo.xa-a / canbo.xa-b</code></p>
+          <p>Cán bộ xử lý: <code>canbo.xa-a / canbo.xa-b</code></p>
+          <p>Lãnh đạo xã: <code>lanhdao.xa-a / lanhdao.xa-b</code></p>
           <p>Mật khẩu: <code>12345</code></p>
           <p class="mt-1 text-xs">Không sử dụng dữ liệu cá nhân thật.</p>
         </div>
@@ -90,8 +113,44 @@ async function login() {
             type="password"
             required
             autocomplete="current-password"
+            :readonly="mustChange"
           />
         </div>
+        <template v-if="mustChange">
+          <div>
+            <label class="field-label" for="new-password">Mật khẩu mới</label
+            ><input
+              id="new-password"
+              v-model="newPassword"
+              class="field"
+              type="password"
+              required
+              minlength="8"
+              maxlength="64"
+              autocomplete="new-password"
+            />
+          </div>
+          <div>
+            <label class="field-label" for="confirm-password">Nhập lại mật khẩu mới</label
+            ><input
+              id="confirm-password"
+              v-model="confirmPassword"
+              class="field"
+              type="password"
+              required
+              minlength="8"
+              maxlength="64"
+              autocomplete="new-password"
+            />
+          </div>
+        </template>
+        <p
+          v-if="infoText && !errorText"
+          role="status"
+          class="rounded-lg bg-brand-50 p-3 text-sm text-brand-800"
+        >
+          {{ infoText }}
+        </p>
         <p
           v-if="errorText"
           class="rounded-lg bg-rose-50 p-3 text-sm text-rose-700"
@@ -99,7 +158,7 @@ async function login() {
           {{ errorText }}
         </p>
         <button type="submit" class="btn-primary w-full" :disabled="loading">
-          <LogIn :size="17" />{{ loading ? "Đang xác thực..." : "Đăng nhập" }}
+          <LogIn :size="17" />{{ loading ? "Đang xác thực..." : mustChange ? "Đặt mật khẩu mới và đăng nhập" : "Đăng nhập" }}
         </button>
       </form>
     </div>

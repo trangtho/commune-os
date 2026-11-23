@@ -7,8 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 
 ## 1. Mô tả phạm vi
 
-Bản này bổ sung **ứng dụng Công dân** (`apps/citizen/`) trực tiếp vào
-repository khung đã có; không xóa các thư mục lõi, ứng dụng xã, hay packs.
+Tài liệu này hướng dẫn chạy và kiểm tra **ứng dụng Công dân** (`apps/citizen/`).
 Giao diện dùng Nuxt 3 + Vue 3 + TypeScript + Tailwind CSS 3 và dựa trên mẫu
 UI: header trắng, banner UBND nền xanh, quy trình từng bước, danh mục thủ tục
 bên trái, nội dung chính theo thẻ bo góc, khu vực hỗ trợ bên phải.
@@ -19,8 +18,8 @@ Nguồn dữ liệu: PostgreSQL 17, `core/db/init/01-schema.sql` và
 
 ## 2. Chạy trên Ubuntu
 
-Yêu cầu Docker Engine + `docker compose`, `make`, ít nhất 4 GB RAM cho
-prototype (chưa có AI/Flowable/APISIX). Lệnh:
+Yêu cầu Docker Engine + `docker compose`, `make`, khoảng 6 GB RAM vì `make up`
+dựng toàn bộ lõi (Keycloak, APISIX, PostgREST, Flowable, SeaweedFS) cùng ba ứng dụng. Lệnh:
 
 ```bash
 cd commune-os
@@ -47,7 +46,12 @@ khi đã sao lưu hoặc không còn cần dữ liệu.
 Khi chạy, PostgreSQL tạo role `communeos_app` không có quyền superuser.
 Nuxt Nitro kết nối bằng role này; mọi truy vấn dữ liệu Công dân chạy trong
 transaction có `set_config('app.citizen_id'...)` và `tenant_id` để áp RLS.
-Tuy nhiên **RLS ở mẫu này không thay thế hệ thống OIDC của lõi**.
+Đăng nhập: máy chủ Công dân gửi tên đăng nhập và mật khẩu tới Keycloak (client bí mật `citizen-app`), đọc
+hồ sơ công dân qua cổng APISIX (`/rest/my_citizen_profile`), rồi tạo cookie phiên ký HMAC. Token
+Keycloak giữ trong cookie HttpOnly mã hóa AES-256-GCM, tự gia hạn; trình duyệt không đọc được.
+Luồng chính gọi các hàm `api.*` của lõi qua cổng APISIX (`/rest/rpc/...`, khách chưa đăng nhập dùng
+`/public/rpc/procedure_catalog` và `procedure_detail`); xem `core/db/init/21-citizen-api-core-flow.sql`.
+Các chức năng phụ còn lại vẫn kết nối PostgreSQL trực tiếp, chưa đi qua cửa ngõ APISIX.
 
 ### Sửa lỗi "Không tải được thủ tục từ PostgreSQL" (không mất dữ liệu)
 
@@ -122,12 +126,12 @@ trên dữ liệu cần giữ vì lệnh này xóa toàn bộ volume dữ liệu
 | `/ho-so/:id/bo-sung` | Bổ sung giấy tờ khi hồ sơ có trạng thái `supplement` |
 | `/ho-so/:id/ket-qua` | Phiếu kết quả mô phỏng (không có giá trị pháp lý) |
 | `/thong-bao` | Thông báo từ database, đánh dấu đã đọc |
-| `/tro-ly` | Hỏi đáp FAQ theo từ khóa với liên kết nguồn (không phải RAG) |
+| `/tro-ly` | Hỏi đáp thủ tục bằng AI của lõi (`core/ai`, mô hình chạy cục bộ): tìm kiếm lai toàn văn + ngữ nghĩa, trích dẫn nguyên văn có nguồn |
 | `/huong-dan` | Quy trình sử dụng, FAQ cơ bản |
 | `/ho-so-ca-nhan` | Xem và sửa profile trong PostgreSQL |
-| `/bao-mat` | Đổi mật khẩu mẫu, hash scrypt |
+| `/bao-mat` | Đổi mật khẩu (lưu ở Keycloak, qua `/accounts/me/password` của lõi) |
 | `/lien-he` | Gửi phản hồi, lưu PostgreSQL |
-| `/dang-nhap` | Đăng nhập công dân mô phỏng, cookie HMAC HttpOnly |
+| `/dang-nhap` | Đăng nhập công dân qua Keycloak, cookie phiên HttpOnly |
 
 Phần UI trên gồm đủ luồng nghiệp vụ tương ứng bộ màn hình Công dân đã thiết kế;
 một số bước dùng một trang wizard thay vì nhiều trang HTML lặp lại.
@@ -137,29 +141,29 @@ một số bước dùng một trang wizard thay vì nhiều trang HTML lặp l�
 | API | Phương thức | Công dụng |
 | --- | --- | --- |
 | `/api/health` | GET | Kiểm tra kết nối database |
-| `/api/auth/login` | POST | Đăng nhập demo bằng mật khẩu hash |
+| `/api/auth/login` | POST | Đăng nhập qua Keycloak, đọc hồ sơ qua `/rest` |
 | `/api/auth/me` | GET | Tình trạng phiên và vai trò |
-| `/api/auth/logout` | POST | Xóa cookie phiên |
-| `/api/procedures` | GET | Danh sách thủ tục |
-| `/api/procedures/:id` | GET | Chi tiết thủ tục và giấy tờ |
-| `/api/applications` | GET/POST | Danh sách, tạo bản nháp |
+| `/api/auth/logout` | POST | Thu hồi phiên Keycloak, xóa cookie |
+| `/api/procedures` | GET | Danh sách thủ tục (`api.procedure_catalog`) |
+| `/api/procedures/:id` | GET | Chi tiết thủ tục và giấy tờ (`api.procedure_detail`) |
+| `/api/applications` | GET/POST | Danh sách, tạo bản nháp (`api.citizen_applications`, `api.citizen_application_create`) |
 | `/api/applications/:id` | GET | Hồ sơ đã giới hạn theo tài khoản |
-| `/api/applications/:id/documents` | POST multipart | Tải tệp lên máy chủ, lưu metadata PostgreSQL |
-| `/api/applications/:id/submit` | POST | Chặn nộp nếu thiếu giấy tờ |
+| `/api/applications/:id/documents` | POST multipart | Gửi tệp tới dịch vụ `files` của lõi (kho S3, SHA-256), lưu metadata PostgreSQL |
+| `/api/applications/:id/submit` | POST | Nộp hồ sơ; lõi chặn nếu thiếu giấy tờ (`api.citizen_application_submit`) |
 | `/api/applications/:id/complete-supplement` | POST | Xác nhận bổ sung |
 | `/api/documents/:id` | GET | Tải tài liệu đã kiểm tra quyền |
 | `/api/notifications` | GET | Nhận thông báo |
 | `/api/notifications/:id/read` | POST | Đánh dấu đã đọc |
 | `/api/notifications/read-all` | POST | Đánh dấu tất cả |
 | `/api/profile` | GET/PATCH | Hồ sơ công dân |
-| `/api/profile/password` | POST | Đổi mật khẩu |
-| `/api/chat` | POST | Tra lời từ bộ FAQ mô phỏng |
+| `/api/profile/password` | POST | Đổi mật khẩu qua dịch vụ tài khoản của lõi |
+| `/api/chat` | POST | Trả lời từ chỉ mục tri thức thủ tục (`citizen_knowledge_chunks`), có trích nguồn |
 | `/api/support`, `/api/feedback` | POST | Gửi trao đổi, góp ý |
 
 Mọi API riêng tư đều đọc **cookie phiên ký trên server**, không tin
 `citizen_id` do client gửi. SQL sử dụng query có tham số, và PostgreSQL RLS
-lọc theo `app.citizen_id` và `app.tenant_id`. Trong sản phẩm thật cần thay
-cơ chế cookie demo bằng Keycloak OIDC với JWT do APISIX xác thực.
+lọc theo `app.citizen_id` và `app.tenant_id`. Danh sách trên chỉ gồm các API cơ bản;
+toàn bộ API nằm trong `apps/citizen/server/api/`.
 
 ## 5. Kiểm thử thủ công
 
@@ -184,27 +188,33 @@ khi PostgreSQL khởi động để kiểm tra từng role chỉ đọc được
 Có thể đăng nhập bằng công dân thứ hai và kiểm tra trực tiếp hồ sơ xã kia
 không xuất hiện trong danh sách. Bài kiểm thử này chạy trên PostgreSQL thật.
 
-`make test` hiện chạy **kiểm tra cấu trúc tĩnh**; không phải kiểm thử
-end-to-end, kiểm thử tích hợp PostgreSQL hay kết quả build Docker.
+Các lệnh kiểm thử liên quan:
+
+- `make test-citizen`: kiểm thử đơn vị và cấu trúc của `apps/citizen` (Node 22 trong Docker).
+- `make rls-test`, `make chat-history-test`, `make vault-autofill-test`, ...: kiểm thử RLS trên
+  PostgreSQL thật, chạy trong transaction rồi `ROLLBACK` (`make help` để xem đủ).
+- `make test`: 46 kiểm tra của lõi qua gateway (cách ly xã, quy trình, tệp, tài khoản cán bộ, công dân, AI).
+- `make citizen-api-test`: tạo, nộp hồ sơ qua API của lõi, Poka-yoke thiếu giấy tờ, chống sửa hồ sơ đã nộp (ROLLBACK).
+- `npm --prefix apps/citizen run test:e2e`: kiểm thử giao diện end-to-end bằng Playwright (cần ứng dụng đang chạy).
 
 ## 6. Giới hạn và yêu cầu trước production
 
-- Chưa triển khai hệ thống Keycloak/OIDC/JWT/APISIX/Flowable, không xác minh
-  căn cước hoặc quyền thực hiện thủ tục ngoài cookie demo.
-- Chưa quét virus ClamAV, không có OCR CCCD và không có chữ ký số.
-- Trợ lý trong bản này là FAQ keyword, **không phải mô hình AI RAG**.
+- Tài khoản công dân do quản trị tạo trong Keycloak, chưa có trang tự đăng ký, chưa xác minh căn cước.
+  Kết nối OIDC tới nhà cung cấp định danh được phê duyệt có sẵn nhưng tắt mặc định.
+- Các chức năng phụ ngoài luồng chính chưa đi qua cửa ngõ APISIX; truy cập PostgreSQL trực tiếp bằng
+  vai trò có RLS. Cột `citizens.password_hash` không còn dùng để đăng nhập.
+- Kiểm tra từng trường biểu mẫu (`shared/procedure-forms.ts`) chạy ở máy chủ Kênh người dân, chưa nằm
+  trong lõi; vì vậy `citizen-app` là client bí mật để công dân không tự xin token gọi thẳng API lõi.
+- Quét mã độc ClamAV là tùy chọn (`docker compose --profile antivirus up -d antivirus`,
+  `CLAMAV_HOST=antivirus`). Chưa có OCR (biến `CITIZEN_OCR_ENDPOINT` để trống) và chưa có chữ ký số.
+- Trợ lý dùng mô hình nhỏ chạy trên CPU của máy chủ (xem `core/ai/README.md`), không gửi dữ liệu ra API AI
+  bên ngoài; mỗi câu hỏi mất vài giây đến khoảng 15 giây. Mô hình chỉ chọn trích dẫn, không tự viết nội dung.
 - Các số ngày, lệ phí và danh mục giấy tờ chưa đối chiếu quy định hành chính
   hiện hành, không dùng để ra quyết định thật.
-- Tệp tải lên nằm ở Docker volume `citizen-uploads`, không phải S3/object
-  storage của lõi đầy đủ. Cần kiểm soát nội dung, anti-virus, quota và bảo vệ
-  tệp khi triển khai thực tế.
-- Chưa có hệ thống phát hành kết quả được ký điện tử; trang kết quả chỉ in
-  phiếu **mô phỏng**.
-- Cần khóa exact dependency versions bằng lockfile (cài và commit khi có
-  mạng), chạy kiểm thử e2e, audit và thử nghiệm sau triển khai.
-- Cơ chế Poka-yoke ở API chỉ kiểm tra có đủ loại tệp bắt buộc, chưa thể
-  xác nhận nội dung/chất lượng giấy tờ.
+- Giấy tờ lưu trong kho đối tượng của lõi qua dịch vụ `files`; tệp cũ trước khi có dịch vụ này
+  vẫn nằm ở volume `citizen-uploads`. Cần quota và chính sách lưu giữ khi chạy thật.
+- Trang kết quả chỉ in phiếu **mô phỏng**, chưa được ký điện tử.
+- Poka-yoke ở API kiểm tra đủ loại tệp bắt buộc và đúng định dạng, chưa xác nhận nội dung giấy tờ.
 - Dữ liệu công dân demo phải được xóa trước khi chuyển sang môi trường thật.
 
-Tất cả điều trên được xác định là **ngoài phạm vi** prototype hiện tại, không
-được coi là đã triển khai.
+Tất cả điều trên **chưa được triển khai**, không được mô tả là đã có.

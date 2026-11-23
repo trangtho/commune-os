@@ -9,7 +9,7 @@ const dir=resolve(import.meta.dirname,'..')
 const root=resolve(dir,'../..')
 const get=(file)=>readFileSync(resolve(root,file),'utf8')
 test('Required admin pages exist',()=>{
- for(const page of ['index.vue','dang-nhap.vue','ho-so/index.vue','ho-so/[id].vue','ho-so/[id]/bo-sung.vue','ho-so/[id]/ket-qua.vue','thu-tuc/index.vue','thu-tuc/[slug].vue','thong-bao/index.vue','bao-cao/index.vue','tai-khoan/index.vue'])
+ for(const page of ['index.vue','dang-nhap.vue','ho-so/index.vue','ho-so/[id]/index.vue','ho-so/[id]/bo-sung.vue','ho-so/[id]/ket-qua.vue','thu-tuc/index.vue','thu-tuc/[slug].vue','thong-bao/index.vue','bao-cao/index.vue','tai-khoan/index.vue'])
   assert.ok(existsSync(resolve(dir,'pages',page)),page)
 })
 test('Staff session and role checks enforced',()=>{

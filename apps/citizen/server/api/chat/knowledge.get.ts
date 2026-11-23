@@ -6,7 +6,10 @@ export default defineEventHandler(async event => {
   setHeader(event,'Cache-Control','no-store')
   try {
     const status=await readKnowledgeStatus()
-    return {...status,aiConfigured:Boolean(useRuntimeConfig().aiEndpoint && useRuntimeConfig().aiModel),
+    // Trợ lý AI của lõi đã có mô hình chưa (mô hình chạy trên máy chủ, không dùng API bên ngoài).
+    const gateway=String(useRuntimeConfig().gatewayUrl||'').replace(/\/$/,'')
+    const ai=await $fetch<{ready:boolean}>(`${gateway}/public/ai/ready`,{timeout:3000}).catch(()=>({ready:false}))
+    return {...status,aiConfigured:ai.ready,aiProvider:'core-ai-local',
       source:'PostgreSQL — procedures, procedure_documents, citizen_faq',
       updatePolicy:'transactional_triggers'}
   } catch (error) {

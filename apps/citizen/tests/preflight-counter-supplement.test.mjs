@@ -5,6 +5,7 @@ import assert from 'node:assert/strict'
 import {readFileSync} from 'node:fs'
 const root=new URL('../../../',import.meta.url)
 const read=(path)=>readFileSync(new URL(path,root),'utf8')
+const core=read('core/db/init/21-citizen-api-core-flow.sql')
 test('Preflight verifies persisted form and required document types at API and submission',()=>{
  const checker=read('apps/citizen/server/utils/preflight.ts')
  assert.match(checker,/validateProcedureForm/)
@@ -13,7 +14,8 @@ test('Preflight verifies persisted form and required document types at API and s
  assert.match(checker,/permittedReceivingTenant/)
  assert.match(checker,/Cần cán bộ kiểm tra/)
  const submit=read('apps/citizen/server/api/applications/[id]/submit.post.ts')
- assert.match(submit,/reviewStoredDraft/)
+ assert.match(submit,/validateProcedureForm/)
+ assert.match(core,/FROM procedure_documents d\s*WHERE d\.procedure_id = r\.procedure_id AND d\.is_required/)
  const form=read('apps/citizen/pages/nop-ho-so/[slug].vue')
  assert.match(form,/preflight\?\.blocking/)
  assert.match(form,/preflight\?\.verify/)

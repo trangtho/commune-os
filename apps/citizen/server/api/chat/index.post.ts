@@ -5,9 +5,9 @@ import { readSession } from '../../utils/session'
 import { citizenTx, publicQuery } from '../../utils/database'
 import { messageSchema, validate } from '../../utils/validation'
 import { loadPublishedKnowledge } from '../../utils/procedure-knowledge'
-import { classifyWithRagService } from '../../utils/ai-classifier'
 import { retrieveKnowledge } from '../../utils/knowledge-index'
-import { answerWithIndexedRag } from '../../utils/rag-answer'
+import { askCoreAi, semanticProcedure } from '../../utils/core-ai'
+import { composeExtractiveAnswer, type IndexedChunk } from '../../../shared/rag-evidence'
 import {groupQuestionTopic} from '../../../shared/citizen-intelligence.mjs'
 import { buildGroundedAnswer, detectAnswerFields, isCatalogQuestion, isOutOfScope, rankProcedures } from '../../../shared/ai-knowledge'
 
@@ -47,23 +47,37 @@ export default defineEventHandler(async event => {
   }
 
   try {
-    const {catalog, faq, revision} = await loadPublishedKnowledge()
+    const published = await loadPublishedKnowledge()
+    const {faq, revision} = published
+    // Công dân đã đăng nhập chỉ được trả lời về thủ tục xã mình đang mở; khách xem danh mục đã công bố.
+    const enabledIds = actor ? new Set((await publicQuery<{id:string}>(
+      'SELECT p.id FROM procedures p WHERE p.published AND public.procedure_enabled_for($1::uuid, p.id)', [actor.tenantId])).map(row => row.id)) : null
+    const catalog = enabledIds ? published.catalog.filter(p => enabledIds.has(p.id)) : published.catalog
     // If a context is provided it MUST still be a published procedure; no guessing.
     if (contextId && !catalog.some(p => p.id === contextId)) throw createError({statusCode:404,statusMessage:'Thủ tục không có trong danh mục đang công bố'})
-    const selectedContext = contextId
-    const matches = isCatalogQuestion(body.message) || isOutOfScope(body.message) ? [] : rankProcedures(body.message, catalog, selectedContext)
-    const selection = isCatalogQuestion(body.message) || isOutOfScope(body.message) ? null : await classifyWithRagService(body.message, matches)
-    let result = buildGroundedAnswer(body.message, catalog, {
-      contextId: selectedContext, faq,
-      selectedIds: selection?.selectedIds,
-      requestedFields: selection?.requestedFields,
-      aiUsed: !!selection
-    })
+    const generalQuestion = isCatalogQuestion(body.message) || isOutOfScope(body.message)
+    const matches = generalQuestion ? [] : rankProcedures(body.message, catalog, contextId)
+    // Trợ lý AI của lõi (mô hình chạy cục bộ): tìm kiếm lai toàn văn + ngữ nghĩa, mô hình chọn trích dẫn nguyên văn.
+    const ai = generalQuestion ? null : await askCoreAi(event, body.message, contextId)
+    // Tìm kiếm ngữ nghĩa chỉ ra thủ tục khi câu hỏi diễn đạt khác từ ngữ trong thủ tục (từ khóa không khớp).
+    const semanticId = semanticProcedure(ai, new Set(catalog.map(p => p.id)))
+    // Thủ tục do tìm kiếm ngữ nghĩa chỉ ra được ưu tiên hơn xếp hạng theo từ khóa (từ khóa bỏ dấu dễ khớp nhầm,
+    // ví dụ "đại học" với "đất đai"); câu trả lời vẫn chỉ dựng từ dữ liệu thủ tục đã công bố.
+    // Lõi từ chối câu hỏi tra cứu thông tin cá nhân hay hồ sơ cụ thể: trả lời từ chối, không tra cứu thêm.
+    let result = ai?.mode === 'refused'
+      ? {answer: ai.refusal || 'Trợ lý không tra cứu thông tin cá nhân hay hồ sơ cụ thể.', sources: [], suggestions: [], mode: 'INSUFFICIENT' as const, notice: ''}
+      : buildGroundedAnswer(body.message, catalog, {
+        contextId: contextId || semanticId, faq,
+        selectedIds: semanticId ? [semanticId] : undefined,
+        aiUsed: !!semanticId
+      })
     // The index is an acceleration and retrieval layer only. Its citations
     // must agree with the canonical, freshly loaded catalog response.
     let indexReady = false
     if (result.mode !== 'INSUFFICIENT' && !isCatalogQuestion(body.message)) {
-      const retrieval = await retrieveKnowledge(body.message, contextId)
+      const retrieval = ai?.chunks.length
+        ? {ready: true, chunks: ai.chunks.map(({similarity, matched, ...chunk}) => chunk as IndexedChunk)}
+        : await retrieveKnowledge(body.message, contextId)
       indexReady = retrieval.ready
       const allowedSources = new Set(result.sources.map(source => source.id))
       const fields = detectAnswerFields(body.message)
@@ -73,8 +87,19 @@ export default defineEventHandler(async event => {
         && (chunk.field === 'faq' || chunk.field === 'title' || chunk.field === 'category'
           || fields.some(field => ({fee:'fee',duration:'duration',documents:'documents',instructions:'instructions',summary:'summary'} as Record<string,string>)[field] === chunk.field))
       )
-      if (!unsupportedFields && trustedChunks.length) {
-        const generated = await answerWithIndexedRag(body.message, trustedChunks)
+      // Chỉ nhận trích dẫn của mô hình thuộc đoạn đã qua kiểm tra nguồn và trường; từng trích dẫn
+      // phải nằm nguyên văn trong đoạn (composeExtractiveAnswer kiểm lại).
+      const trustedById = new Map(trustedChunks.map(chunk => [chunk.id, chunk]))
+      const selections = (ai?.selections || []).filter(selection => trustedById.has(selection.id))
+      // Chỉ thay câu trả lời dựng từ dữ liệu khi trích dẫn có nội dung thật (không chỉ tên thủ tục, lĩnh vực)
+      // và đúng loại thông tin được hỏi (hỏi thời hạn thì phải trích được thời hạn).
+      const chunkFields = {fee:'fee',duration:'duration',documents:'documents',instructions:'instructions',summary:'summary'} as Record<string,string>
+      const asked = fields.length < 5 ? fields.map(field => chunkFields[field]).filter(Boolean) : []
+      const informative = selections.map(selection => trustedById.get(selection.id)!.field)
+        .filter(field => field !== 'title' && field !== 'category')
+      const useful = informative.length > 0 && (!asked.length || informative.some(field => asked.includes(field)))
+      if (!unsupportedFields && trustedChunks.length && useful) {
+        const generated = composeExtractiveAnswer(trustedChunks, selections)
         if (generated && generated.sources.every(source => allowedSources.has(source.id))) {
           result = {...generated, suggestions: result.suggestions}
         }
@@ -127,7 +152,7 @@ export default defineEventHandler(async event => {
        sourceUrl:p?.source_url?.startsWith('https://')?p.source_url:null,scope:p?.scope_note||null,
        effectiveFrom:p?.effective_from||null,provenance:p?.provenance_status||'unverified_demo',independentlyVerified:false}
     })
-    return {...result, revision, sourceEvidence, sourceVerification:'not_independently_verified', knowledgeSource: 'published_procedures', updatedOn: 'per_request', indexReady,
+    return {...result, revision, aiMode: ai?.mode || 'text', aiProcedure: semanticId || null, sourceEvidence, sourceVerification:'not_independently_verified', knowledgeSource: 'published_procedures', updatedOn: 'per_request', indexReady,
       conversationId: savedConversationId, saved: !!savedConversationId}
   } catch(error) {
     if (error && typeof error === 'object' && 'statusCode' in error) throw error

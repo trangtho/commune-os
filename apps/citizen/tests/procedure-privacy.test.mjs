@@ -5,6 +5,7 @@ import assert from 'node:assert/strict'
 import {readFileSync} from 'node:fs'
 import {execFileSync} from 'node:child_process'
 const read=file=>readFileSync(new URL(file,import.meta.url),'utf8')
+const core=read('../../../core/db/init/21-citizen-api-core-flow.sql')
 const migration=read('../../../core/db/init/16-citizen-procedure-privacy.sql')
 const readRoute=(path)=>read(`../server/api/${path}`)
 test('Official-source URL validation avoids HTTPS lookalikes, HTTP and private hosts',()=>{
@@ -46,11 +47,10 @@ test('Staff publication is token-protected, validates official source and alerts
  assert.match(migration,/AND a\.status='draft'/)
 })
 test('Creating a draft pins a snapshot, submission rejects unreviewed revision',()=>{
- assert.match(readRoute('applications/index.post.ts'),/acknowledged_procedure_version_id/)
- const submit=readRoute('applications/[id]/submit.post.ts')
- assert.match(submit,/FOR SHARE/)
- assert.match(submit,/acknowledged_procedure_version_id!==version\.id/)
- assert.match(submit,/submitted_procedure_version_id/)
+ assert.match(core,/procedure_version_id, acknowledged_procedure_version_id/)
+ assert.match(core,/PERFORM public\.lock_procedure_shared\(r\.procedure_id\)/)
+ assert.match(core,/acknowledged_procedure_version_id IS DISTINCT FROM v_version/)
+ assert.match(core,/submitted_procedure_version_id = v_version/)
  const ack=readRoute('applications/[id]/procedure-change/ack.post.ts')
  assert.match(ack,/reviewed:z\.literal\(true\)/)
  assert.match(ack,/currentId!==body\.currentVersionId/)

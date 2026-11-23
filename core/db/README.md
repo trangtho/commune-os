@@ -10,11 +10,16 @@ prototype Công dân; `seed/seed.sql` nạp dữ liệu minh họa. Role ứng d
 `communeos_app` là `NOSUPERUSER`; API thiết lập `app.citizen_id` và
 `app.tenant_id` ở phạm vi transaction.
 
-Để demo hoạt động, khởi tạo trên volume mới bằng `make up`; schema init
-không tự chạy lại trên volume PostgreSQL đã có dữ liệu. Xem
+`make up` chạy `db-setup` ở mỗi lần khởi động, trên cả volume mới và volume đã có dữ liệu;
+`make repair-db` chạy lại riêng bước này. Xem
 [`../../docs/CITIZEN_SETUP.md`](../../docs/CITIZEN_SETUP.md).
 
-Lược đồ, RLS, sổ cái và view. Tệp SQL đánh số trong migrations/, dữ liệu mẫu giả lập trong seed/.
+Lược đồ, RLS, sổ cái và view nằm trong các tệp SQL đánh số ở `init/`; dữ liệu mẫu giả lập ở `seed/`,
+kiểm thử RLS (chạy trong transaction rồi `ROLLBACK`) ở `tests/`.
+
+Thứ tự chạy do dịch vụ `db-setup` trong `docker-compose.yml` quyết định, **không** theo thứ tự
+tên tệp (ví dụ `seed.sql` chạy trước `02-ai-knowledge.sql`). Thêm tệp migration mới thì phải
+thêm một dòng vào `db-setup`; mọi tệp phải chạy lại được nhiều lần (idempotent).
 
 ## Lịch sử trợ lý AI
 

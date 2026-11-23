@@ -3,29 +3,22 @@ SPDX-FileCopyrightText: 2026 CommuneOS Contributors
 SPDX-License-Identifier: Apache-2.0
 -->
 
-# Sửa banner trùng chữ và responsive – Kênh Công dân
+# Thanh tiêu đề (banner) – Kênh Công dân
 
-## Nguyên nhân
+## Hiện trạng
 
-Ảnh `ubnd-hero.png` cũ là một phần của ảnh chụp giao diện và chứa sẵn chữ ở khu vực thanh quy trình. Khi thanh quy trình Vue được hiển thị chồng lên ảnh, các dòng mô tả của bước 3 và bước 4 xuất hiện hai lần.
+- Thanh tiêu đề dưới header là nền xanh trơn, giống nhau ở mọi trang; chỉ tiêu đề và một dòng mô tả đổi theo trang
+  (`apps/citizen/layouts/default.vue`).
+- Không còn dùng ảnh trụ sở UBND (`ubnd-hero.png`, `ubnd-hero-clean.png`) ở thanh tiêu đề và trang đăng nhập của
+  cả Kênh người dân lẫn màn hình cán bộ; hai tệp ảnh đã được gỡ khỏi `public/images/`.
+- Bốn bước nộp hồ sơ chỉ hiện trong thanh tiêu đề khi đang nộp hồ sơ, là thành phần Vue (chữ thật), dạng lưới từ màn hình
+  `xl` (>= 1280px), màn hình hẹp vuốt ngang được.
+- Giữ nguyên kiến trúc `100dvh`: header và thanh tiêu đề cố định, vùng nội dung cuộn riêng.
 
-## Sửa đổi
-
-- `public/images/ubnd-hero-clean.png`: chỉ giữ ảnh UBND, không chứa chữ và nút của quy trình.
-- `layouts/default.vue`: sử dụng ảnh mới và hiện đầy đủ thanh bước dạng lưới từ màn hình `xl` (>= 1280px); màn hình hẹp có thể vuốt riêng trong thanh bước.
-- `pages/dang-nhap.vue`: ảnh nền tại trang đăng nhập cũng chuyển sang ảnh sạch.
-- Giữ nguyên kiến trúc `100dvh`, thanh header/banner cố định, cuộn độc lập vùng nội dung, hỗ trợ công dân, API và dữ liệu PostgreSQL.
-
-## Áp dụng bản ZIP cập nhật
-
-Tại thư mục gốc của dự án hiện tại:
+## Xem kết quả
 
 ```bash
-cp -a apps/citizen/layouts/default.vue apps/citizen/layouts/default.vue.bak
-unzip -o /duong-dan/CommuneOS_Banner_NoEmbeddedText_Overlay.zip -d .
-docker compose up -d --build --no-deps citizen
+docker compose up -d --build citizen commune
 ```
 
-Mở lại trang `http://localhost:3000`, nhấn `Cmd+Shift+R` để tải lại CSS và ảnh mới.
-
-Không chạy `docker compose down -v` và không chỉnh sửa `.env`.
+Mở `http://localhost:3000`, nhấn Ctrl+Shift+R để tải lại CSS mới.

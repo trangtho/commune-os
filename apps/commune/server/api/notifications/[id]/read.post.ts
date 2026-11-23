@@ -1,8 +1,9 @@
 // SPDX-FileCopyrightText: 2026 CommuneOS Contributors
 // SPDX-License-Identifier: Apache-2.0
-import { staffTx } from '../../../utils/database'
-export default defineEventHandler(async(event)=>staffTx(event,async(client)=>{
-  const id=getRouterParam(event,'id')
-  await client.query(`UPDATE citizen_notifications SET is_read=true WHERE id=$1`,[id])
-  return {ok:true}
-}))
+import { coreRpc } from '../../../utils/core-api'
+const uuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+export default defineEventHandler((event) => {
+  const id = String(getRouterParam(event, 'id') || '')
+  if (!uuid.test(id)) throw createError({ statusCode: 400, statusMessage: 'Mã thông báo không hợp lệ' })
+  return coreRpc(event, 'read_staff_notification', { notification_id: id })
+})

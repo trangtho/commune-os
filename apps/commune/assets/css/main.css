@@ -25,7 +25,11 @@ img, svg, video { max-width: 100%; }
   object-fit: contain;
 }
 input, textarea, select { min-width: 0; }
-body { @apply bg-[#f0fdfa] text-ink antialiased; font-family: Inter, ui-sans-serif, system-ui, -apple-system, 'Segoe UI', Arial, sans-serif; }
+/* Hình nền trống đồng, hoa sen của dự án; khung nội dung giữ nền trắng để dễ đọc. */
+body { background-image: url('/images/nen-trong-dong.webp'); background-position: center bottom; background-size: cover; background-repeat: no-repeat; background-attachment: fixed; }
+body { @apply bg-[#f3faf8] text-ink antialiased font-sans; }
+/* Nội dung luôn nằm trên tấm nền đặc; ảnh trống đồng chỉ lộ ra hai bên và ở trang đăng nhập (không có chữ đè lên ảnh). */
+.commune-sheet { @apply min-h-full rounded-2xl border border-[#d5e9e4] bg-[#f3faf8]/[.97] p-3 sm:p-5 lg:p-6; }
 @layer components {
  .panel { @apply min-w-0 rounded-panel border border-[#dbe6f4] bg-white shadow-panel; }
  .panel-title { @apply text-lg font-extrabold text-ink; }
