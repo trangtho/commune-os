@@ -6,9 +6,10 @@ SPDX-License-Identifier: Apache-2.0
 # core/db
 
 PostgreSQL 17. `init/` chứa schema và chính sách Row-Level Security cho
-prototype Công dân; `seed/seed.sql` nạp dữ liệu minh họa. Role ứng dụng
-`communeos_app` là `NOSUPERUSER`; API thiết lập `app.citizen_id` và
-`app.tenant_id` ở phạm vi transaction.
+prototype Công dân; `seed/seed.sql` nạp dữ liệu minh họa. Kênh người dân gọi
+dữ liệu qua PostgREST bằng vai trò `citizen-app`; `rest_pre_request()` thiết lập `app.citizen_id` và
+`app.tenant_id` từ token ở phạm vi transaction. Role `communeos_app` (`NOSUPERUSER`) chỉ còn dùng để nhận tín hiệu
+thay đổi (LISTEN), không có quyền dữ liệu.
 
 `make up` chạy `db-setup` ở mỗi lần khởi động, trên cả volume mới và volume đã có dữ liệu;
 `make repair-db` chạy lại riêng bước này. Xem

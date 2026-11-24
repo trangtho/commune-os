@@ -187,3 +187,20 @@ export async function publicRpc<T = any>(name: string, args: Record<string, unkn
 export function catalogRpc<T = any>(event: H3Event, name: string, args: Record<string, unknown> = {}): Promise<T> {
   return readSession(event)?.authMethod === 'keycloak' ? citizenRpc<T>(event, name, args) : publicRpc<T>(name, args)
 }
+
+/** Token tài khoản dịch vụ của client citizen-app (client_credentials), dùng cho việc không có công dân đăng nhập sẵn
+ *  (liên kết đăng nhập OIDC bên ngoài). Lõi chỉ nhận token này ở hàm citizen_service_* (public.is_citizen_service()). */
+let serviceToken: Stored | null = null
+async function citizenServiceToken(): Promise<string> {
+  if (serviceToken && serviceToken.e - 30_000 > Date.now()) return serviceToken.t
+  const tokens = await requestToken(new URLSearchParams({ grant_type: 'client_credentials', client_id: CLIENT_ID }))
+  serviceToken = { t: tokens.access_token, e: Date.now() + tokens.expires_in * 1000 }
+  return serviceToken.t
+}
+
+/** Gọi một hàm citizen_service_* của lõi (POST /rest/rpc/<tên>) bằng tài khoản dịch vụ của Kênh người dân. */
+export async function serviceRpc<T = any>(name: string, args: Record<string, unknown> = {}): Promise<T> {
+  try {
+    return await gatewayFetch<T>(await citizenServiceToken(), `/rest/rpc/${name}`, { method: 'POST', body: args })
+  } catch (error) { throw coreError(error) }
+}

@@ -6,6 +6,9 @@ import { readFileSync } from 'node:fs'
 import { execFileSync } from 'node:child_process'
 const read=file=>readFileSync(new URL(file,import.meta.url),'utf8')
 const migration=read('../../../core/db/init/15-citizen-vault-autofill.sql')
+// Thao tác dữ liệu của kho giấy tờ là API của lõi, gọi qua cổng bằng token công dân.
+const coreApi=read('../../../core/db/init/27-citizen-api-vault.sql')
+const fn=name=>coreApi.slice(coreApi.indexOf(`FUNCTION api.${name}(`)).split('END $$;')[0]
 
 test('Magic bytes, 5MB bounds, archive and expiry are enforced in shared vault logic',()=>{
  const script=`import assert from 'node:assert/strict';
@@ -58,23 +61,33 @@ test('Upload validates file content, stores key+hash, and rejects attempts to ov
  const post=read('../server/api/citizen/vault/index.post.ts')
  const middleware=read('../server/utils/vault.ts')
  assert.match(post,/requireCitizen\(event\)/)
- assert.match(post,/citizenTx\(event/)
- assert.match(post,/SELECT id,archived_at FROM citizen_vault_documents WHERE id=\$1 FOR UPDATE/)
+ assert.match(post,/citizenRpc\(event,'citizen_vault_add'/)
+ assert.match(fn('citizen_vault_add'),/SELECT id, archived_at INTO v_doc, v_archived FROM citizen_vault_documents WHERE id = p_document_id FOR UPDATE/)
+ assert.match(fn('citizen_vault_add'),/LANGUAGE plpgsql SET search_path = public/)
+ assert.doesNotMatch(fn('citizen_vault_add'),/SECURITY DEFINER/)
  assert.match(post,/deleteObject\(key\)/)
  assert.match(middleware,/validVaultContent/)
  assert.match(middleware,/MAX_VAULT_BYTES/)
- assert.match(read('../server/api/citizen/vault/files/[id].get.ts'),/citizenTx\(event/)
+ assert.match(read('../server/api/citizen/vault/files/[id].get.ts'),/citizenRpc<[^>]+>\(event,'citizen_vault_file'/)
+ assert.match(fn('citizen_vault_file'),/citizen_vault_restricted\(p_version_id\)/)
 })
 
 test('Sharing requires explicit per-case consent, checks owner and expiry twice, copies content and audits',()=>{
  const source=read('../server/api/applications/[id]/documents/from-vault.post.ts')
  const uploader=read('../components/DocUploader.vue')
  assert.match(source,/confirmed:z\.literal\(true\)/)
- assert.equal((source.match(/citizenTx\(event/g)||[]).length,2)
- assert.equal((source.match(/vaultIsUsable\(/g)||[]).length,2)
+ assert.match(source,/citizenRpc<Source>\(event,'citizen_vault_source'/)
+ assert.match(source,/citizenRpc\(event,'citizen_vault_attach'/)
+ // Chủ sở hữu, hạn dùng, quyết định lưu trữ kiểm tra cả trước khi đọc tệp và khi gắn vào hồ sơ.
+ for(const name of ['citizen_vault_source','citizen_vault_attach']){
+  assert.match(fn(name),/expires_on < public\.today_vietnam\(\)/)
+  assert.match(fn(name),/citizen_vault_restricted\(p_version_id\)/)
+  assert.match(fn(name),/FOR SHARE OF v, d/)
+ }
+ assert.match(source,/createHash\('sha256'\)\.update\(bytes\)\.digest\('hex'\)!==source\.sha256/)
  assert.match(source,/getObject\(source\.storage_key\)/)
  assert.match(source,/putObject\(bytes,source\.mime_type\)/)
- assert.match(source,/INSERT INTO citizen_vault_shares/)
+ assert.match(fn('citizen_vault_attach'),/INSERT INTO citizen_vault_shares/)
  assert.match(source,/deleteObject\(key\)/)
  assert.match(uploader,/reuseConfirmed/)
  assert.match(uploader,/Dùng giấy tờ trong kho/)
@@ -87,13 +100,16 @@ test('Autofill GET is provenance-aware, self edits cannot forge verified status;
  const oidc=read('../server/utils/oidc.ts')
  const callback=read('../server/api/auth/oidc/callback.get.ts')
  const wizard=read('../pages/nop-ho-so/[slug].vue')
- assert.match(get,/citizenTx\(event/)
+ assert.match(get,/citizenRpc<Sources>\(event,'citizen_autofill_sources'\)/)
+ assert.match(fn('citizen_autofill_sources'),/citizen_record_access\('read_autofill'/)
  assert.match(get,/source:'oidc_verified'/)
- assert.match(update,/citizen_self_facts/)
- assert.doesNotMatch(update,/INSERT INTO citizen_verified_facts/)
+ assert.match(update,/citizen_self_facts_update/)
+ assert.match(fn('citizen_self_facts_update'),/INSERT INTO citizen_self_facts/)
+ assert.doesNotMatch(coreApi,/INSERT INTO citizen_verified_facts/)
  assert.match(oidc,/CITIZEN_OIDC_PERSONAL_DATA_APPROVED/)
  assert.match(callback,/flow\.usePersonalData && c\.verifiedFacts/)
- assert.match(callback,/citizen_verified_facts/)
+ assert.match(callback,/p_facts: flow\.usePersonalData && c\.verifiedFacts/)
+ assert.match(read('../../../core/db/init/34-citizen-direct-access.sql'),/INSERT INTO citizen_verified_facts/)
  assert.match(wizard,/autofillReviewed/)
  assert.match(wizard,/Tôi đã kiểm tra lại từng giá trị/)
  assert.match(wizard,/actingFor==='self'/)

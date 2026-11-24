@@ -162,6 +162,16 @@ services:
         psql -v ON_ERROR_STOP=1 -f /setup/init/22-ai-knowledge-vectors.sql
         psql -v ON_ERROR_STOP=1 -f /setup/init/23-staff-notifications.sql
         psql -v ON_ERROR_STOP=1 -f /setup/init/24-staff-guide.sql
+        psql -v ON_ERROR_STOP=1 -f /setup/init/26-citizen-staff-api.sql
+        psql -v ON_ERROR_STOP=1 -f /setup/init/27-citizen-api-vault.sql
+        psql -v ON_ERROR_STOP=1 -f /setup/init/28-citizen-api-case.sql
+        psql -v ON_ERROR_STOP=1 -f /setup/init/29-citizen-api-representation.sql
+        psql -v ON_ERROR_STOP=1 -f /setup/init/30-citizen-api-appointment.sql
+        psql -v ON_ERROR_STOP=1 -f /setup/init/31-citizen-api-support.sql
+        psql -v ON_ERROR_STOP=1 -f /setup/init/32-citizen-api-personal.sql
+        psql -v ON_ERROR_STOP=1 -f /setup/init/33-citizen-api-public.sql
+        psql -v ON_ERROR_STOP=1 -f /setup/init/34-citizen-direct-access.sql
+        # Mô tả API chạy sau cùng (sau mọi tệp tạo hàm, bảng ảo).
         psql -v ON_ERROR_STOP=1 -f /setup/init/25-api-comments.sql
         psql -v ON_ERROR_STOP=1 -c "SELECT count(*) AS published_procedures FROM procedures WHERE published = true"
         echo 'PostgreSQL setup finished successfully.'
@@ -229,6 +239,8 @@ services:
       FLOWABLE_PASSWORD: ${FLOWABLE_ADMIN_PASSWORD}
       REST_URL: http://rest:3000
       WORKFLOW_TOKEN: ${WORKFLOW_TOKEN}
+      # Việc định kỳ cho Kênh người dân (tắt mặc định): gửi nhắc việc mỗi giờ, quét dữ liệu đến hạn rà soát lưu trữ mỗi ngày.
+      CITIZEN_RETENTION_SCAN_ENABLED: ${CITIZEN_RETENTION_SCAN_ENABLED:-false}
     volumes:
       - ./core/orchestrator:/app:ro
     depends_on:
@@ -368,8 +380,6 @@ services:
         condition: service_started
     environment:
       NODE_ENV: production
-      CITIZEN_STAFF_BRIDGE_TOKEN: ${CITIZEN_STAFF_BRIDGE_TOKEN:-}
-      CITIZEN_GOVERNANCE_TOKEN: ${CITIZEN_GOVERNANCE_TOKEN:-}
       HOST: 0.0.0.0
       PORT: 3000
       PGHOST: db
@@ -379,7 +389,6 @@ services:
       PGPASSWORD: ${POSTGRES_APP_PASSWORD}
       SESSION_SECRET: ${SESSION_SECRET}
       DEMO_MODE: ${DEMO_MODE:-true}
-      CITIZEN_RETENTION_SCAN_ENABLED: ${CITIZEN_RETENTION_SCAN_ENABLED:-false}
       STORAGE_DIR: /app/storage
       # Nuxt runtimeConfig: ghi đè giá trị mặc định lúc chạy container.
       # Chuyển từ docker-compose.override.yml vào cấu hình chính.

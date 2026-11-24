@@ -1,11 +1,11 @@
 // SPDX-FileCopyrightText: 2026 CommuneOS Contributors
 // SPDX-License-Identifier: Apache-2.0
-import {citizenTx} from '../../../../utils/database'
-export default defineEventHandler(event=>citizenTx(event,async(client)=>{
+// Hủy yêu cầu đồng bộ còn chờ (api.citizen_sync_cancel của lõi).
+import {z} from 'zod'
+import {citizenRpc} from '../../../../utils/identity'
+import {validate} from '../../../../utils/validation'
+export default defineEventHandler(async event=>{
  const body=await readBody(event)
  if(body?.confirmed!==true)throw createError({statusCode:400,statusMessage:'Cần xác nhận hủy yêu cầu'})
- const id=String(getRouterParam(event,'id')||'')
- const result=await client.query("UPDATE citizen_sync_requests SET state='cancelled' WHERE id=$1 AND state='pending' RETURNING id",[id])
- if(!result.rowCount)throw createError({statusCode:404,statusMessage:'Không tìm thấy yêu cầu còn chờ xử lý'})
- return {id,state:'cancelled'}
-}))
+ return citizenRpc(event,'citizen_sync_cancel',{p_request_id:validate(z.string().uuid(),getRouterParam(event,'id'))})
+})

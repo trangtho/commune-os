@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { getRequestIP, setHeader } from 'h3'
 import { readSession } from '../../utils/session'
-import { citizenTx, publicQuery } from '../../utils/database'
+import { citizenRpc, publicRpc } from '../../utils/identity'
 import { messageSchema, validate } from '../../utils/validation'
 import { loadPublishedKnowledge } from '../../utils/procedure-knowledge'
 import { retrieveKnowledge } from '../../utils/knowledge-index'
@@ -39,19 +39,13 @@ export default defineEventHandler(async event => {
   if (raw?.conversationId !== undefined && (!conversationId || !/^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i.test(conversationId)))
     throw createError({statusCode:400,statusMessage:'Mã cuộc trò chuyện không hợp lệ'})
   if (conversationId && !actor) throw createError({statusCode:401,statusMessage:'Vui lòng đăng nhập để mở lại cuộc trò chuyện'})
-  if (conversationId) {
-    await citizenTx(event, async client => {
-      const found = await client.query('SELECT 1 FROM citizen_ai_conversations WHERE id = $1', [conversationId])
-      if (!found.rowCount) throw createError({statusCode:404,statusMessage:'Không tìm thấy cuộc trò chuyện của bạn'})
-    })
-  }
+  if (conversationId) await citizenRpc(event, 'citizen_chat_conversation_check', {p_conversation_id: conversationId})
 
   try {
     const published = await loadPublishedKnowledge()
     const {faq, revision} = published
     // Công dân đã đăng nhập chỉ được trả lời về thủ tục xã mình đang mở; khách xem danh mục đã công bố.
-    const enabledIds = actor ? new Set((await publicQuery<{id:string}>(
-      'SELECT p.id FROM procedures p WHERE p.published AND public.procedure_enabled_for($1::uuid, p.id)', [actor.tenantId])).map(row => row.id)) : null
+    const enabledIds = actor ? new Set(await citizenRpc<string[]>(event, 'citizen_enabled_procedures')) : null
     const catalog = enabledIds ? published.catalog.filter(p => enabledIds.has(p.id)) : published.catalog
     // If a context is provided it MUST still be a published procedure; no guessing.
     if (contextId && !catalog.some(p => p.id === contextId)) throw createError({statusCode:404,statusMessage:'Thủ tục không có trong danh mục đang công bố'})
@@ -109,43 +103,19 @@ export default defineEventHandler(async event => {
     if (actor) {
       // Save the citizen's question and the VERIFIED answer as one transaction;
       // chat content is never inserted into the public RAG knowledge index.
-      savedConversationId = await citizenTx(event, async (client, owner) => {
-        let id = conversationId
-        if (id) {
-          const owned = await client.query('SELECT id FROM citizen_ai_conversations WHERE id = $1 FOR UPDATE', [id])
-          if (!owned.rowCount) throw createError({statusCode:404,statusMessage:'Không tìm thấy cuộc trò chuyện của bạn'})
-        } else {
-          const title = body.message.trim().slice(0, 100)
-          const created = await client.query<{id:string}>(
-            `INSERT INTO citizen_ai_conversations(citizen_id,tenant_id,title)
-             VALUES($1,$2,$3) RETURNING id`, [owner.id, owner.tenantId, title])
-          id = created.rows[0]!.id
-        }
-        await client.query(
-          `INSERT INTO citizen_ai_messages(conversation_id,citizen_id,tenant_id,role,content)
-           VALUES($1,$2,$3,'citizen',$4)`, [id, owner.id, owner.tenantId, body.message])
-        await client.query(
-          `INSERT INTO citizen_ai_messages
-            (conversation_id,citizen_id,tenant_id,role,content,mode,sources,suggestions,notice,revision)
-           VALUES($1,$2,$3,'assistant',$4,$5,$6::jsonb,$7::jsonb,$8,$9)`,
-          [id, owner.id, owner.tenantId, result.answer, result.mode,
-            JSON.stringify(result.sources ?? []), JSON.stringify(result.suggestions ?? []),
-            result.notice ?? null, revision])
-        if (result.mode === 'INSUFFICIENT') {
-          await client.query('INSERT INTO citizen_unanswered_topics(tenant_id,topic) VALUES($1,$2)',
-            [owner.tenantId,groupQuestionTopic(body.message)])
-        }
-        await client.query('UPDATE citizen_ai_conversations SET updated_at = now() WHERE id = $1', [id])
-        return id
+      const saved = await citizenRpc<{conversationId:string}>(event, 'citizen_chat_save', {
+        p_conversation_id: conversationId || null, p_question: body.message, p_answer: result.answer, p_mode: result.mode,
+        p_sources: result.sources ?? [], p_suggestions: result.suggestions ?? [], p_notice: result.notice ?? null,
+        p_revision: revision, p_unanswered_topic: result.mode === 'INSUFFICIENT' ? groupQuestionTopic(body.message) : null,
       })
+      savedConversationId = saved.conversationId
     }
     // A published catalog row is not necessarily an independently verified legal source.
     // Associate citations with versioned provenance; do not promote staff claims to official facts.
     const citedIds=[...new Set(result.sources.map(source=>source.id.startsWith('procedure:')?source.id.slice('procedure:'.length):'').filter(Boolean))]
-    const provenance=citedIds.length?await publicQuery<{procedure_id:string;source_url:string|null;source_title:string|null;
-      source_reference:string|null;scope_note:string|null;effective_from:string|null;provenance_status:string}>(
-      `SELECT DISTINCT ON (procedure_id) procedure_id,source_url,source_title,source_reference,scope_note,effective_from,provenance_status
-       FROM citizen_procedure_versions WHERE procedure_id=ANY($1::text[]) ORDER BY procedure_id,version_no DESC`,[citedIds]):[]
+    const provenance=citedIds.length?await publicRpc<{procedure_id:string;source_url:string|null;source_title:string|null;
+      source_reference:string|null;scope_note:string|null;effective_from:string|null;provenance_status:string}[]>(
+      'public_provenance',{p_procedure_ids:citedIds}):[]
     const sourceEvidence=citedIds.map(id=>{
       const p=provenance.find(item=>item.procedure_id===id)
       return {procedureId:id,sourceTitle:p?.source_title||null,sourceReference:p?.source_reference||null,

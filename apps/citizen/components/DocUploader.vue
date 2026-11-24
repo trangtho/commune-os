@@ -108,7 +108,7 @@ async function deleteDoc(doc: CaseDocument) {
         </div>
         <a v-if="latest(req.document_code)" :href="`/api/documents/${latest(req.document_code)?.id}?view=1`" target="_blank" rel="noopener noreferrer" class="btn-outline !px-3 !py-2 !text-xs" :aria-label="`Tải ${req.document_name}`"><Eye :size="14" /> Xem tệp</a>
         <button v-if="latest(req.document_code)" type="button" class="btn-outline !px-3 !py-2 !text-xs" :disabled="!!busy" :aria-label="`Xóa ${req.document_name}`" @click="deleteDoc(latest(req.document_code)!)"><Trash2 :size="14" /> Xóa</button>
-        <label class="btn-outline w-full cursor-pointer !px-3 !py-2 !text-xs sm:w-auto">
+        <label class="btn-outline relative w-full cursor-pointer !px-3 !py-2 !text-xs sm:w-auto">
           <UploadCloud :size="15" /> {{ done(req.document_code) ? 'Tải phiên bản mới' : 'Chọn tệp' }}
           <input type="file" accept=".pdf,.png,.jpg,.jpeg,application/pdf,image/png,image/jpeg" class="sr-only" :aria-label="`Chọn tệp ${req.document_name}`" :disabled="!!busy" @change="onFile($event, req.document_code)" />
         </label>

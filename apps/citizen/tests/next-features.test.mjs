@@ -61,9 +61,11 @@ test('Receipt refuses drafts, is explicitly a demo, and provides print', () => {
 test('Feedback and case support histories use existing RLS-backed tables', () => {
   for (const [endpoint, table] of [['feedback/index.get.ts', 'citizen_feedback'], ['support/index.get.ts', 'citizen_support_messages']]) {
     const handler = read('server/api/' + endpoint)
-    assert.match(handler, /citizenTx/)
-    assert.ok(handler.includes(table))
-    assert.match(handler, /LIMIT 50/)
+    assert.match(handler, /citizenRpc\(event,'citizen_(feedback|support_messages)'/)
+    const sql = read('../../core/db/init/31-citizen-api-support.sql')
+    const fn = sql.slice(sql.indexOf(`FUNCTION api.${endpoint.startsWith('feedback') ? 'citizen_feedback()' : 'citizen_support_messages('}`)).split('END $$;')[0]
+    assert.ok(fn.includes(table))
+    assert.match(fn, /LIMIT 50/)
   }
   assert.match(read('pages/lien-he.vue'), /Lịch sử phản hồi đã gửi/)
   assert.match(read('pages/ho-so/[id]/index.vue'), /citizen-support:/)

@@ -6,8 +6,11 @@ import {readFileSync} from 'node:fs'
 import {execFileSync} from 'node:child_process'
 const read=file=>readFileSync(new URL(file,import.meta.url),'utf8')
 const core=read('../../../core/db/init/21-citizen-api-core-flow.sql')
+const personal=read('../../../core/db/init/32-citizen-api-personal.sql')
+const personalFn=name=>personal.slice(personal.indexOf(`FUNCTION api.${name}(`)).split('END $$;')[0]
 const migration=read('../../../core/db/init/16-citizen-procedure-privacy.sql')
 const readRoute=(path)=>read(`../server/api/${path}`)
+const staffApi=read('../../../core/db/init/26-citizen-staff-api.sql')
 test('Official-source URL validation avoids HTTPS lookalikes, HTTP and private hosts',()=>{
  const source=`import assert from 'node:assert/strict';
  import {isOfficialProcedureSource,changedSections} from './apps/citizen/shared/procedure-versions.ts';
@@ -36,12 +39,11 @@ test('Migration preserves legacy demo source status, append-only audit and RLS',
  assert.doesNotMatch(migration,/GRANT DELETE ON citizen_data_access_events/)
  assert.match(read('../../../docker-compose.yml'),/16-citizen-procedure-privacy\.sql/)
 })
-test('Staff publication is token-protected, validates official source and alerts drafts',()=>{
- const pub=readRoute('internal/procedures/publish.post.ts')
- assert.match(pub,/requireStaffBridge\(event\)/)
- assert.match(pub,/requireGovernanceToken\(event\)/)
- assert.match(pub,/isOfficialProcedureSource/)
- assert.match(pub,/confirmed:z\.literal\(true\)/)
+test('Procedure publication is sys_admin only, validates official source and alerts drafts',()=>{
+ assert.match(staffApi,/FUNCTION api\.publish_procedure_version[\s\S]*public\.require_sys_admin\(\)/)
+ assert.match(staffApi,/v_host LIKE '%\.gov\.vn'/)
+ assert.match(staffApi,/'confirmed' IS DISTINCT FROM 'true'::jsonb/)
+ assert.match(staffApi,/Chưa hỗ trợ công bố trước thời điểm hiệu lực/)
  assert.match(migration,/citizen_procedure_change_notices/)
  assert.match(migration,/INSERT INTO citizen_notifications/)
  assert.match(migration,/AND a\.status='draft'/)
@@ -57,23 +59,28 @@ test('Creating a draft pins a snapshot, submission rejects unreviewed revision',
  assert.match(read('../components/DraftProcedureAlert.vue'),/Xác nhận đã rà soát/)
 })
 test('Consent is citizen-controlled, other bases cannot be toggled and vault reuse is gated',()=>{
- const consent=readRoute('citizen/consents/[purpose].post.ts')
- assert.match(consent,/legal_basis='consent'/)
+ assert.match(readRoute('citizen/consents/[purpose].post.ts'),/'citizen_consent_decide'/)
+ const consent=personalFn('citizen_consent_decide')
+ assert.match(consent,/legal_basis = 'consent'/)
  assert.match(consent,/pg_advisory_xact_lock/)
  assert.match(consent,/consent_withdrawn/)
- const vault=readRoute('applications/[id]/documents/from-vault.post.ts')
- assert.equal((vault.match(/activeConsent\(client,'vault_case_reuse'\)/g)||[]).length,2)
- assert.match(vault,/recordPersonalDataUse/)
+ const vaultApi=read('../../../core/db/init/27-citizen-api-vault.sql')
+ // Quyền tái sử dụng kiểm tra cả trước khi đọc tệp nguồn và trong giao dịch gắn vào hồ sơ (có khóa tư vấn).
+ assert.equal((vaultApi.match(/public\.citizen_active_consent\('vault_case_reuse'\)/g)||[]).length,2)
+ assert.match(vaultApi,/pg_advisory_xact_lock\(hashtext\(v_citizen::text \|\| ':vault_case_reuse'\)\)/)
+ assert.match(vaultApi,/citizen_record_access\('share_vault_to_case'/)
  assert.match(read('../pages/quyen-chia-se.vue'),/Căn cứ pháp lý khác/)
 })
 test('Retention is staff-review first, access log does not expose sensitive values',()=>{
- const scan=readRoute('internal/privacy/retention/scan.post.ts')
- assert.match(scan,/requireStaffBridge\(event\)/)
+ assert.match(staffApi,/FUNCTION api\.scan_citizen_retention[\s\S]*public\.staff_tenant_id\(true\)/)
  assert.match(migration,/ON CONFLICT DO NOTHING RETURNING citizen_id/)
  assert.match(migration,/citizen_staff_review_privacy_request/)
  assert.match(migration,/citizen_staff_review_retention/)
- assert.match(read('../server/plugins/retention-scheduler.ts'),/CITIZEN_RETENTION_SCAN_ENABLED/)
- assert.match(readRoute('citizen/data-access/index.get.ts'),/citizen_data_event_digest/)
- assert.match(readRoute('citizen/retention/requests/index.post.ts'),/citizenTx\(event/)
+ assert.match(read('../../../core/orchestrator/server.mjs'),/CITIZEN_RETENTION_SCAN_ENABLED === 'true'/)
+ assert.match(read('../../../core/db/init/34-citizen-direct-access.sql'),/FUNCTION api\.system_scan_citizen_retention[\s\S]*is_workflow_call\(\)/)
+ assert.match(readRoute('citizen/data-access/index.get.ts'),/'citizen_data_access'/)
+ assert.match(personalFn('citizen_data_access'),/citizen_data_event_digest/)
+ assert.match(readRoute('citizen/retention/requests/index.post.ts'),/'citizen_privacy_request_create'/)
+ assert.match(personalFn('citizen_privacy_request_create'),/citizen_record_access\('privacy_request_created'/)
  assert.match(readRoute('citizen/vault/files/[id].get.ts'),/citizen_retention_reviews/)
 })

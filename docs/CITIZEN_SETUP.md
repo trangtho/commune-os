@@ -43,21 +43,22 @@ Cấu hình Docker mặc định chỉ mở cổng trên `127.0.0.1`; dùng cho 
 diện, lần nạp lại seed **không reset** mật khẩu; chỉ reset volume thử nghiệm
 khi đã sao lưu hoặc không còn cần dữ liệu.
 
-Khi chạy, PostgreSQL tạo role `communeos_app` không có quyền superuser.
-Nuxt Nitro kết nối bằng role này; mọi truy vấn dữ liệu Công dân chạy trong
-transaction có `set_config('app.citizen_id'...)` và `tenant_id` để áp RLS.
+Kênh người dân không đọc ghi dữ liệu trực tiếp: mọi thao tác gọi hàm `api.*` của lõi qua cổng APISIX bằng token
+công dân; PostgREST chuyển sang vai trò `citizen-app`, `rest_pre_request()` đặt `app.citizen_id`, `app.tenant_id`
+từ token để áp RLS. Role `communeos_app` (không superuser) chỉ còn dùng để nhận tín hiệu thay đổi (LISTEN) cho
+thông báo thời gian thực và đã bị thu hồi mọi quyền trên bảng, hàm (`core/db/init/34-citizen-direct-access.sql`).
 Đăng nhập: máy chủ Công dân gửi tên đăng nhập và mật khẩu tới Keycloak (client bí mật `citizen-app`), đọc
 hồ sơ công dân qua cổng APISIX (`/rest/my_citizen_profile`), rồi tạo cookie phiên ký HMAC. Token
 Keycloak giữ trong cookie HttpOnly mã hóa AES-256-GCM, tự gia hạn; trình duyệt không đọc được.
-Luồng chính gọi các hàm `api.*` của lõi qua cổng APISIX (`/rest/rpc/...`, khách chưa đăng nhập dùng
-`/public/rpc/procedure_catalog` và `procedure_detail`); xem `core/db/init/21-citizen-api-core-flow.sql`.
-Các chức năng phụ còn lại vẫn kết nối PostgreSQL trực tiếp, chưa đi qua cửa ngõ APISIX.
+Mọi chức năng gọi các hàm `api.*` của lõi qua cổng APISIX (`/rest/rpc/...`; khách chưa đăng nhập dùng
+`/public/rpc/procedure_catalog`, `procedure_detail` và các hàm `public_*` được liệt kê trong `core/gateway/apisix.yaml`);
+xem `core/db/init/21-citizen-api-core-flow.sql` và `26-*.sql` đến `34-*.sql`. Danh sách đầy đủ ở trang `/docs/`.
 
 ### Sửa lỗi "Không tải được thủ tục từ PostgreSQL" (không mất dữ liệu)
 
 Với phiên bản đã sửa, `docker compose up` sẽ chạy dịch vụ **db-setup** trước ứng dụng
-Công dân. Dịch vụ này tạo/cập nhật role `communeos_app`, schema, quyền đọc và dữ liệu
-mẫu kể cả khi volume PostgreSQL đã được tạo từ phiên bản trước. **Không cần xóa
+Công dân. Dịch vụ này tạo/cập nhật các role (`citizen-app` cho API, `communeos_app` chỉ để nhận tín hiệu),
+schema, các hàm API của lõi và dữ liệu mẫu kể cả khi volume PostgreSQL đã được tạo từ phiên bản trước. **Không cần xóa
 volume** để sửa lỗi và tuyệt đối không dùng `docker compose down -v` nếu còn dữ liệu.
 
 ```bash
@@ -201,8 +202,8 @@ Các lệnh kiểm thử liên quan:
 
 - Tài khoản công dân do quản trị tạo trong Keycloak, chưa có trang tự đăng ký, chưa xác minh căn cước.
   Kết nối OIDC tới nhà cung cấp định danh được phê duyệt có sẵn nhưng tắt mặc định.
-- Các chức năng phụ ngoài luồng chính chưa đi qua cửa ngõ APISIX; truy cập PostgreSQL trực tiếp bằng
-  vai trò có RLS. Cột `citizens.password_hash` không còn dùng để đăng nhập.
+- Thông báo thời gian thực vẫn cần một kết nối PostgreSQL để nhận tín hiệu (LISTEN), bằng vai trò không có quyền
+  dữ liệu. Cột `citizens.password_hash` không còn dùng để đăng nhập.
 - Kiểm tra từng trường biểu mẫu (`shared/procedure-forms.ts`) chạy ở máy chủ Kênh người dân, chưa nằm
   trong lõi; vì vậy `citizen-app` là client bí mật để công dân không tự xin token gọi thẳng API lõi.
 - Quét mã độc ClamAV là tùy chọn (`docker compose --profile antivirus up -d antivirus`,

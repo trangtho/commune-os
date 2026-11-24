@@ -36,3 +36,11 @@ test('No hardcoded secrets in source',()=>{
   assert.ok(!c.includes('SECRET=')||c.includes('process.env'),f)
  }
 })
+test('Staff pages update automatically when other people change data (no F5)',()=>{
+ const layout=get('apps/commune/layouts/default.vue')
+ const auto=get('apps/commune/composables/useAutoRefresh.ts')
+ assert.match(layout,/useAutoRefresh\(\(\)=>Boolean\(auth\.value\?\.authenticated\)\)/)
+ assert.match(auto,/refreshNuxtData\(\)/)
+ assert.match(auto,/visibilityState !== 'visible'/)
+ assert.match(auto,/clearInterval/)
+})

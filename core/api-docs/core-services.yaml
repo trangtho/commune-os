@@ -191,6 +191,26 @@ paths:
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
 
+  /files/handoffs/{handoffId}/documents/{documentId}:
+    get:
+      tags: [Tệp]
+      summary: Tải giấy tờ trong mã chuyển hồ sơ tại quầy
+      description: |
+        Cán bộ xã tiếp nhận tải giấy tờ công dân đã gửi kèm mã chuyển hồ sơ, sau khi dùng mã bằng
+        `POST /rest/rpc/redeem_citizen_handoff`. Chỉ xã tiếp nhận, người đã dùng mã, trong thời hạn cho phép.
+      parameters:
+        - { name: handoffId, in: path, required: true, schema: { type: string, format: uuid } }
+        - { name: documentId, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          description: Nội dung tệp
+          content:
+            application/pdf: { schema: { type: string, format: binary } }
+            image/png: { schema: { type: string, format: binary } }
+            image/jpeg: { schema: { type: string, format: binary } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+
   # ---------------- Tài khoản ----------------
   /accounts/staff:
     get:

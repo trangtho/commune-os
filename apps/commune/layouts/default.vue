@@ -17,6 +17,8 @@ watch(()=>auth.value?.authenticated,(loggedIn)=>{
   if(loggedIn){ void refreshHeaderNotices(); void refreshOverview() }
   else clearHeaderNotices()
 })
+// Tự cập nhật mọi trang (phê duyệt, hồ sơ cá nhân, nhân viên, việc được giao, thông báo...) khi người khác thay đổi.
+useAutoRefresh(()=>Boolean(auth.value?.authenticated))
 // Menu trái; hồ sơ cá nhân và đăng xuất nằm trong menu tài khoản.
 const nav=[{to:'/',name:'Tổng quan',icon:Home},{to:'/ho-so',name:'Hồ sơ',icon:FolderOpen},{to:'/viec-duoc-giao',name:'Việc được giao',icon:ListChecks,countKey:'tasks'},{to:'/thu-tuc',name:'Thủ tục',icon:ClipboardList},{to:'/thong-bao',name:'Thông báo',icon:Bell},{to:'/bao-cao',name:'Báo cáo',icon:BarChart3},{to:'/tai-khoan',name:'Nhân viên',icon:Users,leaderOnly:true}]
 // Menu Nhân viên chỉ hiện với lãnh đạo xã; quyền thật do dịch vụ tài khoản của lõi kiểm tra.

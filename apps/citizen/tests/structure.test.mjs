@@ -56,7 +56,7 @@ test('Old PostgreSQL volumes can be repaired without deleting stored data',()=>{
  const seed=get('core/db/seed/seed.sql')
  assert.match(seed,/Preserve existing catalog edits/)
  const health=get('apps/citizen/server/api/health.get.ts')
- assert.match(health,/SCHEMA_MISSING/)
+ assert.match(health,/CORE_UNAVAILABLE/)
  assert.match(health,/NO_PROCEDURES/)
  assert.match(health,/publishedProcedures/)
 })

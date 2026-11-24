@@ -32,25 +32,18 @@ Hai chức năng này mở rộng **Kênh công dân** theo bố cục `main`. B
 - `GET /api/tickets/:id` → chi tiết và lịch sử sự kiện (tối đa 200 sự kiện ở giao diện).
 - `POST /api/tickets/:id/reply` → `{ok,status}` với `{message}`.
 
-## API tích hợp cán bộ (SERVER-TO-SERVER, KHÔNG dùng trình duyệt công dân)
+## API cho cán bộ (API của lõi, không nằm trong Kênh người dân)
 
-**Không hoạt động khi chưa cấu hình token** `CITIZEN_STAFF_BRIDGE_TOKEN` dài tối thiểu 32 ký tự. Sinh token bằng `openssl rand -hex 32`, chỉ lưu ở `.env` máy cục bộ hoặc kho secret manager, không commit. Dịch vụ cán bộ phải xác thực nhân sự, kiểm tra quyền từng địa phương và gửi các header sau:
+Gọi qua cổng APISIX bằng token Keycloak của cán bộ (`Authorization: Bearer <token>`); xã lấy từ claim `tenant_id`, mã cán bộ từ `sub`, vai trò từ `realm_access`. Danh sách đầy đủ kèm tham số ở trang tài liệu API `/docs/` (mục "Dữ liệu – PostgREST").
 
-```http
-Authorization: Bearer <CITIZEN_STAFF_BRIDGE_TOKEN>
-X-CommuneOS-Tenant-ID: <UUID địa phương được cán bộ phân quyền>
-X-CommuneOS-Staff-ID: <mã nhân sự đã xác minh bởi backend cán bộ>
-```
 
-Gọi API **chỉ từ backend đã xác thực**, không bao giờ gửi bearer này ra frontend:
+- `POST /rest/rpc/redeem_citizen_handoff` với `{ "p_code": "MÃ_32_KÝ_TỰ" }` → một lần nhận dữ liệu bản nháp, mã `handoffId`, dữ liệu kê khai và metadata các tài liệu. Cần đúng tenant, mã chưa hết hạn/chưa dùng, trạng thái vẫn là nháp. Ghi audit vào `application_events`, và gửi thông báo công dân. **Không tự động nộp hồ sơ**.
+- `GET /files/handoffs/:handoffId/documents/:documentId` (dịch vụ tệp của lõi) → tải giấy tờ của mã đã nhận; chỉ cùng staff và tenant, trong 2 giờ kể từ khi nhận. Các nội dung cá nhân chỉ chuyển qua HTTPS trong triển khai thực tế.
+- `POST /rest/rpc/citizen_support_tickets` → danh sách yêu cầu trong tenant của cán bộ.
+- `POST /rest/rpc/citizen_support_ticket` với `{ "p_ticket_id": "..." }` → chi tiết, lịch sử.
+- `POST /rest/rpc/update_citizen_support_ticket` với `{ "p_ticket_id":"...", "p_status":"processing|waiting_citizen|answered|resolved|closed", "p_message":"...", "p_resolution":"..." }` → đổi trạng thái, ghi lịch sử và tạo thông báo qua SSE cho công dân.
 
-- `POST /api/internal/handoffs/redeem` với `{ "code": "MÃ_32_KÝ_TỰ" }` → một lần nhận dữ liệu bản nháp, mã `handoffId`, dữ liệu kê khai và metadata các tài liệu. Cần đúng tenant, mã chưa hết hạn/chưa dùng, trạng thái vẫn là nháp. Ghi audit vào `application_events`, và gửi thông báo công dân. **Không tự động nộp hồ sơ**.
-- `GET /api/internal/handoffs/:handoffId/documents/:documentId` → tải giấy tờ của mã đã nhận; chỉ cùng staff và tenant, trong 2 giờ kể từ khi nhận. Các nội dung cá nhân chỉ chuyển qua HTTPS trong triển khai thực tế.
-- `GET /api/internal/support/tickets` → danh sách yêu cầu trong tenant của cán bộ.
-- `GET /api/internal/support/tickets/:id` → chi tiết, lịch sử.
-- `POST /api/internal/support/tickets/:id/update` với `{ "status":"processing|waiting_citizen|answered|resolved|closed", "message":"...", "resolution":"..." }` → đổi trạng thái, ghi lịch sử và tạo thông báo qua SSE cho công dân.
-
-**Ranh giới an toàn:** Mã chuyển tiếp không cho phép công dân khác xem hồ sơ. Chỉ dịch vụ cán bộ dùng token server đã cấu hình + nhân sự/địa phương đã được xác thực ở hệ thống cán bộ mới được truy xuất. Cần tích hợp bộ phận một cửa để kiểm tra danh tính, đối chiếu bản gốc và tạo biên nhận chính thức; gọi API chuyển tiếp **không** có nghĩa đã nhận hồ sơ. Việc cấp token và phân quyền thực tế thuộc thành viên phụ trách backend cán bộ/Identity. Để triển khai chính thức phải triển khai HTTPS, giới hạn IP/service network, rotation token, kiểm tra an toàn log và kiểm toán quyền theo từng vai trò.
+**Ranh giới an toàn:** Mã chuyển tiếp không cho phép công dân khác xem hồ sơ. Chỉ cán bộ đăng nhập Keycloak của đúng xã tiếp nhận mới truy xuất được. Cần tích hợp bộ phận một cửa để kiểm tra danh tính, đối chiếu bản gốc và tạo biên nhận chính thức; gọi API chuyển tiếp **không** có nghĩa đã nhận hồ sơ. Để triển khai chính thức phải dùng HTTPS, kiểm tra an toàn log và kiểm toán quyền theo từng vai trò.
 
 ## Lệnh chạy trên Mac
 
@@ -63,4 +56,4 @@ make COMPOSE="docker compose -f docker-compose.yml" repair-db
 make COMPOSE="docker compose -f docker-compose.yml" handoff-support-test
 ```
 
-Không cần cấu hình `CITIZEN_STAFF_BRIDGE_TOKEN` để công dân tạo mã, gửi yêu cầu và xem lịch sử. Nhưng API cán bộ sẽ trả về 503 cho đến khi đội phụ trách cung cấp dịch vụ xác thực.
+Công dân tạo mã, gửi yêu cầu và xem lịch sử trong Kênh người dân; cán bộ dùng mã và trả lời yêu cầu qua API của lõi ở trên, không cần cấu hình thêm.

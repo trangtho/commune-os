@@ -1,19 +1,20 @@
 -- SPDX-FileCopyrightText: 2026 CommuneOS Contributors
 -- SPDX-License-Identifier: Apache-2.0
+-- Kênh người dân gọi lõi bằng vai trò citizen-app (token công dân qua PostgREST); communeos_app không còn quyền dữ liệu.
 \set ON_ERROR_STOP on
 BEGIN;
 DO $$BEGIN
-  IF has_table_privilege('communeos_app','citizen_consultation_slots','INSERT') THEN
+  IF has_table_privilege('citizen-app','citizen_consultation_slots','INSERT') THEN
     RAISE EXCEPTION 'Citizen role may not publish staff consultation slots'; END IF;
-  IF has_column_privilege('communeos_app','citizen_consultation_requests','status','UPDATE') THEN
+  IF has_column_privilege('citizen-app','citizen_consultation_requests','status','UPDATE') THEN
     RAISE EXCEPTION 'Citizen role may not self-confirm consultation'; END IF;
-  IF has_table_privilege('communeos_app','citizen_stage_reviews','DELETE') THEN
+  IF has_table_privilege('citizen-app','citizen_stage_reviews','DELETE') THEN
     RAISE EXCEPTION 'Citizen role must not delete submitted ratings'; END IF;
 END $$;
 -- Owner provisions a temporary published slot, rolled back with this transaction.
 INSERT INTO citizen_consultation_slots(tenant_id,category,starts_at,ends_at,capacity,is_published)
 VALUES('10000000-0000-4000-8000-000000000001','__citizen_experience_test__',now()+interval '3 days',now()+interval '3 days 30 minutes',1,true);
-SET LOCAL ROLE communeos_app;
+SET LOCAL ROLE "citizen-app";
 SELECT set_config('app.citizen_id','20000000-0000-4000-8000-000000000001',true);
 SELECT set_config('app.tenant_id','10000000-0000-4000-8000-000000000001',true);
 INSERT INTO citizen_consultation_requests(citizen_id,tenant_id,category,subject,description,channel,contact_phone,preferred_at,slot_id)
