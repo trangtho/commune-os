@@ -1,6 +1,6 @@
 // SPDX-FileCopyrightText: 2026 CommuneOS Contributors
 // SPDX-License-Identifier: Apache-2.0
-import {citizenTx} from '../../utils/database'
+import {citizenRpc} from '../../utils/identity'
 import {getProcedureFormFields} from '../../../shared/procedure-forms'
 import {isInternalEndpoint} from '../../utils/internal-endpoint'
 const allowedTypes=['application/pdf','image/png','image/jpeg']
@@ -16,11 +16,10 @@ export default defineEventHandler(async event=>{
   file.data.subarray(0,8).equals(Buffer.from([137,80,78,71,13,10,26,10])):
   file.data[0]===0xff&&file.data[1]===0xd8&&file.data[2]===0xff
  if(!valid)throw createError({statusCode:415,statusMessage:'Nội dung không khớp định dạng tệp'})
- const procedureId=await citizenTx(event,async client=>{
-  const row=(await client.query("SELECT procedure_id FROM applications WHERE id=$1 AND status IN ('draft','supplement')",[applicationId])).rows[0]
-  if(!row)throw createError({statusCode:404,statusMessage:'Chỉ tài khoản chủ hồ sơ được phân tích giấy tờ khi còn chỉnh sửa'})
-  return String(row.procedure_id)
- })
+ // Chỉ chủ hồ sơ, khi hồ sơ còn chỉnh sửa (lõi kiểm tra quyền qua api.citizen_application_draft).
+ const draft=await citizenRpc<{procedure_id:string;status:string}>(event,'citizen_application_draft',{p_application_id:applicationId})
+ if(!['draft','supplement'].includes(draft.status))throw createError({statusCode:404,statusMessage:'Chỉ tài khoản chủ hồ sơ được phân tích giấy tờ khi còn chỉnh sửa'})
+ const procedureId=String(draft.procedure_id)
  const endpoint=String(process.env.CITIZEN_OCR_ENDPOINT||'')
  const token=String(process.env.CITIZEN_OCR_TOKEN||'')
  let url:URL|null=null

@@ -44,7 +44,7 @@ Bản triển khai gia tăng từ `communeos-18-features-current-full.zip`; ưu 
 
 ### Kích hoạt nhắc việc tự động
 
-Thiết lập `CITIZEN_REMINDERS_ENABLED=true` trong `.env`, khởi động lại `citizen` (trên môi trường demo), sau đó người dùng bật nhắc trong `/lich-hanh-chinh`. Scheduler Nitro quét mỗi giờ và lúc khởi động (có kiểm tra trùng trong PostgreSQL). Đối với nhiều replica cần lịch chạy tập trung thay vì mỗi container tự quét. Quản trị hệ thống cũng gửi được bằng `POST /rest/rpc/dispatch_citizen_reminders` (API của lõi). Nếu biến tắt, lịch vẫn hiển thị nhưng không gửi tự động.
+Thiết lập `CITIZEN_REMINDERS_ENABLED=true` trong `.env`, chạy lại `make up` (trên môi trường demo), sau đó người dùng bật nhắc trong `/lich-hanh-chinh`. Dịch vụ điều phối của lõi (`orchestrator`) gửi nhắc mỗi giờ và khoảng 30 giây sau khi khởi động (`api.system_dispatch_citizen_reminders`, có kiểm tra trùng trong PostgreSQL). Quản trị hệ thống cũng gửi được bằng `POST /rest/rpc/dispatch_citizen_reminders` (API của lõi). Nếu biến tắt, lịch vẫn hiển thị nhưng không gửi tự động.
 
 ## Các giới hạn không được diễn giải thành tính năng đã kiểm chứng
 

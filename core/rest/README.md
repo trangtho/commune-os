@@ -5,8 +5,8 @@ SPDX-License-Identifier: Apache-2.0
 
 # core/rest — API dữ liệu (PostgREST)
 
-Bảng quản trị và màn hình cán bộ xã đọc dữ liệu qua API này. Kênh người dân dùng API này khi
-đăng nhập; các chức năng khác của Kênh người dân vẫn kết nối PostgreSQL trực tiếp.
+Bảng quản trị, màn hình cán bộ xã và Kênh người dân đọc ghi dữ liệu qua API này (Kênh người dân bằng token của
+client `citizen-app`, vai trò PostgREST `citizen-app`; khách qua `/public`).
 
 ```
 Đăng nhập Keycloak → token (tenant_id = mã xã, realm_access.roles = vai trò)

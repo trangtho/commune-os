@@ -292,6 +292,11 @@ BEGIN
     ('citizen_receivers', 'Xã nhận được hồ sơ từ xã của công dân cho một thủ tục', 'Theo tuyến tiếp nhận được phê duyệt, còn hiệu lực.'),
     ('citizen_locality_route', 'Kiểm tra địa phương gợi ý có tuyến tiếp nhận được phê duyệt không', NULL),
 
+    -- ===== Hàm: dịch vụ và việc định kỳ cho Kênh người dân (34-citizen-direct-access.sql) =====
+    ('citizen_service_oidc_link', 'Liên kết đăng nhập OIDC bên ngoài với tài khoản công dân (chỉ tài khoản dịch vụ của Kênh người dân)', 'Ghi địa phương cư trú và thông tin đã xác minh khi công dân đồng ý lúc đăng nhập; không lưu ID token.'),
+    ('system_dispatch_citizen_reminders', 'Gửi nhắc việc đến hạn (chỉ dịch vụ điều phối của lõi gọi, cần X-Workflow-Token)', NULL),
+    ('system_scan_citizen_retention', 'Quét dữ liệu đến hạn rà soát lưu trữ của mọi xã (chỉ dịch vụ điều phối của lõi gọi, cần X-Workflow-Token)', 'Chỉ tạo mục chờ lãnh đạo xã xem xét.'),
+
     -- ===== Hàm: trợ lý AI (chỉ dịch vụ ai-gateway gọi) =====
     ('knowledge_search', 'Tìm kiếm lai toàn văn và ngữ nghĩa trên tri thức thủ tục (chỉ ai-gateway gọi)',
      'Ứng dụng hỏi trợ lý qua POST /ai/ask hoặc /public/ai/ask.'),

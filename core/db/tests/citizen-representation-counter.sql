@@ -1,17 +1,18 @@
 -- SPDX-FileCopyrightText: 2026 CommuneOS Contributors
 -- SPDX-License-Identifier: Apache-2.0
+-- Kênh người dân gọi lõi bằng vai trò citizen-app (token công dân qua PostgREST); communeos_app không còn quyền dữ liệu.
 -- Test authorization gates and tenant isolation; rollback every mutation.
 \set ON_ERROR_STOP on
 BEGIN;
 DO $$ BEGIN
-  IF has_column_privilege('communeos_app','citizen_representations','status','UPDATE') THEN
+  IF has_column_privilege('citizen-app','citizen_representations','status','UPDATE') THEN
     RAISE EXCEPTION 'The app role must never be allowed to approve its own representation';
   END IF;
-  IF has_table_privilege('communeos_app','citizen_representations','DELETE') THEN
+  IF has_table_privilege('citizen-app','citizen_representations','DELETE') THEN
     RAISE EXCEPTION 'The app role must not delete representation history';
   END IF;
 END $$;
-SET LOCAL ROLE communeos_app;
+SET LOCAL ROLE "citizen-app";
 SELECT set_config('app.citizen_id','20000000-0000-4000-8000-000000000001',true);
 SELECT set_config('app.tenant_id','10000000-0000-4000-8000-000000000001',true);
 INSERT INTO citizen_representations(citizen_id,tenant_id,represented_name,relationship,legal_basis,

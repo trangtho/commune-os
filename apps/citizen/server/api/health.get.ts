@@ -1,21 +1,16 @@
 // SPDX-FileCopyrightText: 2026 CommuneOS Contributors
 // SPDX-License-Identifier: Apache-2.0
-import { publicQuery } from '../utils/database'
-import { dbIssue } from '../utils/db-diagnostics'
-// Health checks schema + published seed data, not only a SELECT 1 connection test.
+// Tình trạng Kênh người dân: gọi API công khai của lõi qua cổng (danh mục thủ tục đã công bố), không chỉ kiểm tra
+// tiến trình còn chạy. Lõi chưa sẵn sàng hoặc chưa có thủ tục thì trả 503 kèm hướng dẫn.
+import { publicRpc } from '../utils/identity'
 export default defineEventHandler(async(event)=>{
   try {
-    const [schema]=await publicQuery<{available:boolean}>(
-      "SELECT to_regclass('public.procedures') IS NOT NULL AS available")
-    if(!schema?.available){setResponseStatus(event,503);return {ok:false,database:'PostgreSQL',errorCode:'SCHEMA_MISSING',message:'Chạy make repair-db để tạo bảng thủ tục.'}}
-    const [data]=await publicQuery<{count:number}>(
-      'SELECT count(*)::int AS count FROM procedures WHERE published')
-    if(!data?.count){setResponseStatus(event,503);return {ok:false,database:'PostgreSQL',errorCode:'NO_PROCEDURES',message:'Bảng thủ tục trống. Chạy make repair-db để nạp dữ liệu mẫu.'}}
-    return {ok:true,database:'PostgreSQL',service:'citizen',publishedProcedures:data.count}
-  } catch (error) {
-    const issue=dbIssue(error)
-    console.error('[health] Database readiness failed, reason:',issue.code)
+    const catalog=await publicRpc<unknown[]>('procedure_catalog',{})
+    if(!Array.isArray(catalog)||!catalog.length){setResponseStatus(event,503);return {ok:false,core:'APISIX → PostgREST',errorCode:'NO_PROCEDURES',message:'Lõi chưa có thủ tục được công bố. Chạy make seed hoặc mở thủ tục ở bảng quản trị.'}}
+    return {ok:true,core:'APISIX → PostgREST',service:'citizen',publishedProcedures:catalog.length}
+  } catch (error:any) {
+    console.error('[health] Core API readiness failed:',error?.statusCode||'unknown')
     setResponseStatus(event,503)
-    return {ok:false,database:'PostgreSQL',errorCode:issue.code,message:issue.message}
+    return {ok:false,core:'APISIX → PostgREST',errorCode:'CORE_UNAVAILABLE',message:'Chưa gọi được API của lõi qua cổng. Kiểm tra make up, dịch vụ gateway và rest.'}
   }
 })

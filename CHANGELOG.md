@@ -11,6 +11,22 @@ Mọi thay đổi đáng chú ý của dự án được ghi tại đây.
 
 ## [Chưa phát hành]
 
+### Thay đổi (Kênh người dân không còn quyền đọc ghi PostgreSQL trực tiếp, 2026-11-24)
+
+- Mọi thao tác dữ liệu của Kênh người dân đi qua cổng APISIX tới API của lõi. Vai trò `communeos_app` bị thu hồi mọi
+  quyền trên bảng, chuỗi số, hàm (`core/db/init/34-citizen-direct-access.sql`); chỉ còn kết nối nhận tín hiệu
+  (LISTEN) cho thông báo thời gian thực. `utils/database.ts` chỉ còn kết nối này.
+- Đăng nhập OIDC bên ngoài (tùy chọn) liên kết tài khoản, ghi địa phương cư trú và thông tin đã xác minh qua
+  `api.citizen_service_oidc_link`, bằng tài khoản dịch vụ Keycloak của client `citizen-app` (bật `serviceAccountsEnabled`,
+  dùng secret đã có, không thêm biến môi trường).
+- Gửi nhắc việc và quét dữ liệu đến hạn rà soát lưu trữ chuyển từ plugin của Kênh người dân sang dịch vụ điều phối của
+  lõi (`CITIZEN_REMINDERS_ENABLED`, `CITIZEN_RETENTION_SCAN_ENABLED` đặt cho `orchestrator`), gọi
+  `api.system_*` bằng khóa nội bộ.
+- `/api/health` của Kênh người dân kiểm tra lõi qua cổng thay cho truy vấn cơ sở dữ liệu.
+- Các bộ kiểm thử RLS (`make *-test`) chạy bằng vai trò `citizen-app`, vai trò Kênh người dân thực sự dùng.
+- Sửa README, `docs/CITIZEN_SETUP.md`, `core/db/README.md`, `core/rest/README.md`, `apps/citizen/README.md` và tài liệu
+  trong `apps/citizen/docs` theo hiện trạng.
+
 ### Thay đổi (API công khai cho Kênh người dân qua lõi, 2026-11-24)
 
 - Kho tri thức của trợ lý, phiên bản và nguồn văn bản thủ tục, hướng dẫn biểu mẫu, kênh thực hiện, gợi ý thủ tục, địa

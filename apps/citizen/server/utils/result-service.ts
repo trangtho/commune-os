@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2026 CommuneOS Contributors
 // SPDX-License-Identifier: Apache-2.0
 import type { H3Event } from 'h3'
-import { citizenTx } from './database'
+import { citizenRpc } from './identity'
 export function resultConfig() {
   const config=useRuntimeConfig()
   const endpoint=String(config.resultEndpoint||'').replace(/\/$/,'')
@@ -9,13 +9,10 @@ export function resultConfig() {
   try {const url=new URL(endpoint);configured=url.protocol==='https:'||(url.protocol==='http:'&&['localhost','127.0.0.1'].includes(url.hostname))}catch{/* Not configured */}
   return {configured,endpoint,token:String(config.resultToken||'')}
 }
+/** Hồ sơ của chính công dân và đã hoàn thành (api.citizen_result_check của lõi). */
 export async function requireCompleted(event:H3Event,id:string) {
-  return citizenTx(event,async client => {
-    const c=(await client.query('SELECT id,status FROM applications WHERE id=$1',[id])).rows[0]
-    if(!c)throw createError({statusCode:404,statusMessage:'Không tìm thấy hồ sơ hoặc không có quyền truy cập'})
-    if(c.status!=='completed')throw createError({statusCode:409,statusMessage:'Hồ sơ chưa có kết quả hoàn thành'})
-    return c
-  })
+  await citizenRpc(event,'citizen_result_check',{p_application_id:id})
+  return {id,status:'completed'}
 }
 export async function requestResult(id:string,suffix='') {
   const config=resultConfig()

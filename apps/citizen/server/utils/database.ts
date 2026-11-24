@@ -1,37 +1,19 @@
 // SPDX-FileCopyrightText: 2026 CommuneOS Contributors
 // SPDX-License-Identifier: Apache-2.0
-import pg, { type PoolClient, type QueryResultRow } from 'pg'
-import type { H3Event } from 'h3'
-import { requireCitizen } from './session'
+// Kênh người dân KHÔNG đọc ghi dữ liệu trực tiếp: mọi thao tác dữ liệu gọi API của lõi qua cổng APISIX
+// (utils/identity.ts: citizenRpc, publicRpc, serviceRpc). Kết nối duy nhất còn lại tới PostgreSQL là để nhận tín hiệu
+// thay đổi (LISTEN communeos_citizen_changes) cho thông báo thời gian thực (utils/live-changes.ts), bằng vai trò
+// communeos_app đã bị thu hồi mọi quyền trên bảng và hàm (core/db/init/34-citizen-direct-access.sql).
+import pg from 'pg'
 let singleton: pg.Pool | undefined
 export function db() {
   if (!singleton) {
     const config = useRuntimeConfig()
     singleton = new pg.Pool({
       host: String(config.dbHost), port: Number(config.dbPort), database: String(config.dbName),
-      user: String(config.dbUser), password: String(config.dbPassword), max: 10,
+      user: String(config.dbUser), password: String(config.dbPassword), max: 2,
       idleTimeoutMillis: 15_000, connectionTimeoutMillis: 5_000
     })
   }
   return singleton
-}
-export async function publicQuery<T extends QueryResultRow = QueryResultRow>(sql: string, values: unknown[] = []): Promise<T[]> {
-  return (await db().query<T>(sql, values)).rows
-}
-export async function citizenTx<T>(event: H3Event, work: (client: PoolClient, actor:{id:string;tenantId:string;name:string})=>Promise<T>): Promise<T> {
-  const actor = requireCitizen(event)
-  const client = await db().connect()
-  try {
-    await client.query('BEGIN')
-    await client.query('SELECT set_config($1,$2,true), set_config($3,$4,true)',
-      ['app.citizen_id',actor.id,'app.tenant_id',actor.tenantId])
-    const result = await work(client,actor)
-    await client.query('COMMIT')
-    return result
-  } catch (error: any) {
-    await client.query('ROLLBACK')
-    // Ràng buộc nghiệp vụ trong cơ sở dữ liệu (vd xã chưa mở thủ tục): báo cho người dân, không phải lỗi máy chủ.
-    if (error?.code === '23514') throw createError({ statusCode: 422, statusMessage: error.message })
-    throw error
-  } finally { client.release() }
 }

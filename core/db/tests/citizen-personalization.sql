@@ -1,5 +1,6 @@
 -- SPDX-FileCopyrightText: 2026 CommuneOS Contributors
 -- SPDX-License-Identifier: Apache-2.0
+-- Kênh người dân gọi lõi bằng vai trò citizen-app (token công dân qua PostgREST); communeos_app không còn quyền dữ liệu.
 -- Run as DB admin: all test data and mutations roll back.
 \set ON_ERROR_STOP on
 BEGIN;
@@ -12,14 +13,14 @@ ON CONFLICT(citizen_id) DO UPDATE SET
   audience_group=EXCLUDED.audience_group,interest_categories=EXCLUDED.interest_categories;
 
 DO $$BEGIN
-  IF has_table_privilege('communeos_app','citizen_procedure_receivers','INSERT') THEN
+  IF has_table_privilege('citizen-app','citizen_procedure_receivers','INSERT') THEN
     RAISE EXCEPTION 'Citizen application role must not grant routing authority';
   END IF;
-  IF has_table_privilege('communeos_app','procedure_recommendation_metadata','UPDATE') THEN
+  IF has_table_privilege('citizen-app','procedure_recommendation_metadata','UPDATE') THEN
     RAISE EXCEPTION 'Citizen application role must not alter verified procedure metadata';
   END IF;
 END$$;
-SET LOCAL ROLE communeos_app;
+SET LOCAL ROLE "citizen-app";
 SELECT set_config('app.citizen_id','20000000-0000-4000-8000-000000000001',true);
 SELECT set_config('app.tenant_id','10000000-0000-4000-8000-000000000001',true);
 DO $$

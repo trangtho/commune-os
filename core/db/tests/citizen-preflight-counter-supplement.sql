@@ -1,12 +1,13 @@
 -- SPDX-FileCopyrightText: 2026 CommuneOS Contributors
 -- SPDX-License-Identifier: Apache-2.0
+-- Kênh người dân gọi lõi bằng vai trò citizen-app (token công dân qua PostgREST); communeos_app không còn quyền dữ liệu.
 -- Tenant isolation, atomic queue, supplement field response; all changes rolled back.
 \set ON_ERROR_STOP on
 BEGIN;
 DO $$ BEGIN
- IF has_table_privilege('communeos_app','citizen_counter_slots','INSERT') THEN
+ IF has_table_privilege('citizen-app','citizen_counter_slots','INSERT') THEN
   RAISE EXCEPTION 'Citizen must not publish its own counter slots'; END IF;
- IF has_table_privilege('communeos_app','citizen_supplement_items','UPDATE') THEN
+ IF has_table_privilege('citizen-app','citizen_supplement_items','UPDATE') THEN
   RAISE EXCEPTION 'Citizen must not edit staff supplement requests'; END IF;
  IF has_function_privilege('communeos_app','api.publish_counter_slot(text,timestamptz,timestamptz,integer)','EXECUTE') THEN
   RAISE EXCEPTION 'Citizen may not invoke staff slot publishing RPC'; END IF;
@@ -24,7 +25,7 @@ INSERT INTO citizen_supplement_items(id,application_id,request_event_id,kind,tar
 VALUES('eeeeeeee-0000-4000-8000-000000000002','__SELFTEST_SUPPLEMENT_ITEM__',
  (SELECT max(id) FROM application_events WHERE application_id='__SELFTEST_SUPPLEMENT_ITEM__'),
  'field','childName','Giải trình tên của trẻ','Thông tin chưa được xác nhận');
-SET LOCAL ROLE communeos_app;
+SET LOCAL ROLE "citizen-app";
 SELECT set_config('app.citizen_id','20000000-0000-4000-8000-000000000001',true);
 SELECT set_config('app.tenant_id','10000000-0000-4000-8000-000000000001',true);
 DO $$ DECLARE b jsonb; v_count integer; v_booking_id uuid;BEGIN

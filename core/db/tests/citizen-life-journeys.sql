@@ -1,16 +1,17 @@
 -- SPDX-FileCopyrightText: 2026 CommuneOS Contributors
 -- SPDX-License-Identifier: Apache-2.0
+-- Kênh người dân gọi lõi bằng vai trò citizen-app (token công dân qua PostgREST); communeos_app không còn quyền dữ liệu.
 \set ON_ERROR_STOP on
 BEGIN;
 DO $$ BEGIN
- IF has_table_privilege('communeos_app','citizen_life_journeys','DELETE')
- OR has_table_privilege('communeos_app','citizen_reminder_deliveries','INSERT')
- OR has_table_privilege('communeos_app','citizen_friction_events','SELECT')
+ IF has_table_privilege('citizen-app','citizen_life_journeys','DELETE')
+ OR has_table_privilege('citizen-app','citizen_reminder_deliveries','INSERT')
+ OR has_table_privilege('citizen-app','citizen_friction_events','SELECT')
  THEN RAISE EXCEPTION 'Citizen role has excessive workflow privileges'; END IF;
  IF NOT EXISTS(SELECT 1 FROM pg_proc WHERE proname='citizen_dispatch_reminders')
  THEN RAISE EXCEPTION 'Reminder dispatcher missing'; END IF;
 END $$;
-SET LOCAL ROLE communeos_app;
+SET LOCAL ROLE "citizen-app";
 SELECT set_config('app.citizen_id','20000000-0000-4000-8000-000000000001',true);
 SELECT set_config('app.tenant_id','10000000-0000-4000-8000-000000000001',true);
 INSERT INTO citizen_life_journeys(citizen_id,tenant_id,title,event_code,situation)

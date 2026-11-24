@@ -92,8 +92,10 @@ test('Approved identity OIDC requires verified signed token, explicit consent, a
   assert.match(oidc,/verify\('RSA-SHA256'/)
   assert.match(oidc,/CITIZEN_OIDC_RESIDENCE_TENANT_CLAIM/)
   assert.match(login,/flow\.useResidence && c\.vneid/)
-  assert.match(login,/app.citizen_id/)
-  assert.match(login,/db\(\).connect\(\)/)
+  // Liên kết và ghi dữ liệu trong lõi bằng tài khoản dịch vụ của Kênh người dân, không nối thẳng cơ sở dữ liệu.
+  assert.match(login,/serviceRpc<[^>]+>\('citizen_service_oidc_link'/)
+  assert.match(read('../../../core/db/init/34-citizen-direct-access.sql'),/IF NOT public\.is_citizen_service\(\)/)
+  assert.doesNotMatch(login,/db\(\)|citizenTx|publicQuery/)
   assert.doesNotMatch(login,/citizenId.*getQuery/)
   assert.match(read('../pages/dang-nhap.vue'),/shareLocality/)
   assert.match(read('../server/api/auth/methods.get.ts'),/vneid/)

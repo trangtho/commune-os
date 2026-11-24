@@ -40,9 +40,9 @@ Giấy phép của các thành phần bên thứ ba được liệt kê trong
 
 Lõi hoàn toàn không có giao diện: chỉ có dịch vụ và API. Bảng quản trị (`apps/admin`) và
 phần xử lý hồ sơ của màn hình cán bộ (`apps/commune`) gọi lõi qua cửa ngõ API.
-Kênh người dân (`apps/citizen`) đăng nhập qua Keycloak; luồng chính (thủ tục, bản nháp, nộp hồ sơ,
-giấy tờ, hồ sơ của tôi, thông báo, hồ sơ cá nhân) gọi lõi qua cửa ngõ. Các chức năng phụ còn lại vẫn
-đọc ghi PostgreSQL trực tiếp bằng vai trò `communeos_app` (có RLS).
+Kênh người dân (`apps/citizen`) đăng nhập qua Keycloak và gọi lõi qua cửa ngõ cho mọi thao tác dữ liệu (hàm `api.*`,
+`core/db/init/21-*.sql`, `26-*.sql` đến `34-*.sql`); không còn đọc ghi PostgreSQL trực tiếp. Kết nối duy nhất còn lại tới
+PostgreSQL chỉ để nhận tín hiệu thay đổi cho thông báo thời gian thực, bằng vai trò đã bị thu hồi mọi quyền dữ liệu.
 Mỗi xã tự có danh sách thủ tục được mở. Cán bộ và người dân chỉ thấy, chỉ nộp được thủ tục xã mình đang mở; cơ sở dữ liệu tự chặn nếu ai đó vượt qua giao diện. Quản trị hệ thống cấu hình xã và thủ tục nhưng không đọc được nội dung hồ sơ.
 
 ### Dịch vụ của lõi
@@ -156,11 +156,11 @@ Hiện trạng cần biết (chi tiết trong [docs/CITIZEN_SETUP.md](docs/CITIZ
 
 - Đăng nhập công dân qua Keycloak (client bí mật `citizen-app`); đổi mật khẩu qua `/accounts/me/password`.
   Kết nối OIDC bên ngoài là tùy chọn, tắt mặc định.
-- Luồng chính gọi các hàm `api.*` của lõi qua cổng `/rest` (khách xem thủ tục qua `/public`); lõi kiểm tra
-  lại mọi ràng buộc khi ghi, kể cả đủ giấy tờ bắt buộc. Giấy tờ lưu qua dịch vụ tệp `files` của lõi
-  (SeaweedFS, SHA-256, ClamAV tùy chọn).
-- Các chức năng phụ còn lại (kho giấy tờ, đại diện, lịch hẹn, lộ trình, trợ lý...) vẫn đọc ghi
-  PostgreSQL trực tiếp (vai trò `communeos_app`, RLS theo công dân và xã).
+- Mọi chức năng (thủ tục, hồ sơ, kho giấy tờ, đại diện, lịch hẹn, lộ trình, hỗ trợ, trợ lý...) gọi các hàm `api.*`
+  của lõi qua cổng `/rest` bằng token công dân (khách dùng các hàm `public_*` qua `/public`); lõi kiểm tra lại mọi
+  ràng buộc khi ghi, RLS theo công dân và xã. Giấy tờ lưu qua dịch vụ tệp `files` của lõi (SeaweedFS, SHA-256,
+  ClamAV tùy chọn). Phần việc của cán bộ (trả lời hỗ trợ, mã chuyển hồ sơ tại quầy, dữ liệu cá nhân...) là API của
+  lõi cho cán bộ; việc định kỳ (nhắc việc, rà soát lưu trữ) do dịch vụ điều phối của lõi chạy.
 - Trợ lý hỏi đáp dùng AI của lõi: tìm kiếm lai toàn văn + ngữ nghĩa trên thủ tục đã công bố, mô hình chỉ chọn
   câu trích dẫn nguyên văn; câu trả lời luôn có nguồn. AI chưa sẵn sàng thì dùng tìm kiếm toàn văn.
   Nút "Hỏi trợ lý AI" có trên mọi trang, cả ở màn hình cán bộ (thêm hướng dẫn nghiệp vụ). Trợ lý chỉ dùng thủ tục

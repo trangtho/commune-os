@@ -32,8 +32,10 @@ test('plans and tasks remain opt-in; no background administrative submissions',(
  const create=personal.slice(personal.indexOf('FUNCTION api.citizen_journey_create(')).split('END $$;')[0]
  assert.match(create,/procedure_enabled_for/)
  assert.doesNotMatch(create,/INSERT INTO applications/)
- const schedule=read('../server/plugins/reminder-delivery.ts')
- assert.match(schedule,/CITIZEN_REMINDERS_ENABLED/)
+ // Nhắc việc định kỳ do dịch vụ điều phối của lõi chạy, bật bằng biến môi trường (tắt mặc định).
+ const schedule=read('../../../core/orchestrator/server.mjs')
+ assert.match(schedule,/CITIZEN_REMINDERS_ENABLED === 'true'/)
+ assert.match(schedule,/system_dispatch_citizen_reminders/)
  const settings=read('../server/api/citizen/reminders/settings.put.ts')
  assert.match(settings,/enabled/);assert.match(settings,/daysBefore/)
 })

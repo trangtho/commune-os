@@ -1,14 +1,15 @@
 -- SPDX-FileCopyrightText: 2026 CommuneOS Contributors
 -- SPDX-License-Identifier: Apache-2.0
+-- Kênh người dân gọi lõi bằng vai trò citizen-app (token công dân qua PostgREST); communeos_app không còn quyền dữ liệu.
 -- Run after db-setup. Transactions roll back both data and staff actions.
 \set ON_ERROR_STOP on
 BEGIN;
 DO $$ BEGIN
- IF has_table_privilege('communeos_app','citizen_case_requests','UPDATE') THEN
+ IF has_table_privilege('citizen-app','citizen_case_requests','UPDATE') THEN
   RAISE EXCEPTION 'Citizen may not approve case requests'; END IF;
- IF has_table_privilege('communeos_app','citizen_case_transfer_handoffs','INSERT') THEN
+ IF has_table_privilege('citizen-app','citizen_case_transfer_handoffs','INSERT') THEN
   RAISE EXCEPTION 'Citizen may not initiate staff transfer'; END IF;
- IF has_table_privilege('communeos_app','citizen_result_channels','INSERT') THEN
+ IF has_table_privilege('citizen-app','citizen_result_channels','INSERT') THEN
   RAISE EXCEPTION 'Citizen may not publish result delivery policies'; END IF;
 END $$;
 INSERT INTO applications(id,citizen_id,tenant_id,procedure_id,status,applicant_name,form_data,due_at)
@@ -28,7 +29,7 @@ VALUES('khai-sinh','10000000-0000-4000-8000-000000000001',
  '10000000-0000-4000-8000-000000000002',true,'TEST-ROUTING-PROVISION',now()+interval '30 days')
 ON CONFLICT(procedure_id,source_tenant_id,receiving_tenant_id)
 DO UPDATE SET enabled=true,approval_reference='TEST-ROUTING-PROVISION',valid_until=now()+interval '30 days';
-SET LOCAL ROLE communeos_app;
+SET LOCAL ROLE "citizen-app";
 SELECT set_config('app.citizen_id','20000000-0000-4000-8000-000000000001',true);
 SELECT set_config('app.tenant_id','10000000-0000-4000-8000-000000000001',true);
 INSERT INTO citizen_case_requests(application_id,citizen_id,tenant_id,request_kind,reason)
