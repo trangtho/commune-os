@@ -34,8 +34,8 @@ test('Counter queue allocates tickets atomically and limits cross-tenant access'
  assert.match(sql,/published AND starts_at>now\(\)/)
  assert.match(sql,/REVOKE ALL ON FUNCTION api\.set_counter_ticket_status/)
  assert.match(sql,/GRANT EXECUTE ON FUNCTION citizen_cancel_counter_booking/)
- const api=read('apps/citizen/server/api/counter/bookings/index.post.ts')
- assert.match(api,/citizen_book_counter_slot/)
+ assert.match(read('apps/citizen/server/api/counter/bookings/index.post.ts'),/'citizen_counter_book'/)
+ assert.match(read('core/db/init/30-citizen-api-appointment.sql'),/RETURN public\.citizen_book_counter_slot\(p_slot_id\)/)
  assert.match(read('apps/citizen/pages/lich-hen-mot-cua.vue'),/Đang phục vụ/)
 })
 test('Citizen-facing stages are derived from authenticated staff updates, not invented workflow deadlines',()=>{

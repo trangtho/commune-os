@@ -44,11 +44,15 @@ test('consultation requests are owner/tenant isolated and cannot be self-confirm
  assert.match(migration,/status='pending' AND meeting_url IS NULL/)
  assert.match(migration,/citizen_cancel_consultation/)
  assert.doesNotMatch(migration,/GRANT UPDATE \(status/)
- assert.match(appointmentCreate,/citizenTx\(event/)
- assert.match(appointmentCreate,/pg_advisory_xact_lock/)
- assert.match(appointmentCreate,/citizen_slot_remaining/)
- assert.match(slots,/is_published/)
- assert.match(slots,/citizen_slot_remaining/)
+ assert.match(appointmentCreate,/citizenRpc<.+>\(event,'citizen_consultation_create'/)
+ const apptApi=read('../../../core/db/init/30-citizen-api-appointment.sql')
+ const create=apptApi.slice(apptApi.indexOf('FUNCTION api.citizen_consultation_create(')).split('END $$;')[0]
+ assert.match(create,/pg_advisory_xact_lock/)
+ assert.match(create,/citizen_slot_remaining/)
+ assert.match(slots,/'citizen_consultation_slots'/)
+ const slotSql=apptApi.slice(apptApi.indexOf('FUNCTION api.citizen_consultation_slots(')).split('END $$;')[0]
+ assert.match(slotSql,/is_published/)
+ assert.match(slotSql,/citizen_slot_remaining/)
  assert.match(read('../pages/lich-tu-van.vue'),/Chờ cán bộ xác nhận/)
 })
 test('per-stage reviews require ownership, stage eligibility and one write per stage',()=>{

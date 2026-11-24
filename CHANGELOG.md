@@ -11,6 +11,12 @@ Mọi thay đổi đáng chú ý của dự án được ghi tại đây.
 
 ## [Chưa phát hành]
 
+### Thay đổi (lịch hẹn một cửa, lịch tư vấn của Kênh người dân qua lõi, 2026-11-24)
+
+- 8 API đặt lượt tại bộ phận một cửa và đặt lịch tư vấn gọi 8 hàm `api.*` của lõi
+  (`core/db/init/30-citizen-api-appointment.sql`) thay cho truy vấn PostgreSQL trực tiếp; khung giờ vẫn chỉ do cán bộ
+  công bố, số thứ tự cấp trong lõi.
+
 ### Thay đổi (đại diện nộp thay, gia đình, nhóm thủ tục của Kênh người dân qua lõi, 2026-11-24)
 
 - 10 API đại diện nộp thay (đăng ký, minh chứng, thu hồi, nhật ký), trang gia đình và nhóm thủ tục nộp cùng lúc gọi

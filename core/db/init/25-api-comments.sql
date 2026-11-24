@@ -218,6 +218,16 @@ BEGIN
     ('citizen_service_batch_create', 'Tạo nhóm 2–4 thủ tục chuẩn bị nộp cùng lúc', 'Chỉ là nhóm chuẩn bị, không tự nộp; dùng chung họ tên, số điện thoại khi công dân đồng ý.'),
     ('citizen_service_batch', 'Chi tiết một nhóm thủ tục và hồ sơ đã tạo cho từng thủ tục', NULL),
 
+    -- ===== Hàm: lịch hẹn một cửa, tư vấn của công dân (30-citizen-api-appointment.sql) =====
+    ('citizen_counter_slots', 'Khung giờ một cửa do cán bộ công bố, còn chỗ', 'Trong 31 ngày tới, bắt đầu sau ít nhất 1 giờ; p_procedure_id lọc theo thủ tục.'),
+    ('citizen_counter_bookings', 'Lượt công dân đã đặt tại bộ phận một cửa', NULL),
+    ('citizen_counter_book', 'Đặt một lượt tại bộ phận một cửa', 'Số thứ tự cấp nguyên tử trong lõi; chỉ khung giờ còn chỗ.'),
+    ('citizen_counter_booking_cancel', 'Hủy lượt đã đặt', NULL),
+    ('citizen_consultations', 'Lịch tư vấn của công dân', NULL),
+    ('citizen_consultation_slots', 'Khung giờ tư vấn do cán bộ công bố, còn chỗ', 'p_category lọc theo lĩnh vực.'),
+    ('citizen_consultation_create', 'Đặt lịch tư vấn', 'p_channel: phone, online; thời gian từ 1 giờ đến 31 ngày tới; tối đa 3 lịch chưa kết thúc. Lịch chờ cán bộ xác nhận.'),
+    ('citizen_consultation_cancel', 'Hủy lịch tư vấn', NULL),
+
     -- ===== Hàm: trợ lý AI (chỉ dịch vụ ai-gateway gọi) =====
     ('knowledge_search', 'Tìm kiếm lai toàn văn và ngữ nghĩa trên tri thức thủ tục (chỉ ai-gateway gọi)',
      'Ứng dụng hỏi trợ lý qua POST /ai/ask hoặc /public/ai/ask.'),
