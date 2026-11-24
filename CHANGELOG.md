@@ -11,6 +11,13 @@ Mọi thay đổi đáng chú ý của dự án được ghi tại đây.
 
 ## [Chưa phát hành]
 
+### Thay đổi (cá nhân hóa của Kênh người dân qua lõi, 2026-11-24)
+
+- 25 API quyền chia sẻ dữ liệu, nhật ký sử dụng dữ liệu cá nhân, lưu trữ và đề nghị về dữ liệu, đồng bộ thông tin tự
+  khai, tùy chọn cá nhân hóa, lộ trình sự kiện cuộc sống, nhắc việc, sổ giao dịch, không gian làm việc, bước đang soạn và
+  tín hiệu khó khăn ẩn danh gọi 26 hàm `api.*` của lõi (`core/db/init/32-citizen-api-personal.sql`) thay cho truy vấn
+  PostgreSQL trực tiếp. Bỏ `utils/privacy-events.ts` (nhật ký sử dụng dữ liệu ghi trong lõi).
+
 ### Thay đổi (hỗ trợ, góp ý, lịch sử trò chuyện của Kênh người dân qua lõi, 2026-11-24)
 
 - 11 API yêu cầu hỗ trợ, góp ý, tin nhắn hỗ trợ theo hồ sơ, lịch sử trò chuyện với trợ lý, cùng phần lưu câu hỏi / câu

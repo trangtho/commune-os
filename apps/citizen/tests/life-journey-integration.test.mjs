@@ -27,8 +27,11 @@ test('draft autosave checks optimistic revision and citizen RLS and respects ser
 })
 test('plans and tasks remain opt-in; no background administrative submissions',()=>{
  const journey=read('../server/api/citizen/journeys/index.post.ts')
- assert.match(journey,/citizenTx/);assert.match(journey,/procedure_enabled_for/)
- assert.doesNotMatch(journey,/INSERT INTO applications/)
+ assert.match(journey,/citizenRpc\(event,'citizen_journey_create'/)
+ const personal=read('../../../core/db/init/32-citizen-api-personal.sql')
+ const create=personal.slice(personal.indexOf('FUNCTION api.citizen_journey_create(')).split('END $$;')[0]
+ assert.match(create,/procedure_enabled_for/)
+ assert.doesNotMatch(create,/INSERT INTO applications/)
  const schedule=read('../server/plugins/reminder-delivery.ts')
  assert.match(schedule,/CITIZEN_REMINDERS_ENABLED/)
  const settings=read('../server/api/citizen/reminders/settings.put.ts')

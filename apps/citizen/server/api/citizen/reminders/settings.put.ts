@@ -1,15 +1,11 @@
 // SPDX-FileCopyrightText: 2026 CommuneOS Contributors
 // SPDX-License-Identifier: Apache-2.0
+// Bật / tắt nhắc việc trong ứng dụng (api.citizen_reminder_settings_save của lõi).
 import {z} from 'zod'
 import {validate} from '../../../utils/validation'
-import {citizenTx} from '../../../utils/database'
+import {citizenRpc} from '../../../utils/identity'
 const schema=z.object({enabled:z.boolean(),daysBefore:z.number().int().min(0).max(14)}).strict()
 export default defineEventHandler(async event=>{
  const input=validate(schema,await readBody(event))
- return citizenTx(event,async(client,actor)=>{
-  await client.query(`INSERT INTO citizen_reminder_settings(citizen_id,tenant_id,enabled,days_before)
-   VALUES($1,$2,$3,$4) ON CONFLICT(citizen_id) DO UPDATE SET enabled=excluded.enabled,days_before=excluded.days_before,updated_at=now()`,
-   [actor.id,actor.tenantId,input.enabled,input.daysBefore])
-  return {enabled:input.enabled,daysBefore:input.daysBefore,channel:'in_app_only'}
- })
+ return citizenRpc(event,'citizen_reminder_settings_save',{p_enabled:input.enabled,p_days_before:input.daysBefore})
 })

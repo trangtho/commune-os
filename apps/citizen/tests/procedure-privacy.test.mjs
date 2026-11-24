@@ -6,6 +6,8 @@ import {readFileSync} from 'node:fs'
 import {execFileSync} from 'node:child_process'
 const read=file=>readFileSync(new URL(file,import.meta.url),'utf8')
 const core=read('../../../core/db/init/21-citizen-api-core-flow.sql')
+const personal=read('../../../core/db/init/32-citizen-api-personal.sql')
+const personalFn=name=>personal.slice(personal.indexOf(`FUNCTION api.${name}(`)).split('END $$;')[0]
 const migration=read('../../../core/db/init/16-citizen-procedure-privacy.sql')
 const readRoute=(path)=>read(`../server/api/${path}`)
 const staffApi=read('../../../core/db/init/26-citizen-staff-api.sql')
@@ -57,8 +59,9 @@ test('Creating a draft pins a snapshot, submission rejects unreviewed revision',
  assert.match(read('../components/DraftProcedureAlert.vue'),/Xác nhận đã rà soát/)
 })
 test('Consent is citizen-controlled, other bases cannot be toggled and vault reuse is gated',()=>{
- const consent=readRoute('citizen/consents/[purpose].post.ts')
- assert.match(consent,/legal_basis='consent'/)
+ assert.match(readRoute('citizen/consents/[purpose].post.ts'),/'citizen_consent_decide'/)
+ const consent=personalFn('citizen_consent_decide')
+ assert.match(consent,/legal_basis = 'consent'/)
  assert.match(consent,/pg_advisory_xact_lock/)
  assert.match(consent,/consent_withdrawn/)
  const vaultApi=read('../../../core/db/init/27-citizen-api-vault.sql')
@@ -74,7 +77,9 @@ test('Retention is staff-review first, access log does not expose sensitive valu
  assert.match(migration,/citizen_staff_review_privacy_request/)
  assert.match(migration,/citizen_staff_review_retention/)
  assert.match(read('../server/plugins/retention-scheduler.ts'),/CITIZEN_RETENTION_SCAN_ENABLED/)
- assert.match(readRoute('citizen/data-access/index.get.ts'),/citizen_data_event_digest/)
- assert.match(readRoute('citizen/retention/requests/index.post.ts'),/citizenTx\(event/)
+ assert.match(readRoute('citizen/data-access/index.get.ts'),/'citizen_data_access'/)
+ assert.match(personalFn('citizen_data_access'),/citizen_data_event_digest/)
+ assert.match(readRoute('citizen/retention/requests/index.post.ts'),/'citizen_privacy_request_create'/)
+ assert.match(personalFn('citizen_privacy_request_create'),/citizen_record_access\('privacy_request_created'/)
  assert.match(readRoute('citizen/vault/files/[id].get.ts'),/citizen_retention_reviews/)
 })

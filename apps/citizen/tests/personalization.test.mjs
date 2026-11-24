@@ -6,6 +6,8 @@ import { readFileSync } from 'node:fs'
 import { execFileSync } from 'node:child_process'
 const read=file=>readFileSync(new URL(file, import.meta.url),'utf8')
 const core=read('../../../core/db/init/21-citizen-api-core-flow.sql')
+const personal=read('../../../core/db/init/32-citizen-api-personal.sql')
+const personalFn=name=>personal.slice(personal.indexOf(`FUNCTION api.${name}(`)).split('END $$;')[0]
 const migration=read('../../../core/db/init/04-citizen-personalization.sql')
 const api=read('../server/api/procedures/recommended.get.ts')
 const prefs=read('../server/api/citizen/preferences/index.patch.ts')
@@ -60,11 +62,12 @@ test('Personalization endpoints are owner-scoped with opt-in and server-side val
   assert.match(api,/applications/)
   assert.match(api,/metadata_verified/)
   assert.match(prefs,/\.strict\(\)/)
-  assert.match(prefs,/SELECT id FROM tenants WHERE id = ANY/)
-  assert.match(prefs,/SELECT DISTINCT category FROM procedures/)
-  assert.match(prefs,/citizenTx\(event/)
-  assert.match(get,/citizenTx\(event/)
-  assert.match(del,/citizenTx\(event/)
+  assert.match(prefs,/citizenRpc\(event, 'citizen_preferences_save'/)
+  assert.match(personalFn('citizen_preferences_save'),/FROM tenants WHERE id = ANY \(v_localities\)/)
+  assert.match(personalFn('citizen_preferences_save'),/SELECT 1 FROM procedures WHERE published AND category = x/)
+  assert.match(get,/'citizen_preferences'/)
+  assert.match(del,/'citizen_preferences_delete'/)
+  assert.match(personalFn('citizen_preferences_delete'),/DELETE FROM citizen_service_preferences WHERE citizen_id = a\.citizen_id/)
 })
 
 test('Receiving locality is checked when drafting, editing and final submitting, including permission expiry',()=>{
