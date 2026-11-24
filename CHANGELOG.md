@@ -11,6 +11,16 @@ Mọi thay đổi đáng chú ý của dự án được ghi tại đây.
 
 ## [Chưa phát hành]
 
+### Sửa lỗi (giao diện, 2026-11-24)
+
+- Trang nộp hồ sơ (bước giấy tờ) và các trang có ô chọn tệp: sau khi chọn tệp, cả khung ứng dụng trượt lên làm lộ ảnh
+  nền và mất phần dưới nội dung. Ô chọn tệp ẩn (`sr-only`, `position: absolute`) không có mốc vị trí nên kéo dài chiều
+  cao trang, trình duyệt cuộn cả trang khi focus. Vùng nội dung cuộn nay là mốc vị trí, khung ngoài dùng
+  `overflow: clip` (Kênh người dân và màn hình cán bộ).
+- Màn hình cán bộ tự cập nhật khi người khác thay đổi dữ liệu (đề nghị mới chờ duyệt, kết quả phê duyệt trong hồ sơ cá
+  nhân, danh sách nhân viên, việc được giao, thông báo), không cần F5: tải lại dữ liệu trang mỗi 15 giây khi tab đang mở
+  và ngay khi quay lại tab (`apps/commune/composables/useAutoRefresh.ts`); biểu mẫu đang nhập không bị ghi đè.
+
 ### Thay đổi (Kênh người dân không còn quyền đọc ghi PostgreSQL trực tiếp, 2026-11-24)
 
 - Mọi thao tác dữ liệu của Kênh người dân đi qua cổng APISIX tới API của lõi. Vai trò `communeos_app` bị thu hồi mọi
