@@ -228,6 +228,22 @@ BEGIN
     ('citizen_consultation_create', 'Đặt lịch tư vấn', 'p_channel: phone, online; thời gian từ 1 giờ đến 31 ngày tới; tối đa 3 lịch chưa kết thúc. Lịch chờ cán bộ xác nhận.'),
     ('citizen_consultation_cancel', 'Hủy lịch tư vấn', NULL),
 
+    -- ===== Hàm: hỗ trợ, góp ý, trò chuyện của công dân (31-citizen-api-support.sql) =====
+    ('citizen_tickets', 'Yêu cầu hỗ trợ của công dân', 'Lọc p_status, tìm p_q theo tiêu đề hoặc mã YC-…; 10 yêu cầu mỗi trang.'),
+    ('citizen_ticket', 'Chi tiết một yêu cầu hỗ trợ kèm lịch sử trao đổi', NULL),
+    ('citizen_ticket_create', 'Gửi yêu cầu hỗ trợ', 'p_category: huong-dan, loi-ky-thuat, gop-y, phan-anh, khac; có thể gắn với một hồ sơ của mình. Tối đa 20 yêu cầu mỗi 24 giờ.'),
+    ('citizen_ticket_reply', 'Công dân trả lời trong yêu cầu hỗ trợ', 'Tối đa 40 lần mỗi 24 giờ.'),
+    ('citizen_feedback', 'Góp ý công dân đã gửi', NULL),
+    ('citizen_feedback_create', 'Gửi góp ý', 'Lưu góp ý và mở yêu cầu hỗ trợ để cán bộ trả lời.'),
+    ('citizen_support_messages', 'Tin nhắn hỗ trợ theo hồ sơ', NULL),
+    ('citizen_support_message_create', 'Gửi tin nhắn hỗ trợ, có thể gắn với một hồ sơ', NULL),
+    ('citizen_chat_conversations', 'Danh sách cuộc trò chuyện với trợ lý', '20 cuộc mỗi trang.'),
+    ('citizen_chat_conversation', 'Một cuộc trò chuyện với trợ lý', '60 tin nhắn mỗi trang; p_before: mã tin nhắn để tải trang cũ hơn.'),
+    ('citizen_chat_conversation_delete', 'Xóa một cuộc trò chuyện', NULL),
+    ('citizen_chat_conversation_check', 'Kiểm tra cuộc trò chuyện thuộc tài khoản', NULL),
+    ('citizen_chat_save', 'Lưu câu hỏi và câu trả lời đã kiểm tra nguồn của trợ lý', 'Một giao dịch; không đưa vào kho tri thức. Câu không trả lời được chỉ ghi nhóm chủ đề để thống kê.'),
+    ('citizen_enabled_procedures', 'Mã các thủ tục xã của công dân đang mở', 'Trợ lý chỉ trả lời trong phạm vi này.'),
+
     -- ===== Hàm: trợ lý AI (chỉ dịch vụ ai-gateway gọi) =====
     ('knowledge_search', 'Tìm kiếm lai toàn văn và ngữ nghĩa trên tri thức thủ tục (chỉ ai-gateway gọi)',
      'Ứng dụng hỏi trợ lý qua POST /ai/ask hoặc /public/ai/ask.'),

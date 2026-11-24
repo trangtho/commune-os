@@ -11,6 +11,12 @@ Mọi thay đổi đáng chú ý của dự án được ghi tại đây.
 
 ## [Chưa phát hành]
 
+### Thay đổi (hỗ trợ, góp ý, lịch sử trò chuyện của Kênh người dân qua lõi, 2026-11-24)
+
+- 11 API yêu cầu hỗ trợ, góp ý, tin nhắn hỗ trợ theo hồ sơ, lịch sử trò chuyện với trợ lý, cùng phần lưu câu hỏi / câu
+  trả lời và phạm vi thủ tục của trợ lý, gọi 14 hàm `api.*` của lõi (`core/db/init/31-citizen-api-support.sql`) thay
+  cho truy vấn PostgreSQL trực tiếp. Cán bộ trả lời yêu cầu hỗ trợ qua API cán bộ của lõi, công dân thấy ngay.
+
 ### Thay đổi (lịch hẹn một cửa, lịch tư vấn của Kênh người dân qua lõi, 2026-11-24)
 
 - 8 API đặt lượt tại bộ phận một cửa và đặt lịch tư vấn gọi 8 hàm `api.*` của lõi

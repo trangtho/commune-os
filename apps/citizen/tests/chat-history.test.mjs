@@ -11,6 +11,9 @@ const detail = read('../server/api/chat/conversations/[id].get.ts')
 const remove = read('../server/api/chat/conversations/[id].delete.ts')
 const chat = read('../pages/tro-ly.vue')
 const panel = read('../components/ChatHistoryPanel.vue')
+// Lưu, đọc, xóa lịch sử trò chuyện là API của lõi (gọi qua cổng bằng token công dân).
+const supportApi = read('../../../core/db/init/31-citizen-api-support.sql')
+const fn = name => supportApi.slice(supportApi.indexOf(`FUNCTION api.${name}(`)).split('END $$;')[0]
 const compose = read('../../../docker-compose.yml')
 
 test('Migration grants account+tenant scoped RLS and cascades deletion', () => {
@@ -27,23 +30,23 @@ test('Migration grants account+tenant scoped RLS and cascades deletion', () => {
 test('Chat saves server-verified answer and question only for authenticated citizen in one tx', () => {
   assert.match(api, /const actor = readSession\(event\)/)
   assert.match(api, /if \(actor\) \{/)
-  assert.match(api, /savedConversationId = await citizenTx/)
-  assert.match(api, /citizen_ai_messages/)
-  assert.match(api, /result\.answer/)
-  assert.match(api, /JSON\.stringify\(result\.sources/)
+  assert.match(api, /citizenRpc<\{conversationId:string\}>\(event, 'citizen_chat_save'/)
+  assert.match(api, /p_answer: result\.answer/)
+  assert.match(api, /p_sources: result\.sources/)
+  // Câu hỏi và câu trả lời ghi trong cùng một hàm (một giao dịch) của lõi.
+  assert.match(fn('citizen_chat_save'), /'citizen', p_question\);[\s\S]*'assistant', p_answer/)
   assert.match(api, /return \{\.\.\.result, revision/)
   assert.match(api, /conversationId: savedConversationId/)
 })
 
 test('History endpoints are private, validate identifiers, page results and scope deletion', () => {
   for (const source of [list, detail, remove]) {
-    assert.match(source, /citizenTx\(event/)
+    assert.match(source, /citizenRpc(<[^>]+>)?\(event, 'citizen_chat_conversation/)
     assert.match(source, /no-store/)
   }
-  assert.match(list, /LIMIT \$1 OFFSET \$2/)
-  assert.match(detail, /WHERE conversation_id = \$1/)
-  assert.match(detail, /id < \$2::bigint/)
-  assert.match(remove, /DELETE FROM citizen_ai_conversations WHERE id = \$1/)
+  assert.match(fn('citizen_chat_conversations'), /LIMIT 20 OFFSET \(p_page - 1\) \* 20/)
+  assert.match(fn('citizen_chat_conversation'), /WHERE conversation_id = p_conversation_id AND \(p_before IS NULL OR id < p_before\)/)
+  assert.match(fn('citizen_chat_conversation_delete'), /DELETE FROM citizen_ai_conversations WHERE id = p_conversation_id/)
 })
 
 test('Chat UI opens, paginates and deletes saved conversations without losing RAG citations', () => {
