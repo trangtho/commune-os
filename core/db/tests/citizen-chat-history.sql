@@ -2,14 +2,25 @@
 -- SPDX-License-Identifier: Apache-2.0
 -- Kênh người dân gọi lõi bằng vai trò citizen-app (token công dân qua PostgREST); communeos_app không còn quyền dữ liệu.
 -- Integration test with RLS enforced as the application role. All changes rollback.
+-- Xã và công dân mẫu do make demo tạo (mã ngẫu nhiên theo từng bản cài): xa-a, xa-b, congdan.demo, congdan.khac.
+DO $demo$ BEGIN
+  IF (SELECT count(*) FROM tenants WHERE code IN ('xa-a','xa-b')) < 2
+     OR (SELECT count(*) FROM citizens WHERE login_name IN ('congdan.demo','congdan.khac')) < 2 THEN
+    RAISE EXCEPTION 'Chưa có dữ liệu mẫu: chạy make demo trước khi kiểm thử';
+  END IF;
+  PERFORM set_config('demo.tenant_a', (SELECT id::text FROM tenants WHERE code = 'xa-a'), false),
+          set_config('demo.tenant_b', (SELECT id::text FROM tenants WHERE code = 'xa-b'), false),
+          set_config('demo.citizen_a', (SELECT id::text FROM citizens WHERE login_name = 'congdan.demo'), false),
+          set_config('demo.citizen_b', (SELECT id::text FROM citizens WHERE login_name = 'congdan.khac'), false);
+END $demo$;
 BEGIN;
 SET LOCAL ROLE "citizen-app";
 DO $$
 DECLARE
-  a uuid := '20000000-0000-4000-8000-000000000001';
-  b uuid := '20000000-0000-4000-8000-000000000002';
-  tenant_a uuid := '10000000-0000-4000-8000-000000000001';
-  tenant_b uuid := '10000000-0000-4000-8000-000000000002';
+  a uuid := current_setting('demo.citizen_a')::uuid;
+  b uuid := current_setting('demo.citizen_b')::uuid;
+  tenant_a uuid := current_setting('demo.tenant_a')::uuid;
+  tenant_b uuid := current_setting('demo.tenant_b')::uuid;
   thread uuid := '30000000-0000-4000-8000-000000000123';
 BEGIN
   PERFORM set_config('app.citizen_id',a::text,true);

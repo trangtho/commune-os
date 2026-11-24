@@ -27,9 +27,11 @@ test('Poka-yoke is enforced by the API, not only the button',()=>{
  assert.match(core,/citizen_fail\(422, 'Thiếu giấy tờ: '/)
 })
 test('No real ID data in seed and files are validated',()=>{
- const seed=get('core/db/seed/seed.sql')
- assert.match(seed,/GIẢ LẬP/)
- assert.match(seed,/congdan\.demo/)
+ // Dữ liệu mẫu tách khỏi seed (make demo); seed chỉ còn danh mục, không có tài khoản hay hồ sơ.
+ const demo=get('core/demo/demo-data.sql')
+ assert.match(demo,/GIẢ LẬP/)
+ assert.match(demo,/congdan\.demo/)
+ assert.doesNotMatch(get('core/db/seed/seed.sql'),/INSERT INTO (tenants|citizens|applications)\b/)
  const upload=get('apps/citizen/server/api/applications/[id]/documents.post.ts')
  assert.match(upload,/5242880|5\*1024\*1024/)
  assert.match(upload,/application\/pdf/)

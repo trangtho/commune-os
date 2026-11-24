@@ -20,7 +20,7 @@ Nhóm sẽ phản hồi trong vòng 7 ngày.
 
 ## Lưu ý khi triển khai
 
-- Tài khoản và mật khẩu mẫu (`canbo.xa-a`, `quantri`, `congdan.demo`...) chỉ dành cho
-  máy phát triển. Phải đổi hoặc xóa trước khi dùng thật.
+- Tài khoản mẫu do `make demo` tạo (`canbo.xa-a`, `congdan.demo`...) dùng chung một mật khẩu công khai, chỉ dành
+  cho máy phát triển; không chạy `make demo` trên máy chủ thật. Tài khoản quản trị hệ thống đặt trong `.env`.
 - Mọi mật khẩu trong `.env` phải được thay bằng giá trị ngẫu nhiên.
 - Không đưa dữ liệu cá nhân thật vào dữ liệu mẫu, issue hay ảnh chụp màn hình.

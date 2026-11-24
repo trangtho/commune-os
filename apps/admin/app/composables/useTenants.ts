@@ -3,11 +3,20 @@
 
 // Nơi duy nhất lấy và sửa dữ liệu xã, qua API lõi:
 //   GET  /rest/tenants                 danh sách xã
-//   POST /rest/rpc/add_tenant          thêm xã
+//   POST /accounts/tenants             thêm xã kèm tài khoản lãnh đạo xã (trả mật khẩu tạm một lần)
 //   POST /rest/rpc/set_tenant_status   khóa / mở khóa
-import type { Tenant } from "~/types";
+import type { IssuedPassword, Tenant } from "~/types";
+
+export interface NewTenantForm {
+  code: string;
+  name: string;
+  leaderUsername: string;
+  leaderFullName: string;
+  leaderEmail: string;
+}
 
 const CODE_PATTERN = /^[a-z0-9]+(-[a-z0-9]+)*$/;
+export const USERNAME_PATTERN = /^[a-z0-9][a-z0-9._-]{2,49}$/;
 
 export function useTenants() {
   const { api } = useApi();
@@ -28,26 +37,40 @@ export function useTenants() {
   }
 
   /** Kiểm tra nhanh trên trình duyệt; máy chủ vẫn kiểm tra lại. */
-  function validate(code: string, name: string): string | null {
+  function validate(form: NewTenantForm): string | null {
+    const code = form.code.trim();
     if (!code) return "Vui lòng nhập mã xã.";
     if (!CODE_PATTERN.test(code)) {
       return "Mã xã chỉ gồm chữ thường không dấu, số và dấu gạch ngang, ví dụ: xa-c.";
     }
     if (tenants.value.some((t) => t.code === code)) return `Mã xã "${code}" đã tồn tại.`;
-    if (!name.trim()) return "Vui lòng nhập tên xã.";
+    if (!form.name.trim()) return "Vui lòng nhập tên xã.";
+    if (!USERNAME_PATTERN.test(form.leaderUsername.trim().toLowerCase())) {
+      return "Tên đăng nhập lãnh đạo 3–50 ký tự: chữ thường không dấu, số, dấu chấm, gạch. Ví dụ: lanhdao.xa-c";
+    }
+    if (!form.leaderFullName.trim()) return "Vui lòng nhập họ tên lãnh đạo xã.";
     return null;
   }
 
-  /** Trả về thông báo lỗi, hoặc null nếu thành công. */
-  async function addTenant(code: string, name: string): Promise<string | null> {
-    const error = validate(code.trim(), name);
-    if (error) return error;
+  /** Tạo xã và tài khoản lãnh đạo trong một lần gọi. Tạo tài khoản lỗi thì lõi hủy xã vừa tạo. */
+  async function addTenant(form: NewTenantForm): Promise<{ error: string | null; leader?: IssuedPassword }> {
+    const error = validate(form);
+    if (error) return { error };
     try {
-      await api("/rpc/add_tenant", { method: "POST", body: { code: code.trim(), name: name.trim() } });
+      const r = await api<{ leader: IssuedPassword }>("/accounts/tenants", {
+        method: "POST",
+        body: {
+          code: form.code.trim(),
+          name: form.name.trim(),
+          leaderUsername: form.leaderUsername.trim().toLowerCase(),
+          leaderFullName: form.leaderFullName.trim(),
+          leaderEmail: form.leaderEmail.trim() || undefined,
+        },
+      });
       await load();
-      return null;
+      return { error: null, leader: r.leader };
     } catch (e) {
-      return (e as Error).message;
+      return { error: (e as Error).message };
     }
   }
 

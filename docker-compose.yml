@@ -73,6 +73,9 @@ services:
       KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN}
       KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD}
       CITIZEN_KEYCLOAK_SECRET: ${CITIZEN_KEYCLOAK_SECRET}
+      # Tài khoản quản trị hệ thống duy nhất (make check-env kiểm tra độ mạnh mật khẩu).
+      COMMUNEOS_ADMIN_USERNAME: ${COMMUNEOS_ADMIN_USERNAME}
+      COMMUNEOS_ADMIN_PASSWORD: ${COMMUNEOS_ADMIN_PASSWORD}
     volumes:
       - ./core/identity:/app:ro
     depends_on:
@@ -171,6 +174,7 @@ services:
         psql -v ON_ERROR_STOP=1 -f /setup/init/32-citizen-api-personal.sql
         psql -v ON_ERROR_STOP=1 -f /setup/init/33-citizen-api-public.sql
         psql -v ON_ERROR_STOP=1 -f /setup/init/34-citizen-direct-access.sql
+        psql -v ON_ERROR_STOP=1 -f /setup/init/35-account-onboarding.sql
         # Mô tả API chạy sau cùng (sau mọi tệp tạo hàm, bảng ảo).
         psql -v ON_ERROR_STOP=1 -f /setup/init/25-api-comments.sql
         psql -v ON_ERROR_STOP=1 -c "SELECT count(*) AS published_procedures FROM procedures WHERE published = true"

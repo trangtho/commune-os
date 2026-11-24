@@ -36,7 +36,7 @@ tags:
   - name: Tệp
     description: Dịch vụ tệp (core/files) – giấy tờ lưu ở kho đối tượng S3, kiểm tra định dạng, mã băm SHA-256, quét mã độc (tùy chọn).
   - name: Tài khoản
-    description: Dịch vụ tài khoản (core/accounts) – lãnh đạo xã quản lý cán bộ xử lý của xã mình qua Keycloak.
+    description: Dịch vụ tài khoản (core/accounts) – quản trị hệ thống tạo xã kèm lãnh đạo xã, lãnh đạo xã quản lý cán bộ xử lý của xã mình, người dân tự đăng ký; tài khoản nằm ở Keycloak.
   - name: AI
     description: Cổng AI (core/ai) – mô hình chạy cục bộ trên Ollama, không gọi API AI bên ngoài.
   - name: Công khai
@@ -355,7 +355,7 @@ paths:
   /accounts/first-password:
     post:
       tags: [Tài khoản, Công khai]
-      summary: Cán bộ đổi mật khẩu tạm ở lần đăng nhập đầu
+      summary: Cán bộ, lãnh đạo xã đổi mật khẩu tạm ở lần đăng nhập đầu
       description: Không cần token; mật khẩu tạm được kiểm tra bằng Keycloak. Mật khẩu mới 8–64 ký tự, có cả chữ và số.
       security: []
       requestBody:
@@ -374,6 +374,126 @@ paths:
         '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '409': { $ref: '#/components/responses/Conflict' }
+        '429': { $ref: '#/components/responses/TooMany' }
+  /accounts/tenants:
+    post:
+      tags: [Tài khoản]
+      summary: Quản trị hệ thống tạo xã kèm tài khoản lãnh đạo xã
+      description: >-
+        Chỉ sys_admin. Một lần gọi tạo xã (api.add_tenant) và tài khoản lãnh đạo (vai trò leader, thuộc tính tenant_id),
+        trả mật khẩu tạm một lần; lãnh đạo phải đổi mật khẩu ở lần đăng nhập đầu. Tạo tài khoản lỗi thì xã vừa tạo bị hủy.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [code, name, leaderUsername, leaderFullName]
+              properties:
+                code: { type: string, example: xa-c }
+                name: { type: string, example: Xã Hòa Bình }
+                leaderUsername: { type: string, example: lanhdao.xa-c }
+                leaderFullName: { type: string, example: Nguyễn Văn Bình }
+                leaderEmail: { type: string, example: lanhdao.xa-c@example.com }
+      responses:
+        '201':
+          description: Đã tạo xã và lãnh đạo; mật khẩu tạm chỉ trả một lần
+          content:
+            application/json:
+              example:
+                tenant: { id: 6c1d1f0e-5a0a-4a8e-9a43-0f3e7f2b1a11, code: xa-c, name: Xã Hòa Bình, status: active, created_at: '2026-11-24T08:00:00+07:00' }
+                leader: { id: 2f6b0b8e-0c55-4a39-9a2c-4c1f0c9e7d21, username: lanhdao.xa-c, temporaryPassword: Hk7mPq2wXa9z }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /accounts/tenants/{code}/leaders:
+    parameters:
+      - { name: code, in: path, required: true, schema: { type: string, example: xa-a } }
+    get:
+      tags: [Tài khoản]
+      summary: Lãnh đạo của một xã (sys_admin)
+      responses:
+        '200':
+          description: Danh sách lãnh đạo
+          content:
+            application/json:
+              example:
+                - { id: 2f6b0b8e-0c55-4a39-9a2c-4c1f0c9e7d21, username: lanhdao.xa-a, firstName: A, lastName: Lãnh Đạo Xã, email: null, enabled: true, createdAt: '2026-11-24T01:00:00.000Z', mustChangePassword: false }
+        '403': { $ref: '#/components/responses/Forbidden' }
+    post:
+      tags: [Tài khoản]
+      summary: Thêm lãnh đạo cho xã đã có (sys_admin)
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [username, fullName]
+              properties:
+                username: { type: string, example: lanhdao2.xa-a }
+                fullName: { type: string, example: Trần Thị Hoa }
+                email: { type: string }
+      responses:
+        '201': { description: Mật khẩu tạm (chỉ trả một lần), content: { application/json: { example: { id: 9a1e7c2d-3b4f-4e5a-8c6d-7e8f9a0b1c2d, username: lanhdao2.xa-a, temporaryPassword: Hk7mPq2wXa9z } } } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /accounts/tenants/{code}/leaders/{id}/reset-password:
+    post:
+      tags: [Tài khoản]
+      summary: Cấp mật khẩu tạm mới cho lãnh đạo xã (sys_admin)
+      parameters:
+        - { name: code, in: path, required: true, schema: { type: string, example: xa-a } }
+        - $ref: '#/components/parameters/Uuid'
+      responses:
+        '200': { description: Mật khẩu tạm (chỉ trả một lần), content: { application/json: { example: { id: 2f6b0b8e-0c55-4a39-9a2c-4c1f0c9e7d21, username: lanhdao.xa-a, temporaryPassword: Hk7mPq2wXa9z } } } }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /accounts/tenants/{code}/leaders/{id}/status:
+    patch:
+      tags: [Tài khoản]
+      summary: Khóa hoặc mở tài khoản lãnh đạo xã (sys_admin)
+      parameters:
+        - { name: code, in: path, required: true, schema: { type: string, example: xa-a } }
+        - $ref: '#/components/parameters/Uuid'
+      requestBody:
+        required: true
+        content: { application/json: { schema: { type: object, required: [enabled], properties: { enabled: { type: boolean } } } } }
+      responses:
+        '200': { description: Đã đổi trạng thái, content: { application/json: { example: { id: 2f6b0b8e-0c55-4a39-9a2c-4c1f0c9e7d21, username: lanhdao.xa-a, enabled: false } } } }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /public/accounts/register:
+    post:
+      tags: [Tài khoản, Công khai]
+      summary: Người dân tự đăng ký tài khoản công dân
+      description: >-
+        Không cần token; cổng giới hạn số lần gọi. Bắt buộc consent = true (đồng ý xử lý dữ liệu cá nhân theo Nghị định
+        13/2023/NĐ-CP). Cần email hoặc phone; tenantCode là xã đang hoạt động (/public/rpc/public_registration_tenants).
+        Mật khẩu 8–64 ký tự, có cả chữ và số. Lõi tạo hồ sơ công dân và tài khoản Keycloak vai trò citizen gắn citizen_id.
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [fullName, username, tenantCode, password, consent]
+              properties:
+                fullName: { type: string, example: Nguyễn Văn An }
+                username: { type: string, example: nguyenvanan }
+                email: { type: string, example: an@example.com }
+                phone: { type: string, example: '0912345678' }
+                tenantCode: { type: string, example: xa-a }
+                password: { type: string, example: MatKhau2026 }
+                consent: { type: boolean, example: true }
+      responses:
+        '201': { description: Đã tạo tài khoản, content: { application/json: { example: { username: nguyenvanan, tenantCode: xa-a, notice: Đã tạo tài khoản. Bạn có thể đăng nhập Kênh người dân bằng tên đăng nhập và mật khẩu vừa đặt. } } } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { description: Xã cư trú không hợp lệ hoặc đang tạm khóa, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
         '429': { $ref: '#/components/responses/TooMany' }
 
   # ---------------- AI ----------------

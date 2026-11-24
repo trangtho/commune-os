@@ -35,7 +35,7 @@ curl -s -o /dev/null -w "%{http_code}\n" http://localhost:9080/api/ping
 # có token: 200
 TOKEN=$(curl -s -X POST "http://localhost:8080/realms/communeos/protocol/openid-connect/token" \
   -d "grant_type=password" -d "client_id=commune-app" \
-  -d "username=canbo.xa-a" -d "password=12345" \
+  -d "username=canbo.xa-a" --data-urlencode "password=Demo@2026!" \
   | python3 -c "import sys,json; print(json.load(sys.stdin)['access_token'])")
 curl -s -o /dev/null -w "%{http_code}\n" -H "Authorization: Bearer $TOKEN" http://localhost:9080/api/ping
 ```

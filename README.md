@@ -79,9 +79,10 @@ Chi tiết: [docs/](docs/).
 ```bash
 git clone https://github.com/trangtho/commune-os.git
 cd commune-os
-cp .env.example .env      # sửa mật khẩu trong .env
-make up                   # dựng, khởi động toàn bộ dịch vụ và tự nạp dữ liệu mẫu (db-setup)
-make test                 # 46 kiểm tra qua gateway: cách ly xã, quy trình, tệp, tài khoản, công dân, AI (xem core/tests)
+cp .env.example .env      # sửa mật khẩu trong .env, đặt COMMUNEOS_ADMIN_PASSWORD (tài khoản quản trị hệ thống)
+make up                   # dựng, khởi động toàn bộ dịch vụ, nạp schema và danh mục thủ tục (db-setup)
+make demo                 # (tùy chọn) 2 xã mẫu, lãnh đạo, cán bộ, công dân, hồ sơ mẫu, tạo qua API của lõi
+make test                 # chạy make demo rồi 54 kiểm tra qua gateway: cách ly xã, quy trình, tệp, tài khoản, công dân, AI (xem core/tests)
 make test-citizen         # kiểm thử đơn vị Kênh người dân
 ```
 
@@ -91,7 +92,7 @@ mã nguồn (`gateway`, `orchestrator`, `accounts`, `files`, `ai-gateway`) để
 dùng cổng 5432 thì đổi `POSTGRES_PORT` trong `.env`. Vừa khởi động lại máy mà đăng nhập báo "Hệ thống định danh
 đang khởi động" thì chờ khoảng 1 phút cho Keycloak chạy xong.
 
-`make seed` chỉ cần khi muốn nạp lại dữ liệu mẫu bằng tay (idempotent).
+`make seed` chỉ cần khi muốn nạp lại danh mục thủ tục mẫu bằng tay (idempotent).
 `make backup` / `make restore BACKUP=...` sao lưu và khôi phục cơ sở dữ liệu, kho tệp ([core/backup](core/backup/README.md)).
 `make help` liệt kê mọi lệnh, gồm các bài kiểm thử RLS của Kênh người dân (`make rls-test`, ...).
 
@@ -118,21 +119,34 @@ rồi đặt `CLAMAV_HOST=antivirus`.
 
 ## Tài khoản thử
 
-Các tài khoản dưới đây là dữ liệu giả lập, chỉ dùng trên máy phát triển.
+Cài mới không có tài khoản người dùng nào ngoài **quản trị hệ thống**, do người cài đặt trong `.env`
+(`COMMUNEOS_ADMIN_USERNAME`, `COMMUNEOS_ADMIN_PASSWORD`; `make check-env` từ chối mật khẩu trống, mật khẩu mẫu hoặc
+dưới 10 ký tự). `identity-setup` tạo tài khoản này mỗi lần `make up` và đồng bộ lại mật khẩu từ `.env`.
+Tệp realm Keycloak chỉ còn tài khoản dịch vụ; mật khẩu người dùng tối thiểu 8 ký tự, có chữ và số.
 
-| Tên đăng nhập  | Mật khẩu     | Xã               | Vai trò   | Dùng ở đâu                              |
-| -------------- | ------------ | ---------------- | --------- | --------------------------------------- |
-| `canbo.xa-a`   | `12345`      | `xa-a`           | officer   | Màn hình cán bộ xã, API `/rest`         |
-| `canbo.xa-b`   | `12345`      | `xa-b`           | officer   | Màn hình cán bộ xã, API `/rest`         |
-| `lanhdao.xa-a` | `12345`      | `xa-a`           | leader    | Màn hình cán bộ xã, quản lý cán bộ xã A |
-| `lanhdao.xa-b` | `12345`      | `xa-b`           | leader    | Màn hình cán bộ xã, quản lý cán bộ xã B |
-| `quantri`      | `12345`      | (để trống)       | sys_admin | Bảng quản trị hệ thống (cổng 3001)      |
-| `congdan.demo` | `Demo@2026!` | `xa-a`           | citizen   | Kênh người dân (cổng 3000)              |
-| `congdan.khac` | `Demo@2026!` | `xa-b`           | citizen   | Kênh người dân, thử cách ly dữ liệu     |
+Các tài khoản khác được tạo theo vai trò:
 
-Cả bảy tài khoản có sẵn trong tệp realm Keycloak, được nạp tự động khi dựng lần đầu; trên máy đã cài
-từ trước, dịch vụ `identity-setup` tự bổ sung hai tài khoản công dân. Xã của cán bộ nằm ở thuộc tính
-`tenant_id`, của công dân ở `citizen_tenant` (kèm `citizen_id` trùng mã trong `core/db/seed/seed.sql`).
+- Quản trị hệ thống tạo xã kèm tài khoản lãnh đạo xã (bảng quản trị → Danh sách xã → Thêm xã); mật khẩu tạm hiện
+  một lần. Tab "Tài khoản quản lý" của từng xã cấp lại mật khẩu tạm, khóa / mở, thêm lãnh đạo.
+- Lãnh đạo xã tạo cán bộ xử lý (màn hình cán bộ xã → Nhân viên). Lãnh đạo, cán bộ mới phải đổi mật khẩu tạm khi
+  đăng nhập lần đầu.
+- Người dân tự đăng ký ở Kênh người dân (`/dang-ky`): chọn xã cư trú đang hoạt động và đồng ý xử lý dữ liệu cá nhân
+  theo Nghị định 13/2023/NĐ-CP.
+
+`make demo` tạo dữ liệu trình diễn bằng đúng các bước trên (chạy lại được), mật khẩu chung `DEMO_PASSWORD`
+(mặc định `Demo@2026!`). Đây là dữ liệu giả lập, chỉ dùng trên máy phát triển:
+
+| Tên đăng nhập  | Xã     | Vai trò   | Dùng ở đâu                              |
+| -------------- | ------ | --------- | --------------------------------------- |
+| `canbo.xa-a`   | `xa-a` | officer   | Màn hình cán bộ xã, API `/rest`         |
+| `canbo.xa-b`   | `xa-b` | officer   | Màn hình cán bộ xã, API `/rest`         |
+| `lanhdao.xa-a` | `xa-a` | leader    | Màn hình cán bộ xã, quản lý cán bộ xã A |
+| `lanhdao.xa-b` | `xa-b` | leader    | Màn hình cán bộ xã, quản lý cán bộ xã B |
+| `congdan.demo` | `xa-a` | citizen   | Kênh người dân (cổng 3000)              |
+| `congdan.khac` | `xa-b` | citizen   | Kênh người dân, thử cách ly dữ liệu     |
+
+Xã của cán bộ nằm ở thuộc tính `tenant_id`, của công dân ở `citizen_tenant` (kèm `citizen_id` trùng mã hồ sơ công dân
+trong cơ sở dữ liệu). Bản cài cũ còn tài khoản mẫu mật khẩu `12345`: `make demo` đặt lại về `DEMO_PASSWORD`.
 
 Trang quản trị Keycloak: http://localhost:8080 (tài khoản quản trị lấy từ tệp `.env`).
 
