@@ -199,6 +199,12 @@ code=$(rpc - citizen_profile '{}')
 [ "$n" -gt 0 ] && [ "$code" = "404" ] && ok "Khách xem được danh mục thủ tục qua /public, không gọi được hàm của công dân" ||
   fail "Danh mục công khai trả $n thủ tục, hàm công dân qua /public trả $code"
 
+c1=$(rpc - public_knowledge_status '{}'); c2=$(rpc - citizen_receivers '{"p_procedure_id":"khai-sinh"}')
+c3=$(rpc - citizen_vault '{}'); c4=$(rpc "$CA" public_procedure_channels '{"p_procedure_id":"khai-sinh"}')
+[ "$c1" = "200" ] && [ "$c2" = "404" ] && [ "$c3" = "404" ] && [ "$c4" = "200" ] &&
+  ok "Cổng /public chỉ mở các hàm public_* đã liệt kê; hàm của công dân không gọi được khi chưa đăng nhập" ||
+  fail "Cổng /public: hàm công khai $c1, hàm công dân $c2 / $c3, công dân gọi hàm công khai bằng token $c4"
+
 APP_A=$(curl -s -X POST -H "Authorization: Bearer $CA" -H 'Content-Type: application/json' -d '{}' "$GW/rest/rpc/citizen_applications" |
   python3 -c 'import json,sys; d=json.load(sys.stdin); print(d[0]["id"] if isinstance(d,list) and d else "")')
 codeA=$(rpc "$CA" citizen_application "{\"p_application_id\":\"$APP_A\"}")

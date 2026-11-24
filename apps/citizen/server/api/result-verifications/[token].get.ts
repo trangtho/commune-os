@@ -1,7 +1,7 @@
 // SPDX-FileCopyrightText: 2026 CommuneOS Contributors
 // SPDX-License-Identifier: Apache-2.0
 import {getRequestIP} from 'h3'
-import {db} from '../../utils/database'
+import {publicRpc} from '../../utils/identity'
 import {tokenOk,hashToken,verifiedProviderPdf} from '../../utils/qr-proof'
 const hits=new Map<string,{start:number;count:number}>()
 export default defineEventHandler(async event=>{
@@ -12,8 +12,8 @@ export default defineEventHandler(async event=>{
  if(hit.count>25)throw createError({statusCode:429,statusMessage:'Quá nhiều yêu cầu xác minh'})
  const token=String(getRouterParam(event,'token')||'')
  if(!tokenOk(token))throw createError({statusCode:404,statusMessage:'Không có mã kiểm chứng'})
- const res=await db().query('SELECT * FROM citizen_verify_result_public($1)',[hashToken(token)])
- const row=res.rows[0]
+ // Lõi chỉ nhận mã băm của mã tra cứu (api.public_result_verification).
+ const row=await publicRpc<{application_id:string;document_sha256:string;reference_code:string;active:boolean;issued_at:string;expires_at:string}|null>('public_result_verification',{p_token_hash:hashToken(token)})
  if(!row)return {found:false,status:'not_found',notice:'Không tìm thấy mã tra cứu.'}
  if(!row.active)return {found:true,status:'inactive',issuedAt:row.issued_at,expiresAt:row.expires_at,
   notice:'Mã đã hết hạn, bị thu hồi hoặc hồ sơ không còn ở trạng thái hoàn thành.'}

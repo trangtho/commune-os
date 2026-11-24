@@ -2,8 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import { getRequestIP, setHeader } from 'h3'
 import { readSession } from '../../utils/session'
-import { publicQuery } from '../../utils/database'
-import { citizenRpc } from '../../utils/identity'
+import { citizenRpc, publicRpc } from '../../utils/identity'
 import { messageSchema, validate } from '../../utils/validation'
 import { loadPublishedKnowledge } from '../../utils/procedure-knowledge'
 import { retrieveKnowledge } from '../../utils/knowledge-index'
@@ -114,10 +113,9 @@ export default defineEventHandler(async event => {
     // A published catalog row is not necessarily an independently verified legal source.
     // Associate citations with versioned provenance; do not promote staff claims to official facts.
     const citedIds=[...new Set(result.sources.map(source=>source.id.startsWith('procedure:')?source.id.slice('procedure:'.length):'').filter(Boolean))]
-    const provenance=citedIds.length?await publicQuery<{procedure_id:string;source_url:string|null;source_title:string|null;
-      source_reference:string|null;scope_note:string|null;effective_from:string|null;provenance_status:string}>(
-      `SELECT DISTINCT ON (procedure_id) procedure_id,source_url,source_title,source_reference,scope_note,effective_from,provenance_status
-       FROM citizen_procedure_versions WHERE procedure_id=ANY($1::text[]) ORDER BY procedure_id,version_no DESC`,[citedIds]):[]
+    const provenance=citedIds.length?await publicRpc<{procedure_id:string;source_url:string|null;source_title:string|null;
+      source_reference:string|null;scope_note:string|null;effective_from:string|null;provenance_status:string}[]>(
+      'public_provenance',{p_procedure_ids:citedIds}):[]
     const sourceEvidence=citedIds.map(id=>{
       const p=provenance.find(item=>item.procedure_id===id)
       return {procedureId:id,sourceTitle:p?.source_title||null,sourceReference:p?.source_reference||null,

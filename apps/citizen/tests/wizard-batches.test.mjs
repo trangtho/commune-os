@@ -30,9 +30,9 @@ test('Guidance rules cannot be approved without source; app role is read-only',(
  assert.match(migration,/ON CONFLICT \(id\) DO NOTHING/)
  assert.match(migration,/GRANT SELECT ON citizen_procedure_guidance_rules/)
  assert.doesNotMatch(migration,/GRANT (?:INSERT|UPDATE|DELETE) ON citizen_procedure_guidance_rules TO communeos_app/)
- assert.match(matchApi,/publicQuery/)
+ assert.match(matchApi,/publicRpc<[^>]+>\('public_guidance_rules'\)/)
  assert.match(matchApi,/\.strict\(\)/)
- assert.match(matchApi,/WHERE r.enabled AND p.published/)
+ assert.match(read('../../../core/db/init/33-citizen-api-public.sql'),/WHERE r\.enabled AND p\.published/)
 })
 test('Guidance demo seed skips missing procedures on fresh init and can populate after seed',()=>{
  const demoIds=[...migration.matchAll(/\('demo-[a-z]+','([^']+)'/g)].map(match=>match[1])

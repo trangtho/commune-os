@@ -20,12 +20,16 @@ const catalog=[
  {id:'chung-thuc',title:'Chứng thực bản sao',category:'Chứng thực',summary:'Chứng thực bản sao từ bản chính.',instructions:'Chuẩn bị bản chính.',fee_note:'Theo quy định hiện hành',sla_days:1,documents:[{document_code:'ban-chinh',document_name:'Bản chính cần đối chiếu',is_required:true}]}
 ];`
 test('RAG retrieves published procedures directly on every request, no private tables or caches',()=>{
- const sql=read('server/utils/procedure-knowledge.ts')
+ const util=read('server/utils/procedure-knowledge.ts')
+ assert.match(util,/publicRpc<[^>]+>\('public_knowledge'\)/)
+ const publicApi=read('../../core/db/init/33-citizen-api-public.sql')
+ const start=publicApi.indexOf('FUNCTION api.public_knowledge()')
+ const sql=publicApi.slice(start,publicApi.indexOf('CREATE OR REPLACE FUNCTION',start))
  assert.match(sql,/FROM procedures p LEFT JOIN procedure_documents d/)
- assert.match(sql,/p\.published = true/)
+ assert.match(sql,/WHERE p\.published = true/)
  assert.doesNotMatch(sql,/FROM applications|FROM citizens|citizen_support_messages/)
- assert.match(sql,/createHash/)
- assert.doesNotMatch(sql,/setInterval|cache|redis|pgvector/i)
+ assert.match(util,/createHash/)
+ assert.doesNotMatch(util,/setInterval|cache|redis|pgvector/i)
  const api=read('server/api/chat/index.post.ts')
  assert.match(api,/loadPublishedKnowledge\(\)/)
  assert.match(api,/Cache-Control.*no-store/)

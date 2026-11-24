@@ -272,6 +272,26 @@ BEGIN
     ('citizen_draft_cursor_save', 'Lưu bước đang soạn của bản nháp', 'p_step: 1–3.'),
     ('citizen_friction_signal', 'Ghi tín hiệu khó khăn ẩn danh', 'Chỉ mã loại khó khăn và bước; không lưu nội dung, danh tính, địa chỉ IP.'),
 
+    -- ===== Hàm: công khai và gợi ý cho Kênh người dân (33-citizen-api-public.sql) =====
+    ('public_knowledge', 'Kho tri thức của trợ lý: thủ tục đã công bố kèm giấy tờ, câu hỏi thường gặp', 'Khách gọi qua /public/rpc/public_knowledge.'),
+    ('public_knowledge_search', 'Tìm kiếm toàn văn trên chỉ mục tri thức thủ tục đã công bố', 'p_query: biểu thức to_tsquery đã chuẩn hóa; p_procedure_id ưu tiên một thủ tục. Tối đa 42 đoạn.'),
+    ('public_knowledge_status', 'Tình trạng chỉ mục tri thức của trợ lý', NULL),
+    ('public_provenance', 'Nguồn văn bản phiên bản mới nhất của các thủ tục được trích dẫn', 'Tối đa 20 thủ tục.'),
+    ('public_procedure_versions', 'Các phiên bản và nguồn văn bản của một thủ tục đã công bố', NULL),
+    ('public_procedure_guide_source', 'Nguồn văn bản để hướng dẫn biểu mẫu của một thủ tục', NULL),
+    ('public_procedure_channels', 'Kênh thực hiện của một thủ tục', 'Gọi bằng token công dân thì cho biết xã của công dân có mở trực tuyến, có khung giờ tại quầy; khách chỉ thấy thông tin chung.'),
+    ('public_guidance_rules', 'Thủ tục và quy tắc gợi ý đã biên soạn', 'Không đoán điều kiện pháp lý.'),
+    ('public_recommendation_catalog', 'Danh mục thủ tục kèm thông tin dùng để gợi ý', NULL),
+    ('public_journey_catalog', 'Danh mục thủ tục cho lộ trình sự kiện cuộc sống', 'Gọi bằng token công dân thì chỉ thủ tục xã của công dân đang mở.'),
+    ('public_localities', 'Danh sách địa phương', 'Có p_procedure_id thì kèm xã nào đang mở thủ tục.'),
+    ('public_counter_session', 'Phiên chuẩn bị tại quầy theo mã băm', 'Mã chỉ để tham khảo thủ tục, không chứng minh danh tính.'),
+    ('public_counter_session_start', 'Mở phiên chuẩn bị tại quầy (không đăng nhập)', 'p_code_hash: SHA-256 của mã ngẫu nhiên; hạn 15 phút.'),
+    ('public_counter_session_end', 'Kết thúc phiên chuẩn bị tại quầy', NULL),
+    ('public_result_verification', 'Tra cứu mã kiểm chứng kết quả', 'p_token_hash: SHA-256 của mã in trên giấy kết quả.'),
+    ('citizen_recommendation_context', 'Tùy chọn và lịch sử nộp hồ sơ để sắp xếp thủ tục gợi ý', 'Lịch sử chỉ dùng khi công dân bật cá nhân hóa.'),
+    ('citizen_receivers', 'Xã nhận được hồ sơ từ xã của công dân cho một thủ tục', 'Theo tuyến tiếp nhận được phê duyệt, còn hiệu lực.'),
+    ('citizen_locality_route', 'Kiểm tra địa phương gợi ý có tuyến tiếp nhận được phê duyệt không', NULL),
+
     -- ===== Hàm: trợ lý AI (chỉ dịch vụ ai-gateway gọi) =====
     ('knowledge_search', 'Tìm kiếm lai toàn văn và ngữ nghĩa trên tri thức thủ tục (chỉ ai-gateway gọi)',
      'Ứng dụng hỏi trợ lý qua POST /ai/ask hoặc /public/ai/ask.'),

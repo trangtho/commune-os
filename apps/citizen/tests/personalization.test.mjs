@@ -15,7 +15,9 @@ const get=read('../server/api/citizen/preferences/index.get.ts')
 const del=read('../server/api/citizen/preferences/index.delete.ts')
 const login=read('../server/api/auth/oidc/callback.get.ts')
 const oidc=read('../server/utils/oidc.ts')
-const routes=read('../server/utils/citizen-preferences.ts')
+// Tuyến tiếp nhận kiểm tra trong lõi (21-citizen-api-core-flow.sql, 33-citizen-api-public.sql).
+const publicApi=read('../../../core/db/init/33-citizen-api-public.sql')
+const routes=publicApi.slice(publicApi.indexOf('FUNCTION api.citizen_receivers(')).split('END $$;')[0]
 const form=read('../pages/nop-ho-so/[slug].vue')
 const catalog=read('../pages/thu-tuc/index.vue')
 const home=read('../pages/index.vue')
@@ -57,9 +59,10 @@ test('Preferences migration uses FORCE RLS and does not allow application to aut
 })
 
 test('Personalization endpoints are owner-scoped with opt-in and server-side validated categories and localities',()=>{
-  assert.match(api,/citizenTx\(event/)
+  assert.match(api,/citizenRpc<[^>]+>\(event, 'citizen_recommendation_context'\)/)
   assert.match(api,/personalization_enabled/)
-  assert.match(api,/applications/)
+  // Lịch sử hồ sơ chỉ dùng khi công dân bật cá nhân hóa (RLS theo công dân).
+  assert.match(publicApi,/WHEN \(v_prefs ->> 'personalization_enabled'\)::boolean\s+THEN coalesce\(\(SELECT json_agg\(h\) FROM \(SELECT procedure_id, count\(\*\)::int AS uses FROM applications/)
   assert.match(api,/metadata_verified/)
   assert.match(prefs,/\.strict\(\)/)
   assert.match(prefs,/citizenRpc\(event, 'citizen_preferences_save'/)
@@ -73,6 +76,7 @@ test('Personalization endpoints are owner-scoped with opt-in and server-side val
 test('Receiving locality is checked when drafting, editing and final submitting, including permission expiry',()=>{
   assert.match(routes,/approval_reference/)
   assert.match(routes,/valid_until > now\(\)/)
+  assert.match(routes,/source_tenant_id = a\.tenant_id/)
   // Tạo, sửa bản nháp và nộp hồ sơ đều kiểm tra tuyến tiếp nhận trong lõi.
   assert.match(core,/trim\(approval_reference\) <> '' AND valid_until > now\(\)/)
   assert.equal((core.match(/NOT public\.citizen_receiver_permitted\(/g)||[]).length,3)

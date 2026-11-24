@@ -11,6 +11,17 @@ Mọi thay đổi đáng chú ý của dự án được ghi tại đây.
 
 ## [Chưa phát hành]
 
+### Thay đổi (API công khai cho Kênh người dân qua lõi, 2026-11-24)
+
+- Kho tri thức của trợ lý, phiên bản và nguồn văn bản thủ tục, hướng dẫn biểu mẫu, kênh thực hiện, gợi ý thủ tục, địa
+  phương, phân tích tình huống, phiên chuẩn bị tại quầy (không đăng nhập) và tra cứu mã kiểm chứng kết quả gọi các hàm
+  `api.public_*` của lõi (`core/db/init/33-citizen-api-public.sql`) qua `/public/rpc/*` cho khách hoặc `/rest/rpc/*`
+  bằng token công dân. Hàm công khai chỉ trả dữ liệu đã công bố; với token công dân thì lọc theo xã của công dân.
+  Phần riêng của công dân (lịch sử, tùy chọn, tuyến tiếp nhận) là hàm `citizen_*` chạy bằng quyền công dân.
+- Cổng APISIX liệt kê từng hàm công khai được mở trên `/public/rpc/`; hàm khác không gọi được khi chưa đăng nhập.
+  `make test` thêm kiểm tra này (48 kiểm tra).
+- Bỏ `utils/citizen-preferences.ts` (tùy chọn, tuyến tiếp nhận đọc qua lõi).
+
 ### Thay đổi (cá nhân hóa của Kênh người dân qua lõi, 2026-11-24)
 
 - 25 API quyền chia sẻ dữ liệu, nhật ký sử dụng dữ liệu cá nhân, lưu trữ và đề nghị về dữ liệu, đồng bộ thông tin tự
