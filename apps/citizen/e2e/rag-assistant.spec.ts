@@ -9,12 +9,15 @@ test('AI assistant returns only a grounded procedure answer with a working link'
   expect(status.ok()).toBeTruthy()
   const knowledge = await status.json()
   expect(typeof knowledge.ready).toBe('boolean')
+  // Mô hình AI chạy cục bộ trên CPU: chưa tải mô hình (vd CI) thì bỏ qua; có mô hình thì một câu trả lời mất vài chục giây.
+  test.skip(!knowledge.aiConfigured, 'Trợ lý AI của lõi chưa có mô hình (make up để tải)')
+  test.setTimeout(180_000)
 
   await page.goto('/tro-ly')
-  await expect(page.getByRole('heading',{name:'Trợ lý thủ tục hành chính'})).toBeVisible()
+  await expect(page.getByRole('main').getByRole('heading',{name:'Trợ lý thủ tục hành chính'})).toBeVisible()
   await page.locator('#ai-question').fill('Đăng ký khai sinh cần giấy tờ gì?')
   await page.locator('form button[type="submit"]').click()
-  await expect(page.getByRole('log')).toContainText('Giấy chứng sinh')
+  await expect(page.getByRole('log')).toContainText('Giấy chứng sinh', { timeout: 150_000 })
   await expect(page.getByRole('log').getByRole('link',{name:/Đăng ký khai sinh/}).first()).toHaveAttribute('href','/thu-tuc/khai-sinh')
 })
 

@@ -59,7 +59,7 @@ test('citizen interface keeps main layout and links cases to handoff and ticket 
  assert.match(layout,/\/yeu-cau-ho-tro/)
  assert.match(read('../pages/ho-so/[id]/index.vue'),/chuyen-tiep\?case=/)
  assert.match(read('../pages/chuyen-tiep.vue'),/Mã chỉ có hiệu lực 15 phút/)
- assert.match(read('../pages/yeu-cau-ho-tro.vue'),/Yêu cầu của tôi/)
+ assert.match(read('../pages/yeu-cau-ho-tro/index.vue'),/Yêu cầu của tôi/)
  assert.match(read('../pages/yeu-cau-ho-tro/[id].vue'),/Lịch sử trao đổi/)
 })
 test('handoff and ticket security checks are included in database regression suite',()=>{

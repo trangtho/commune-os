@@ -80,10 +80,12 @@ Chi tiết: [docs/](docs/).
 git clone https://github.com/trangtho/commune-os.git
 cd commune-os
 cp .env.example .env      # sửa mật khẩu trong .env, đặt COMMUNEOS_ADMIN_PASSWORD (tài khoản quản trị hệ thống)
-make up                   # dựng, khởi động toàn bộ dịch vụ, nạp schema và danh mục thủ tục (db-setup)
+make up                   # dựng, khởi động toàn bộ dịch vụ, nạp schema và danh mục thủ tục; chờ tới khi mọi dịch vụ sẵn sàng
 make demo                 # (tùy chọn) 2 xã mẫu, lãnh đạo, cán bộ, công dân, hồ sơ mẫu, tạo qua API của lõi
 make test                 # chạy make demo rồi 54 kiểm tra qua gateway: cách ly xã, quy trình, tệp, tài khoản, công dân, AI (xem core/tests)
 make test-citizen         # kiểm thử đơn vị Kênh người dân
+make test-sql             # mọi bài kiểm thử RLS, phân quyền bằng SQL (ROLLBACK)
+make e2e-citizen          # kiểm thử giao diện Kênh người dân bằng Playwright (chạy trong Docker, không cần cài trình duyệt)
 ```
 
 Sau mỗi lần `git pull`, chạy lại `make up`: lệnh này dừng ngay nếu `.env` thiếu biến bắt buộc mới thêm
@@ -94,7 +96,9 @@ dùng cổng 5432 thì đổi `POSTGRES_PORT` trong `.env`. Vừa khởi động
 
 `make seed` chỉ cần khi muốn nạp lại danh mục thủ tục mẫu bằng tay (idempotent).
 `make backup` / `make restore BACKUP=...` sao lưu và khôi phục cơ sở dữ liệu, kho tệp ([core/backup](core/backup/README.md)).
-`make help` liệt kê mọi lệnh, gồm các bài kiểm thử RLS của Kênh người dân (`make rls-test`, ...).
+`make help` liệt kê mọi lệnh, gồm từng bài kiểm thử RLS của Kênh người dân (`make rls-test`, ...).
+`make ready` chờ mọi dịch vụ sẵn sàng (healthcheck đạt) và báo dịch vụ nào lỗi; `make up` tự chạy bước này ở cuối.
+CI dựng lại toàn bộ từ mã nguồn (trừ mô hình AI) và chạy đủ các lệnh kiểm thử trên ở mỗi pull request.
 
 Mọi cấu hình nằm trong tệp `.env`; không cần sửa tệp mã nguồn nào.
 

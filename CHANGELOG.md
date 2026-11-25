@@ -11,6 +11,30 @@ Mọi thay đổi đáng chú ý của dự án được ghi tại đây.
 
 ## [Chưa phát hành]
 
+### Thay đổi (dựng ổn định từ mã nguồn, CI kiểm thử toàn bộ, 2026-11-24)
+
+- Healthcheck cho Keycloak (`/health/ready`), cổng API (gọi một API công khai tới PostgREST, PostgreSQL), Flowable,
+  SeaweedFS, các dịch vụ Node của lõi, Ollama, trang tài liệu API và ba ứng dụng. Dịch vụ phụ thuộc chờ phía trước
+  sẵn sàng (`condition: service_healthy`), không còn cảnh ứng dụng chạy trước khi Keycloak hay cổng sẵn sàng.
+- `make up` chờ tới khi mọi dịch vụ sẵn sàng và báo dịch vụ nào lỗi (`core/tests/wait-ready.sh`); thêm `make ready`.
+- CI dựng toàn bộ từ mã nguồn như `make up` (trừ mô hình AI), gồm build ba ứng dụng Nuxt, rồi chạy `make demo`,
+  `make test`, `make test-sql` (mọi bài SQL), `make test-citizen` và `make e2e-citizen` (Playwright); lưu ảnh chụp,
+  trace khi lỗi.
+- `make e2e-citizen`: chạy kiểm thử giao diện trong ảnh Playwright chính thức, không cần cài trình duyệt.
+  Sửa các bài e2e đã lỗi thời theo giao diện hiện tại; bài trợ lý AI tự bỏ qua khi chưa có mô hình.
+
+### Sửa lỗi (2026-11-24)
+
+- Cổng API trả 502 sau khi một dịch vụ khởi động lại (Docker cấp IP mới, APISIX giữ IP cũ theo TTL của DNS): chỉ giữ
+  kết quả phân giải 5 giây (`dns_resolver_valid`).
+- Kênh người dân: trang chi tiết nhóm hồ sơ (`/lien-thong/{id}`) và chi tiết yêu cầu hỗ trợ (`/yeu-cau-ho-tro/{id}`)
+  không bao giờ hiện, luôn hiện trang danh sách (trang danh sách là route cha không có `<NuxtPage>`); chuyển trang danh
+  sách thành `index.vue`.
+- Kênh người dân: trang Hồ sơ cá nhân lỗi 500 với công dân chưa có số điện thoại hoặc địa chỉ (như công dân tự đăng
+  ký bằng email).
+- Kênh người dân: trang "Tìm thủ tục qua câu hỏi" (`/goi-y-thu-tuc`) chỉ dùng dữ liệu công khai nhưng bắt đăng nhập.
+- Kênh người dân, màn hình cán bộ: đường dẫn `/api/...` không có trả về trang đăng nhập (200) thay vì 404.
+
 ### Thay đổi (khởi tạo tài khoản theo vai trò, tách dữ liệu mẫu, 2026-11-24)
 
 - Cài mới không còn tài khoản mẫu: tệp realm chỉ còn tài khoản dịch vụ. Người cài đặt tài khoản quản trị hệ thống

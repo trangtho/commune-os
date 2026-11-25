@@ -196,9 +196,11 @@ Các lệnh kiểm thử liên quan:
 - `make test-citizen`: kiểm thử đơn vị và cấu trúc của `apps/citizen` (Node 22 trong Docker).
 - `make rls-test`, `make chat-history-test`, `make vault-autofill-test`, ...: kiểm thử RLS trên
   PostgreSQL thật, chạy trong transaction rồi `ROLLBACK` (`make help` để xem đủ).
-- `make test`: 46 kiểm tra của lõi qua gateway (cách ly xã, quy trình, tệp, tài khoản cán bộ, công dân, AI).
+- `make test-sql`: chạy tất cả các bài trên.
+- `make test`: 54 kiểm tra của lõi qua gateway (cách ly xã, quy trình, tệp, tài khoản, công dân, AI).
 - `make citizen-api-test`: tạo, nộp hồ sơ qua API của lõi, Poka-yoke thiếu giấy tờ, chống sửa hồ sơ đã nộp (ROLLBACK).
-- `npm --prefix apps/citizen run test:e2e`: kiểm thử giao diện end-to-end bằng Playwright (cần ứng dụng đang chạy).
+- `make e2e-citizen`: kiểm thử giao diện end-to-end bằng Playwright, chạy trong ảnh Playwright chính thức (cần
+  `make up`; tự chạy `make demo`). Ảnh chụp, trace khi lỗi nằm ở `apps/citizen/test-results/`.
 
 ## 6. Giới hạn và yêu cầu trước production
 

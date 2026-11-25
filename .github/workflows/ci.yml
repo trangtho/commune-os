@@ -24,9 +24,9 @@ jobs:
           reuse lint
 
   kiem-thu:
-    name: Dựng từ mã nguồn và kiểm thử
+    name: Dựng toàn bộ từ mã nguồn và kiểm thử
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v4
 
@@ -41,42 +41,48 @@ jobs:
       - name: Kiểm tra cú pháp docker-compose và script
         run: |
           docker compose config -q
-          sh -n core/tests/tenant-isolation.sh
-          sh -n core/identity/check-admin-env.sh
-          node --check core/demo/demo.mjs
-          node --check core/accounts/server.mjs
-          sh -n core/db/init/00-create-app-role.sh
-          sh -n core/db/init/02-create-api-roles.sh
-
-      - name: Dựng và khởi động các dịch vụ lõi
-        run: docker compose up -d --build db identity identity-setup db-setup rest-keys rest gateway workflow-engine orchestrator storage files accounts
-
-      - name: Chờ Keycloak và cổng API sẵn sàng
-        run: |
-          for i in $(seq 1 60); do
-            code=$(curl -s -o /dev/null -w '%{http_code}' http://localhost:9080/rest/dossiers || true)
-            kc=$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8080/realms/communeos/.well-known/openid-configuration || true)
-            wf=$(docker compose logs orchestrator 2>/dev/null | grep -c "Dịch vụ điều phối chạy" || true)
-            # identity-setup tạo tài khoản quản trị hệ thống từ .env rồi dừng.
-            setup=$(docker compose ps -a --format '{{.Service}} {{.State}} {{.ExitCode}}' identity-setup 2>/dev/null || true)
-            if [ "$code" = "401" ] && [ "$kc" = "200" ] && [ "$wf" != "0" ] && [ "$setup" = "identity-setup exited 0" ]; then echo "Sẵn sàng sau $i lần thử"; exit 0; fi
-            sleep 5
+          for f in core/tests/tenant-isolation.sh core/tests/wait-ready.sh core/identity/check-admin-env.sh \
+                   apps/citizen/e2e/run.sh core/db/init/00-create-app-role.sh core/db/init/02-create-api-roles.sh; do
+            sh -n "$f"
           done
-          docker compose ps
-          docker compose logs --tail=40
-          exit 1
+          for f in core/demo/demo.mjs core/accounts/server.mjs core/orchestrator/server.mjs core/files/server.mjs core/ai/server.mjs; do
+            node --check "$f"
+          done
+
+      # Dựng như người dùng chạy make up, trừ trợ lý AI (tải mô hình khoảng 2,6 GB) và quét mã độc (tùy chọn).
+      # Ba ứng dụng Nuxt được build từ mã nguồn ở bước này.
+      - name: Dựng lõi và ba ứng dụng từ mã nguồn
+        run: >-
+          docker compose up -d --build
+          db db-setup identity identity-setup rest-keys rest gateway api-docs workflow-engine orchestrator
+          storage files accounts citizen commune admin
+
+      - name: Chờ mọi dịch vụ sẵn sàng (healthcheck)
+        run: sh core/tests/wait-ready.sh 900
 
       - name: Tạo dữ liệu mẫu qua API của lõi (xã, lãnh đạo, cán bộ, công dân, hồ sơ)
         run: make demo
 
-      - name: Kiểm thử cách ly xã, xử lý hồ sơ, sổ ghi nhận, khởi tạo tài khoản
+      - name: Kiểm thử qua cổng API (cách ly xã, quy trình, tệp, tài khoản, công dân)
         run: make test
 
-      - name: Kiểm thử API luồng chính của công dân trong lõi (ROLLBACK)
-        run: make citizen-api-test
+      - name: Kiểm thử SQL (RLS, phân quyền; ROLLBACK)
+        run: make test-sql
 
-      - name: Kiểm thử Kênh người dân
+      - name: Kiểm thử đơn vị Kênh người dân
         run: make test-citizen
+
+      - name: Kiểm thử giao diện Kênh người dân (Playwright)
+        run: make e2e-citizen
+
+      - name: Lưu ảnh chụp, trace của kiểm thử giao diện khi lỗi
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-ket-qua
+          path: apps/citizen/test-results/
+          if-no-files-found: ignore
+          retention-days: 7
 
       - name: In log khi lỗi
         if: failure()
@@ -86,4 +92,4 @@ jobs:
           echo '=== PostgreSQL va db-setup ==='
           docker compose logs --no-color --tail=200 db db-setup || true
           echo '=== Cac dich vu loi con lai ==='
-          docker compose logs --no-color --tail=60 identity rest gateway workflow-engine orchestrator || true
+          docker compose logs --no-color --tail=60 identity identity-setup rest gateway workflow-engine orchestrator accounts files citizen commune admin || true

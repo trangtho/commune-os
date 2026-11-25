@@ -30,7 +30,7 @@ hiện, kết quả mong đợi, kết quả thực tế, phiên bản đang dù
 - [ ] `CHANGELOG.md` đã cập nhật ở mục "Chưa phát hành".
 - [ ] Không có mật khẩu, khóa bí mật hay dữ liệu cá nhân thật.
 - [ ] Không chép mã nguồn của dự án khác vào kho.
-- [ ] `make test` chạy qua.
+- [ ] `make test` chạy qua; sửa giao diện Kênh người dân thì chạy thêm `make test-citizen` và `make e2e-citizen`.
 
 ## Tiêu đề giấy phép
 
