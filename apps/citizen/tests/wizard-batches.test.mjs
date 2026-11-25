@@ -58,7 +58,7 @@ test('Batch preparation is private, consented, owner-scoped and never self-submi
  assert.match(core,/b\.citizen_id = a\.citizen_id AND b\.tenant_id = a\.tenant_id/)
  assert.match(core,/i\.procedure_id = p_procedure_id AND i\.application_id IS NULL/)
  assert.match(core,/citizen_fail\(409, 'Nhóm thủ tục không hợp lệ/)
- assert.match(read('../pages/lien-thong.vue'),/không phải quy trình liên thông chính thức/)
+ assert.match(read('../pages/lien-thong/index.vue'),/không phải quy trình liên thông chính thức/)
  assert.match(read('../pages/lien-thong/[id].vue'),/bundle=\$\{encodeURIComponent\(id\)\}/)
  assert.match(read('../pages/nop-ho-so/[slug].vue'),/batchId/)
  assert.match(read('../../../docker-compose.yml'),/11-citizen-guidance-batches\.sql/)

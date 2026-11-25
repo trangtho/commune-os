@@ -8,7 +8,7 @@ const {data:auth}=await useFetch<{authenticated:boolean;authMethod?:string;vneid
 const {data:profile,error,refresh}=await useFetch<Profile>('/api/profile', {key:'citizen-profile'})
 const form=reactive({display_name:'',email:'',phone:'',address:''})
 const editing=ref(false)
-watch(profile,(v)=>{if(v&&!editing.value){form.display_name=v.display_name;form.email=v.email;form.phone=v.phone;form.address=v.address}},{immediate:true})
+watch(profile,(v)=>{if(v&&!editing.value){form.display_name=v.display_name??'';form.email=v.email??'';form.phone=v.phone??'';form.address=v.address??''}},{immediate:true})
 const busy=ref(false);const result=ref('');const success=ref(false)
 const invalidPhone=computed(()=>phoneIssue(form.phone))
 const invalidEmail=computed(()=>emailIssue(form.email))

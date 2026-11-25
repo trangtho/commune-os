@@ -35,7 +35,7 @@ test('Công dân đăng nhập → nộp → tra cứu được hồ sơ thật'
     await expect(card.getByText('mau-kiem-thu.png')).toBeVisible()
   }
   await page.getByRole('button',{name:/Tiếp tục rà soát/}).click()
-  await page.getByRole('checkbox').check()
+  await page.getByRole('checkbox',{name:/Tôi xác nhận thông tin đã kê khai/}).check()
   await page.getByRole('button',{name:/Xác nhận & nộp hồ sơ/}).click()
   await expect(page).toHaveURL(/\/nop-thanh-cong\/HS-/)
   const id=decodeURIComponent(new URL(page.url()).pathname.split('/').at(-1)||'')
@@ -53,7 +53,7 @@ test('Hành trình bổ sung giấy tờ khi nhóm cung cấp hồ sơ trạng t
   test.skip(!process.env.E2E_SUPPLEMENT_CASE_ID,'Cần hồ sơ supplement do hệ thống cán bộ chuẩn bị')
   await signIn(page)
   await page.goto(`/ho-so/${process.env.E2E_SUPPLEMENT_CASE_ID}/bo-sung`)
-  await expect(page.getByRole('heading',{name:/Bổ sung hồ sơ/})).toBeVisible()
+  await expect(page.getByRole('main').getByRole('heading',{name:/Bổ sung hồ sơ/})).toBeVisible()
   // This test intentionally verifies the real server status, not a mocked transition.
   await expect(page.getByRole('button',{name:'Xác nhận gửi bổ sung hồ sơ'})).toBeDisabled()
 })

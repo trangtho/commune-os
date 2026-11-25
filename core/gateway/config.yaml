@@ -1,6 +1,11 @@
 # SPDX-FileCopyrightText: 2026 CommuneOS Contributors
 # SPDX-License-Identifier: Apache-2.0
 
+apisix:
+  # Docker cấp IP mới khi một dịch vụ khởi động lại; chỉ giữ kết quả phân giải tên dịch vụ 5 giây
+  # (mặc định theo TTL của DNS), để cổng không gọi vào IP cũ và trả 502.
+  dns_resolver_valid: 5
+
 deployment:
   role: data_plane
   role_data_plane:

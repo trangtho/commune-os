@@ -8,6 +8,7 @@ test('Citizen opts in to personalized procedure suggestions and can remove the d
   await page.getByLabel('Tên đăng nhập').fill('congdan.demo')
   await page.getByLabel('Mật khẩu').fill('Demo@2026!')
   await page.getByRole('button',{name:'Đăng nhập',exact:true}).click()
+  await expect(page).not.toHaveURL(/dang-nhap/)
   await page.goto('/ho-so-ca-nhan')
   await expect(page.getByText('Gợi ý thủ tục dành cho bạn')).toBeVisible()
   await page.locator('#personalization-enabled').check()

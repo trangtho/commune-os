@@ -2,9 +2,9 @@
 # SPDX-License-Identifier: Apache-2.0
 COMPOSE ?= docker compose
 .DEFAULT_GOAL := help
-.PHONY: check-env demo backup restore citizen-api-test procedure-privacy-test help up down logs ps seed test test-citizen citizen-dev reset-demo rls-test rag-test chat-history-test personalization-test representation-test citizen-experience-test handoff-support-test guidance-batches-test preflight-counter-test repair-db doctor
+.PHONY: check-env demo ready e2e-citizen test-sql backup restore citizen-api-test procedure-privacy-test help up down logs ps seed test test-citizen citizen-dev reset-demo rls-test rag-test chat-history-test personalization-test representation-test citizen-experience-test handoff-support-test guidance-batches-test preflight-counter-test repair-db doctor
 help: ## Liệt kê lệnh
-	@grep -E '^[a-z-]+:.*## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*## "}; {printf "  make %-14s %s\n", $$1, $$2}'
+	@grep -E '^[a-z0-9-]+:.*## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*## "}; {printf "  make %-14s %s\n", $$1, $$2}'
 .env:
 	@echo "Thiếu .env. Chạy cp .env.example .env và đổi các mật khẩu trước." && exit 1
 check-env: .env ## Kiểm tra .env có đủ biến bắt buộc (biến docker-compose.yml dùng mà không có giá trị mặc định)
@@ -20,6 +20,10 @@ up: check-env ## Dựng và khởi động toàn bộ dịch vụ, tự nạp sc
 	@# Cổng API và các dịch vụ Node của lõi chạy thẳng mã nguồn gắn từ core/ vào container: sau git pull, compose
 	@# thấy cấu hình không đổi nên không khởi động lại, container vẫn chạy mã cũ (thiếu API mới, đăng nhập, nộp hồ sơ lỗi).
 	$(COMPOSE) up -d --force-recreate --no-deps gateway orchestrator accounts files ai-gateway
+	@sh core/tests/wait-ready.sh 900
+
+ready: ## Chờ mọi dịch vụ sẵn sàng (healthcheck đạt, các bước khởi tạo đã xong); báo dịch vụ lỗi nếu có
+	@sh core/tests/wait-ready.sh 900
 
 demo: check-env ## Tạo 2 xã mẫu, lãnh đạo, cán bộ, công dân và hồ sơ mẫu qua API của lõi (chạy lại được; mật khẩu DEMO_PASSWORD, mặc định Demo@2026!)
 	$(COMPOSE) run --rm --no-deps -e DEMO_PASSWORD -v "$(CURDIR)/core/demo:/demo:ro" identity-setup node /demo/demo.mjs
@@ -42,6 +46,11 @@ test: demo ## Kiểm thử cách ly xã qua gateway (cần docker compose up; t�
 
 test-citizen: ## Kiểm thử đơn vị Kênh người dân (chạy trong Node 22 chính thức)
 	docker run --rm -v "$(CURDIR)":/w -w /w/apps/citizen node:22-alpine npm test
+
+e2e-citizen: demo ## Kiểm thử giao diện Kênh người dân bằng Playwright trong Docker (cần make up; tạo dữ liệu trên tài khoản mẫu)
+	sh apps/citizen/e2e/run.sh
+
+test-sql: rls-test rag-test chat-history-test personalization-test representation-test citizen-experience-test handoff-support-test guidance-batches-test preflight-counter-test case-actions-test vault-autofill-test procedure-privacy-test life-journey-test intelligent-services-test citizen-api-test ## Chạy mọi bài kiểm thử SQL (RLS, phân quyền; ROLLBACK)
 
 citizen-dev: ## Chạy Nuxt dev; cần export PG*, SESSION_SECRET theo tài liệu
 	cd apps/citizen && npm run dev

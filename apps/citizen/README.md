@@ -74,7 +74,7 @@ acceptance have been certified by the responsible teams.
 | OIDC / VNeID | A real OIDC Code + PKCE start/callback and RSA ID token verification are implemented. **This is not VNeID integration without the approved Identity broker/IdP and linked citizens.** |
 | RAG / knowledge QA | Direct retrieval of published `procedures`, `procedure_documents` and portal `citizen_faq` on each request, plus the core AI service (`core/ai`, local models, no external AI API): hybrid full-text + vector search and verbatim quote selection. No invented facts or outside web citations. If the AI service is unavailable the assistant stays in **DATA** mode. |
 | Signed results | Secured result-metadata/PDF adapter. Valid signature state is reported **by external results service**, not independently verified by this portal; without it the UI says no signed file is available. |
-| E2E | Playwright journey spec added, **not run in delivery environment**. Requires running stack, Chromium, demo data, optionally staff-side fixtures. |
+| E2E | Playwright specs run in CI on every pull request (`make e2e-citizen`, inside the official Playwright image). Requires the running stack and demo data; specs needing staff-side fixtures (`E2E_*_CASE_ID`) are skipped. |
 
 ### Document deletion
 
@@ -151,10 +151,9 @@ npm --prefix apps/citizen test
 npm --prefix apps/citizen run build
 # Start/refresh the citizen service using the EXISTING root compose setup:
 docker compose -f docker-compose.yml up -d --build citizen
-# Browser-driven E2E (install browser once):
-cd apps/citizen
-npx playwright install chromium
-npm run test:e2e
+# Browser-driven E2E inside Docker (no local browser install), from the repository root:
+make e2e-citizen
+# or with a local browser: cd apps/citizen && npx playwright install chromium && npm run test:e2e
 ```
 
 `E2E_BASE_URL` defaults to `http://localhost:3000`.
