@@ -7,13 +7,15 @@ import {
   ArrowLeft,
   ExternalLink,
   FileText,
+  KeyRound,
   Lock,
+  Plus,
   Search,
   ShieldCheck,
   Unlock,
   Users,
 } from "lucide-vue-next";
-import type { LedgerCheck, Procedure } from "~/types";
+import type { IssuedPassword, LedgerCheck, Leader, Procedure } from "~/types";
 
 // Một xã: tổng quan và các thủ tục xã được mở.
 // Quản trị hệ thống cấu hình xã nhưng KHÔNG xem nội dung hồ sơ của dân (chỉ số liệu tổng hợp).
@@ -23,7 +25,7 @@ const { procedures, load: loadProcedures, setForTenant, loadError } = useProcedu
 const { api } = useApi();
 const config = useRuntimeConfig().public;
 
-const tab = ref<"tong-quan" | "thu-tuc">("tong-quan");
+const tab = ref<"tong-quan" | "thu-tuc" | "tai-khoan">("tong-quan");
 const ledger = ref<LedgerCheck | null>(null);
 const message = ref<string | null>(null);
 const busy = ref(false);
@@ -67,6 +69,35 @@ async function setProcedures(list: Procedure[], enabled: boolean) {
   busy.value = true;
   message.value = await setForTenant(code, ids, enabled);
   busy.value = false;
+}
+
+// ----- Tab Tài khoản quản lý: lãnh đạo xã (cấp lại mật khẩu tạm, khóa / mở, thêm lãnh đạo) -----
+const leadersApi = useLeaders(code);
+const { leaders, loading: leadersLoading, error: leadersError } = leadersApi;
+const issued = ref<IssuedPassword | null>(null);
+const showLeaderForm = ref(false);
+const leaderForm = reactive({ username: "", fullName: "", email: "" });
+watch(tab, (t) => {
+  if (t === "tai-khoan") leadersApi.load();
+});
+
+async function addLeader() {
+  issued.value = (await leadersApi.add(leaderForm.username, leaderForm.fullName, leaderForm.email)) ?? null;
+  if (issued.value) {
+    Object.assign(leaderForm, { username: "", fullName: "", email: "" });
+    showLeaderForm.value = false;
+  }
+}
+
+async function resetLeader(l: Leader) {
+  if (!window.confirm(`Cấp mật khẩu tạm mới cho ${l.username}? Mật khẩu cũ sẽ không dùng được nữa.`)) return;
+  issued.value = (await leadersApi.resetPassword(l)) ?? null;
+}
+
+async function toggleLeader(l: Leader) {
+  const action = l.enabled ? "khóa" : "mở khóa";
+  if (!window.confirm(`Bạn chắc chắn muốn ${action} tài khoản ${l.username}?`)) return;
+  await leadersApi.setEnabled(l, !l.enabled);
 }
 
 async function toggleTenant() {
@@ -113,6 +144,7 @@ async function toggleTenant() {
           v-for="t in [
             { id: 'tong-quan', label: 'Tổng quan' },
             { id: 'thu-tuc', label: `Thủ tục (${openTotal}/${procedures.length})` },
+            { id: 'tai-khoan', label: 'Tài khoản quản lý' },
           ]"
           :key="t.id"
           type="button"
@@ -163,8 +195,8 @@ async function toggleTenant() {
           </h2>
           <ul class="mt-2 list-disc space-y-1 pl-5 text-sm text-slate-700">
             <li>
-              Quản trị hệ thống chỉ cấp tài khoản <b>lãnh đạo xã</b>: trong Keycloak, tạo người dùng,
-              đặt thuộc tính <code>tenant_id = {{ tenant.code }}</code> và gán vai trò <code>leader</code>.
+              Quản trị hệ thống chỉ cấp tài khoản <b>lãnh đạo xã</b>, ở tab
+              <button type="button" class="font-semibold text-brand-700 hover:underline" @click="tab = 'tai-khoan'">Tài khoản quản lý</button>.
             </li>
             <li>Lãnh đạo xã tự tạo, khóa và cấp lại mật khẩu cho cán bộ xử lý ở màn hình cán bộ xã (mục Nhân viên).</li>
             <li>
@@ -196,6 +228,94 @@ async function toggleTenant() {
           <ShieldCheck class="h-4 w-4" aria-hidden="true" />
           Xã bị khóa thì cán bộ xã đó không xem được hồ sơ nào; người dân vẫn tra cứu được hồ sơ đã nộp.
         </p>
+      </div>
+
+      <!-- Tài khoản quản lý: lãnh đạo xã -->
+      <div v-else-if="tab === 'tai-khoan'" class="mt-6 space-y-4">
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <p class="text-sm text-slate-600">
+            Lãnh đạo xã đăng nhập Cổng cán bộ xã, tự tạo và quản lý tài khoản cán bộ xử lý của xã.
+            Tài khoản mới hoặc vừa cấp lại mật khẩu phải đổi mật khẩu khi đăng nhập lần đầu.
+          </p>
+          <button
+            type="button"
+            class="inline-flex h-10 items-center gap-2 rounded-md bg-brand-700 px-4 text-sm font-semibold text-white hover:bg-brand-800"
+            @click="showLeaderForm = !showLeaderForm"
+          >
+            <Plus class="h-4 w-4" aria-hidden="true" /> Thêm lãnh đạo
+          </button>
+        </div>
+
+        <form v-if="showLeaderForm" class="rounded-lg border border-slate-200 bg-white p-4" novalidate @submit.prevent="addLeader">
+          <div class="grid gap-4 md:grid-cols-3">
+            <div>
+              <label for="new-leader-username" class="block text-sm font-medium">Tên đăng nhập</label>
+              <input id="new-leader-username" v-model.trim="leaderForm.username" type="text" autocomplete="off" autocapitalize="none" spellcheck="false" class="mt-1 h-11 w-full rounded-md border border-slate-300 px-3" />
+            </div>
+            <div>
+              <label for="new-leader-name" class="block text-sm font-medium">Họ và tên</label>
+              <input id="new-leader-name" v-model="leaderForm.fullName" type="text" autocomplete="off" class="mt-1 h-11 w-full rounded-md border border-slate-300 px-3" />
+            </div>
+            <div>
+              <label for="new-leader-email" class="block text-sm font-medium">Email <span class="font-normal text-slate-500">(không bắt buộc)</span></label>
+              <input id="new-leader-email" v-model.trim="leaderForm.email" type="email" autocomplete="off" class="mt-1 h-11 w-full rounded-md border border-slate-300 px-3" />
+            </div>
+          </div>
+          <div class="mt-4 flex gap-2">
+            <button type="submit" class="h-10 rounded-md bg-brand-700 px-4 text-sm font-semibold text-white hover:bg-brand-800">Tạo tài khoản</button>
+            <button type="button" class="h-10 rounded-md border border-slate-300 px-4 text-sm font-semibold hover:bg-slate-100" @click="showLeaderForm = false">Hủy</button>
+          </div>
+        </form>
+
+        <p v-if="leadersError" role="alert" class="rounded-md bg-red-50 px-3 py-2 text-sm font-medium text-red-700">{{ leadersError }}</p>
+        <IssuedPasswordNotice v-if="issued" :issued="issued" @close="issued = null" />
+
+        <div class="overflow-x-auto rounded-lg border border-slate-200 bg-white">
+          <table class="w-full min-w-[640px] text-left text-sm">
+            <thead class="bg-slate-100 text-slate-700">
+              <tr>
+                <th scope="col" class="px-4 py-3 font-semibold">Lãnh đạo xã</th>
+                <th scope="col" class="px-4 py-3 font-semibold">Email</th>
+                <th scope="col" class="px-4 py-3 font-semibold">Trạng thái</th>
+                <th scope="col" class="px-4 py-3 font-semibold">Ngày tạo</th>
+                <th scope="col" class="px-4 py-3 text-right font-semibold">Thao tác</th>
+              </tr>
+            </thead>
+            <tbody>
+              <tr v-for="l in leaders" :key="l.id" class="border-t border-slate-200">
+                <td class="px-4 py-3">
+                  <span class="font-semibold">{{ [l.lastName, l.firstName].filter(Boolean).join(" ") || l.username }}</span>
+                  <span class="block font-mono text-xs text-slate-500">{{ l.username }}</span>
+                </td>
+                <td class="px-4 py-3">{{ l.email ?? "—" }}</td>
+                <td class="px-4 py-3">
+                  <span
+                    class="inline-flex rounded-full px-2.5 py-1 text-xs font-semibold"
+                    :class="!l.enabled ? 'bg-slate-200 text-slate-700' : l.mustChangePassword ? 'bg-amber-100 text-amber-900' : 'bg-green-100 text-green-800'"
+                  >
+                    {{ !l.enabled ? "Đã khóa" : l.mustChangePassword ? "Chờ đổi mật khẩu tạm" : "Đang hoạt động" }}
+                  </span>
+                </td>
+                <td class="px-4 py-3 whitespace-nowrap">{{ formatDateTime(l.createdAt) }}</td>
+                <td class="px-4 py-3 text-right whitespace-nowrap">
+                  <button type="button" class="mr-2 inline-flex h-9 items-center gap-1 rounded-md border border-slate-300 px-3 font-medium hover:bg-slate-100" @click="resetLeader(l)">
+                    <KeyRound class="h-4 w-4" aria-hidden="true" /> Cấp lại mật khẩu
+                  </button>
+                  <button type="button" class="inline-flex h-9 items-center gap-1 rounded-md border border-slate-300 px-3 font-medium hover:bg-slate-100" @click="toggleLeader(l)">
+                    <component :is="l.enabled ? Lock : Unlock" class="h-4 w-4" aria-hidden="true" />
+                    {{ l.enabled ? "Khóa" : "Mở khóa" }}
+                  </button>
+                </td>
+              </tr>
+              <tr v-if="leadersLoading && leaders.length === 0">
+                <td colspan="5" class="px-4 py-8 text-center text-slate-500">Đang tải...</td>
+              </tr>
+              <tr v-else-if="leaders.length === 0">
+                <td colspan="5" class="px-4 py-8 text-center text-slate-500">Xã chưa có lãnh đạo nào. Bấm "Thêm lãnh đạo".</td>
+              </tr>
+            </tbody>
+          </table>
+        </div>
       </div>
 
       <!-- Thủ tục -->

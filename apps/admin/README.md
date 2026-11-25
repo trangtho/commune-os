@@ -21,8 +21,8 @@ Không dành cho cán bộ xã hay người dân.
 
 ## Chạy thử
 
-Cần các dịch vụ lõi đang chạy (`docker compose up -d` ở thư mục gốc) và tài
-khoản `quantri` đã tạo trong Keycloak (xem mục "Tài khoản thử" ở README gốc).
+Cần các dịch vụ lõi đang chạy (`docker compose up -d` ở thư mục gốc). Tài khoản quản trị hệ thống là
+`COMMUNEOS_ADMIN_USERNAME` / `COMMUNEOS_ADMIN_PASSWORD` trong `.env` (xem mục "Tài khoản thử" ở README gốc).
 
 ```bash
 cd apps/admin
@@ -30,7 +30,7 @@ npm install
 npm run dev -- --port 3001
 ```
 
-Mở http://localhost:3001 và đăng nhập bằng `quantri`.
+Mở http://localhost:3001 và đăng nhập bằng tài khoản quản trị trong `.env`.
 
 ## Cách gọi dữ liệu
 

@@ -4,7 +4,12 @@
 // Bổ sung cấu hình còn thiếu vào realm communeos đã có sẵn (chạy một lần rồi dừng).
 // Keycloak chỉ nạp tệp realm khi realm chưa tồn tại; máy đã cài từ bản trước sẽ thiếu các mục mới.
 // Tệp này đọc realm/communeos-realm.json và thêm những mục chưa có, KHÔNG ghi đè mục đã có:
-//   * vai trò, client, người dùng liệt kê trong IMPORT (qua partialImport, ifResourceExists=SKIP)
+//   * vai trò, client liệt kê trong IMPORT (qua partialImport, ifResourceExists=SKIP)
+//   * chính sách mật khẩu của realm (tối thiểu 8 ký tự, có chữ và số)
+//   * tài khoản quản trị hệ thống duy nhất, từ COMMUNEOS_ADMIN_USERNAME, COMMUNEOS_ADMIN_PASSWORD trong .env
+//     (chưa có thì tạo; đã có thì đặt lại mật khẩu theo .env và bảo đảm vai trò sys_admin: đổi mật khẩu quản trị
+//     bằng cách sửa .env rồi make up)
+// Tệp realm không có tài khoản người dùng nào; xã, lãnh đạo, cán bộ, công dân tạo qua API của lõi (make demo tạo mẫu).
 //   * thuộc tính khai báo trong user profile (chỉ thêm thuộc tính chưa có)
 //   * client liệt kê trong CONFIDENTIAL: luôn là client bí mật (có tài khoản dịch vụ) với secret lấy từ biến môi trường
 // Biến ${TÊN} trong tệp realm được thay bằng biến môi trường cùng tên (giống Keycloak khi nạp realm).
@@ -22,13 +27,18 @@ const REALM_FILE = process.env.REALM_FILE || '/app/realm/communeos-realm.json'
 const IMPORT = {
   realmRoles: ['citizen'],
   clients: ['citizen-app'],
-  users: ['congdan.demo', 'congdan.khac'],
 }
+const SYS_ADMIN_USERNAME = String(process.env.COMMUNEOS_ADMIN_USERNAME || '').trim().toLowerCase()
+const SYS_ADMIN_PASSWORD = String(process.env.COMMUNEOS_ADMIN_PASSWORD || '')
 // Client bí mật và biến môi trường chứa secret.
 const CONFIDENTIAL = { 'citizen-app': 'CITIZEN_KEYCLOAK_SECRET' }
 
 if (!ADMIN_USER || !ADMIN_PASSWORD) {
   console.error('Thiếu KEYCLOAK_ADMIN hoặc KEYCLOAK_ADMIN_PASSWORD')
+  process.exit(1)
+}
+if (!/^[a-z0-9][a-z0-9._-]{2,49}$/.test(SYS_ADMIN_USERNAME) || SYS_ADMIN_PASSWORD.length < 10) {
+  console.error('COMMUNEOS_ADMIN_USERNAME, COMMUNEOS_ADMIN_PASSWORD trong .env chưa hợp lệ (chạy make check-env để xem lý do)')
   process.exit(1)
 }
 
@@ -90,7 +100,6 @@ async function main() {
     ifResourceExists: 'SKIP',
     roles: { realm: pick(realm.roles.realm, 'name', IMPORT.realmRoles) },
     clients: pick(realm.clients, 'clientId', IMPORT.clients),
-    users: pick(realm.users, 'username', IMPORT.users),
   })
   console.log(`partialImport: thêm ${result.added}, bỏ qua ${result.skipped} (đã có)`)
 
@@ -108,6 +117,34 @@ async function main() {
         serviceAccountsEnabled: true })
       console.log(`Client ${clientId}: client bí mật có tài khoản dịch vụ, cập nhật secret`)
     }
+  }
+  // 4. Chính sách mật khẩu: áp cho mọi tài khoản tạo hay đổi mật khẩu từ nay (Keycloak tự kiểm tra).
+  const current = await api('GET', '')
+  if (current.passwordPolicy !== realm.passwordPolicy) {
+    await api('PUT', '', { ...current, passwordPolicy: realm.passwordPolicy })
+    console.log(`Chính sách mật khẩu: ${realm.passwordPolicy}`)
+  }
+
+  // 5. Tài khoản quản trị hệ thống duy nhất, từ .env.
+  const [sysAdminRole] = [await api('GET', '/roles/sys_admin')]
+  let [admin] = await api('GET', `/users?username=${encodeURIComponent(SYS_ADMIN_USERNAME)}&exact=true`)
+  if (!admin) {
+    await api('POST', '/users', {
+      username: SYS_ADMIN_USERNAME, enabled: true, firstName: 'Quản trị', lastName: 'hệ thống',
+      credentials: [{ type: 'password', value: SYS_ADMIN_PASSWORD, temporary: false }],
+    })
+    ;[admin] = await api('GET', `/users?username=${encodeURIComponent(SYS_ADMIN_USERNAME)}&exact=true`)
+    console.log(`Tạo tài khoản quản trị hệ thống: ${SYS_ADMIN_USERNAME}`)
+  }
+  else {
+    // .env là nguồn duy nhất của mật khẩu quản trị: mỗi lần make up đồng bộ lại (máy cài từ bản cũ còn mật khẩu mẫu).
+    await api('PUT', `/users/${admin.id}/reset-password`, { type: 'password', value: SYS_ADMIN_PASSWORD, temporary: false })
+    if (!admin.enabled) await api('PUT', `/users/${admin.id}`, { ...admin, enabled: true })
+  }
+  const roles = (await api('GET', `/users/${admin.id}/role-mappings/realm`)).map((r) => r.name)
+  if (!roles.includes('sys_admin')) {
+    await api('POST', `/users/${admin.id}/role-mappings/realm`, [sysAdminRole])
+    console.log(`Gán vai trò sys_admin cho ${SYS_ADMIN_USERNAME}`)
   }
   console.log('Cấu hình định danh đã đủ.')
 }

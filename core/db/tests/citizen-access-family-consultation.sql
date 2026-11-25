@@ -1,6 +1,17 @@
 -- SPDX-FileCopyrightText: 2026 CommuneOS Contributors
 -- SPDX-License-Identifier: Apache-2.0
 -- Kênh người dân gọi lõi bằng vai trò citizen-app (token công dân qua PostgREST); communeos_app không còn quyền dữ liệu.
+-- Xã và công dân mẫu do make demo tạo (mã ngẫu nhiên theo từng bản cài): xa-a, xa-b, congdan.demo, congdan.khac.
+DO $demo$ BEGIN
+  IF (SELECT count(*) FROM tenants WHERE code IN ('xa-a','xa-b')) < 2
+     OR (SELECT count(*) FROM citizens WHERE login_name IN ('congdan.demo','congdan.khac')) < 2 THEN
+    RAISE EXCEPTION 'Chưa có dữ liệu mẫu: chạy make demo trước khi kiểm thử';
+  END IF;
+  PERFORM set_config('demo.tenant_a', (SELECT id::text FROM tenants WHERE code = 'xa-a'), false),
+          set_config('demo.tenant_b', (SELECT id::text FROM tenants WHERE code = 'xa-b'), false),
+          set_config('demo.citizen_a', (SELECT id::text FROM citizens WHERE login_name = 'congdan.demo'), false),
+          set_config('demo.citizen_b', (SELECT id::text FROM citizens WHERE login_name = 'congdan.khac'), false);
+END $demo$;
 \set ON_ERROR_STOP on
 BEGIN;
 DO $$BEGIN
@@ -13,12 +24,12 @@ DO $$BEGIN
 END $$;
 -- Owner provisions a temporary published slot, rolled back with this transaction.
 INSERT INTO citizen_consultation_slots(tenant_id,category,starts_at,ends_at,capacity,is_published)
-VALUES('10000000-0000-4000-8000-000000000001','__citizen_experience_test__',now()+interval '3 days',now()+interval '3 days 30 minutes',1,true);
+VALUES(current_setting('demo.tenant_a')::uuid,'__citizen_experience_test__',now()+interval '3 days',now()+interval '3 days 30 minutes',1,true);
 SET LOCAL ROLE "citizen-app";
-SELECT set_config('app.citizen_id','20000000-0000-4000-8000-000000000001',true);
-SELECT set_config('app.tenant_id','10000000-0000-4000-8000-000000000001',true);
+SELECT set_config('app.citizen_id',current_setting('demo.citizen_a'),true);
+SELECT set_config('app.tenant_id',current_setting('demo.tenant_a'),true);
 INSERT INTO citizen_consultation_requests(citizen_id,tenant_id,category,subject,description,channel,contact_phone,preferred_at,slot_id)
-SELECT '20000000-0000-4000-8000-000000000001','10000000-0000-4000-8000-000000000001','__citizen_experience_test__',
+SELECT current_setting('demo.citizen_a')::uuid,current_setting('demo.tenant_a')::uuid,'__citizen_experience_test__',
   '__communeos_selftest_consult__','Tôi cần hỏi về các giấy tờ phải nộp trước khi đăng ký khai sinh',
   'phone','0912345678',starts_at,id
 FROM citizen_consultation_slots WHERE category='__citizen_experience_test__' AND starts_at>now() ORDER BY starts_at DESC LIMIT 1;
@@ -32,17 +43,17 @@ DO $$DECLARE v_id uuid; v_slot uuid;BEGIN
 END $$;
 -- Reviews are scoped to the applicant owner, even when a family relationship exists.
 INSERT INTO applications(id,citizen_id,tenant_id,procedure_id,status,applicant_name)
-VALUES('__COMMUNEOS_STAGE_SELFTEST__','20000000-0000-4000-8000-000000000001',
- '10000000-0000-4000-8000-000000000001','khai-sinh','draft','Công dân kiểm thử');
+VALUES('__COMMUNEOS_STAGE_SELFTEST__',current_setting('demo.citizen_a')::uuid,
+ current_setting('demo.tenant_a')::uuid,'khai-sinh','draft','Công dân kiểm thử');
 INSERT INTO citizen_stage_reviews(application_id,citizen_id,tenant_id,stage,rating,comment)
-VALUES('__COMMUNEOS_STAGE_SELFTEST__','20000000-0000-4000-8000-000000000001',
- '10000000-0000-4000-8000-000000000001','guidance',4,'Kiểm thử đánh giá');
+VALUES('__COMMUNEOS_STAGE_SELFTEST__',current_setting('demo.citizen_a')::uuid,
+ current_setting('demo.tenant_a')::uuid,'guidance',4,'Kiểm thử đánh giá');
 DO $$DECLARE v_count integer;BEGIN
  SELECT count(*) INTO v_count FROM citizen_stage_reviews WHERE application_id='__COMMUNEOS_STAGE_SELFTEST__';
  IF v_count<>1 THEN RAISE EXCEPTION 'Owner review not visible';END IF;
 END $$;
-SELECT set_config('app.citizen_id','20000000-0000-4000-8000-000000000002',true);
-SELECT set_config('app.tenant_id','10000000-0000-4000-8000-000000000002',true);
+SELECT set_config('app.citizen_id',current_setting('demo.citizen_b'),true);
+SELECT set_config('app.tenant_id',current_setting('demo.tenant_b'),true);
 DO $$DECLARE v_count integer;BEGIN
  SELECT count(*) INTO v_count FROM citizen_consultation_requests WHERE subject='__communeos_selftest_consult__';
  IF v_count<>0 THEN RAISE EXCEPTION 'Cross-tenant consultation disclosed';END IF;

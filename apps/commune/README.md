@@ -28,8 +28,8 @@ npm install
 npm run dev
 ```
 
-Tài khoản thử (Keycloak): `canbo.xa-a`, `canbo.xa-b` (cán bộ xử lý), `lanhdao.xa-a`, `lanhdao.xa-b`
-(lãnh đạo, thấy thêm khu Nhân viên), mật khẩu `12345`.
+Tài khoản thử do `make demo` tạo: `canbo.xa-a`, `canbo.xa-b` (cán bộ xử lý), `lanhdao.xa-a`, `lanhdao.xa-b`
+(lãnh đạo, thấy thêm khu Nhân viên), mật khẩu `Demo@2026!` (`DEMO_PASSWORD`).
 
 Chạy: `SESSION_SECRET=$(openssl rand -hex 32) npm run dev -- --port 3002`
 (cần `docker compose up -d` ở thư mục gốc).

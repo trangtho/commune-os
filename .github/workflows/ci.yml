@@ -34,16 +34,22 @@ jobs:
         run: |
           cp .env.example .env
           sed -i "s/^SESSION_SECRET=.*/SESSION_SECRET=$(openssl rand -hex 32)/" .env
+          # Mật khẩu quản trị hệ thống: make check-env từ chối mật khẩu mẫu.
+          sed -i "s/^COMMUNEOS_ADMIN_PASSWORD=.*/COMMUNEOS_ADMIN_PASSWORD=Ci$(openssl rand -hex 12)/" .env
+          make check-env
 
       - name: Kiểm tra cú pháp docker-compose và script
         run: |
           docker compose config -q
           sh -n core/tests/tenant-isolation.sh
+          sh -n core/identity/check-admin-env.sh
+          node --check core/demo/demo.mjs
+          node --check core/accounts/server.mjs
           sh -n core/db/init/00-create-app-role.sh
           sh -n core/db/init/02-create-api-roles.sh
 
       - name: Dựng và khởi động các dịch vụ lõi
-        run: docker compose up -d --build db identity db-setup rest-keys rest gateway workflow-engine orchestrator storage files accounts
+        run: docker compose up -d --build db identity identity-setup db-setup rest-keys rest gateway workflow-engine orchestrator storage files accounts
 
       - name: Chờ Keycloak và cổng API sẵn sàng
         run: |
@@ -51,15 +57,20 @@ jobs:
             code=$(curl -s -o /dev/null -w '%{http_code}' http://localhost:9080/rest/dossiers || true)
             kc=$(curl -s -o /dev/null -w '%{http_code}' http://localhost:8080/realms/communeos/.well-known/openid-configuration || true)
             wf=$(docker compose logs orchestrator 2>/dev/null | grep -c "Dịch vụ điều phối chạy" || true)
-            if [ "$code" = "401" ] && [ "$kc" = "200" ] && [ "$wf" != "0" ]; then echo "Sẵn sàng sau $i lần thử"; exit 0; fi
+            # identity-setup tạo tài khoản quản trị hệ thống từ .env rồi dừng.
+            setup=$(docker compose ps -a --format '{{.Service}} {{.State}} {{.ExitCode}}' identity-setup 2>/dev/null || true)
+            if [ "$code" = "401" ] && [ "$kc" = "200" ] && [ "$wf" != "0" ] && [ "$setup" = "identity-setup exited 0" ]; then echo "Sẵn sàng sau $i lần thử"; exit 0; fi
             sleep 5
           done
           docker compose ps
           docker compose logs --tail=40
           exit 1
 
-      - name: Kiểm thử cách ly xã, xử lý hồ sơ, sổ ghi nhận
-        run: DEMO_PASSWORD=12345 make test
+      - name: Tạo dữ liệu mẫu qua API của lõi (xã, lãnh đạo, cán bộ, công dân, hồ sơ)
+        run: make demo
+
+      - name: Kiểm thử cách ly xã, xử lý hồ sơ, sổ ghi nhận, khởi tạo tài khoản
+        run: make test
 
       - name: Kiểm thử API luồng chính của công dân trong lõi (ROLLBACK)
         run: make citizen-api-test

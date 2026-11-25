@@ -120,7 +120,8 @@ BEGIN
     ('log_staff_action', 'Ghi nhật ký quản lý tài khoản (chỉ dịch vụ tài khoản gọi)', 'Cần khóa nội bộ X-Workflow-Token.'),
 
     -- ===== Hàm: quản trị hệ thống =====
-    ('add_tenant', 'Thêm xã mới', 'Chỉ sys_admin.'),
+    ('add_tenant', 'Thêm xã mới', 'Chỉ sys_admin. Bảng quản trị tạo xã kèm lãnh đạo qua POST /accounts/tenants.'),
+    ('remove_new_tenant', 'Hủy xã vừa tạo khi tạo tài khoản lãnh đạo lỗi', 'Chỉ sys_admin; chỉ xã tạo trong vòng 1 giờ, chưa có dữ liệu.'),
     ('set_tenant_status', 'Khóa hoặc mở một xã', 'status: active hoặc locked. Chỉ sys_admin.'),
     ('import_procedure', 'Nạp hoặc cập nhật một thủ tục từ gói thủ tục',
      'pack: nội dung pack.yaml đã đọc thành JSON. Thủ tục mới chưa bật cho xã nào. Chỉ sys_admin.'),
@@ -294,6 +295,10 @@ BEGIN
 
     -- ===== Hàm: dịch vụ và việc định kỳ cho Kênh người dân (34-citizen-direct-access.sql) =====
     ('citizen_service_oidc_link', 'Liên kết đăng nhập OIDC bên ngoài với tài khoản công dân (chỉ tài khoản dịch vụ của Kênh người dân)', 'Ghi địa phương cư trú và thông tin đã xác minh khi công dân đồng ý lúc đăng nhập; không lưu ID token.'),
+    ('public_registration_tenants', 'Các xã đang hoạt động để người dân chọn khi đăng ký', 'Gọi công khai qua /public/rpc/public_registration_tenants.'),
+    ('system_register_citizen', 'Tạo hồ sơ công dân khi người dân tự đăng ký (chỉ dịch vụ tài khoản của lõi gọi, cần X-Workflow-Token)',
+     'Ghi thời điểm đồng ý xử lý dữ liệu cá nhân. Ứng dụng đăng ký qua POST /public/accounts/register.'),
+    ('system_unregister_citizen', 'Hủy hồ sơ công dân vừa tạo khi tạo tài khoản lỗi (chỉ dịch vụ tài khoản của lõi gọi, cần X-Workflow-Token)', NULL),
     ('system_dispatch_citizen_reminders', 'Gửi nhắc việc đến hạn (chỉ dịch vụ điều phối của lõi gọi, cần X-Workflow-Token)', NULL),
     ('system_scan_citizen_retention', 'Quét dữ liệu đến hạn rà soát lưu trữ của mọi xã (chỉ dịch vụ điều phối của lõi gọi, cần X-Workflow-Token)', 'Chỉ tạo mục chờ lãnh đạo xã xem xét.'),
 

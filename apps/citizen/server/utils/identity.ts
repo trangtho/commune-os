@@ -183,6 +183,21 @@ export async function publicRpc<T = any>(name: string, args: Record<string, unkn
   } catch (error) { throw coreError(error) }
 }
 
+/** Người dân tự đăng ký (POST /public/accounts/register của lõi; cổng giới hạn số lần gọi). Lời nhắn lỗi của dịch vụ
+ *  tài khoản là tiếng Việt, không chứa chi tiết nội bộ, nên trả nguyên cho người dùng. */
+export async function registerCitizenAccount(body: Record<string, unknown>, clientIp: string): Promise<{ username: string; tenantCode: string; notice: string }> {
+  try {
+    return await $fetch(`${settings().gateway}/public/accounts/register`, {
+      method: 'POST', body, timeout: 15000, headers: clientIp ? { 'x-forwarded-for': clientIp } : {},
+    })
+  } catch (error: any) {
+    const status = Number(error?.status) || 0
+    if (status === 429) throw createError({ statusCode: 429, statusMessage: 'Đăng ký quá nhiều lần, vui lòng thử lại sau ít phút' })
+    if (status >= 400 && status < 500 && error?.data?.message) throw createError({ statusCode: status, statusMessage: String(error.data.message) })
+    throw coreError(error)
+  }
+}
+
 /** Công dân đã đăng nhập bằng Keycloak thì gọi bằng token (lọc theo xã), còn lại gọi API công khai. */
 export function catalogRpc<T = any>(event: H3Event, name: string, args: Record<string, unknown> = {}): Promise<T> {
   return readSession(event)?.authMethod === 'keycloak' ? citizenRpc<T>(event, name, args) : publicRpc<T>(name, args)

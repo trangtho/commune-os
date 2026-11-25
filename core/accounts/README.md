@@ -5,13 +5,19 @@ SPDX-License-Identifier: Apache-2.0
 
 # Dịch vụ tài khoản cán bộ
 
-Dịch vụ không giao diện của lõi. Lãnh đạo xã (`leader`) quản lý tài khoản cán bộ xử lý
-(`officer`) của xã mình. Tài khoản vẫn nằm ở Keycloak; dịch vụ gọi Keycloak Admin API bằng
-tài khoản dịch vụ của client `accounts-service`.
+Dịch vụ không giao diện của lõi. Quản trị hệ thống (`sys_admin`) tạo xã kèm tài khoản lãnh đạo xã và quản lý
+lãnh đạo xã; lãnh đạo xã (`leader`) quản lý tài khoản cán bộ xử lý (`officer`) của xã mình; người dân tự đăng ký
+tài khoản công dân. Tài khoản vẫn nằm ở Keycloak; dịch vụ gọi Keycloak Admin API bằng tài khoản dịch vụ của client
+`accounts-service`.
 
 ## Quy tắc
 
-- Chỉ người có vai trò `leader` và có `tenant_id` mới gọi được.
+- `/accounts/staff`: chỉ người có vai trò `leader` và có `tenant_id` mới gọi được.
+- `/accounts/tenants`: chỉ `sys_admin`. Tạo xã (`api.add_tenant`) rồi tạo lãnh đạo; tạo tài khoản lỗi thì xã vừa tạo
+  bị hủy (`api.remove_new_tenant`). Lãnh đạo của xã khác trả 404.
+- `/accounts/register` (qua `/public/accounts/register`, không token, cổng giới hạn số lần gọi): bắt buộc đồng ý xử lý
+  dữ liệu cá nhân; lõi tạo hồ sơ công dân (`api.system_register_citizen`, khóa nội bộ) rồi tạo tài khoản vai trò
+  `citizen` gắn `citizen_id`, `citizen_tenant`; tạo tài khoản lỗi thì hủy hồ sơ vừa tạo.
 - Chỉ tác động lên cán bộ cùng xã. Khác xã trả 404.
 - Chỉ tạo được vai trò `officer`. Xã luôn là xã của người gọi, không nhận từ yêu cầu.
 - Không tác động lên chính mình, lãnh đạo khác, `supervisor` hay `sys_admin` (403).
@@ -32,12 +38,18 @@ nằm trong `server.mjs` và được kiểm thử trong `core/tests/tenant-isol
 | DELETE | `/accounts/staff/{id}` | Xóa hẳn tài khoản (phải khóa trước); hồ sơ cá nhân và nhật ký vẫn giữ |
 | POST | `/accounts/first-password` | Không cần token. Cán bộ đổi mật khẩu tạm lần đầu ngay trên trang đăng nhập `{ username, currentPassword, newPassword }`; mật khẩu tạm được Keycloak kiểm tra; tối đa 5 lần/15 phút mỗi tài khoản |
 | POST | `/accounts/staff/{id}/reset-password` | Cấp mật khẩu tạm mới |
+| POST | `/accounts/tenants` | `sys_admin`. Tạo xã kèm lãnh đạo `{ code, name, leaderUsername, leaderFullName, leaderEmail? }`, trả `{ tenant, leader: { id, username, temporaryPassword } }` |
+| GET | `/accounts/tenants/{code}/leaders` | `sys_admin`. Lãnh đạo của xã |
+| POST | `/accounts/tenants/{code}/leaders` | `sys_admin`. Thêm lãnh đạo `{ username, fullName, email? }`, trả mật khẩu tạm |
+| POST | `/accounts/tenants/{code}/leaders/{id}/reset-password` | `sys_admin`. Cấp mật khẩu tạm mới cho lãnh đạo |
+| PATCH | `/accounts/tenants/{code}/leaders/{id}/status` | `sys_admin`. Khóa hoặc mở lãnh đạo `{ enabled }` |
+| POST | `/public/accounts/register` | Không cần token. Người dân tự đăng ký `{ fullName, username, email?, phone?, tenantCode, password, consent: true }`; mật khẩu tối thiểu 8 ký tự, có chữ và số |
 | POST | `/accounts/me/password` | Người đăng nhập tự đổi mật khẩu `{ currentPassword, newPassword }`. Nhận token của `citizen-app` (phải có vai trò `citizen`) hoặc `commune-app`; mật khẩu hiện tại được Keycloak kiểm tra qua đúng client đó; tối đa 5 lần/15 phút mỗi tài khoản |
 
 Nhật ký: `GET /rest/staff_audit` (lãnh đạo thấy xã mình, `sys_admin` thấy tất cả).
 
-Mật khẩu tạm có `temporary: true`: lần đầu, cán bộ phải đặt mật khẩu mới ở trang tài khoản
-Keycloak (`/realms/communeos/account`) rồi mới đăng nhập được màn hình cán bộ.
+Mật khẩu tạm (của cán bộ và lãnh đạo xã) có `temporary: true`: lần đầu đăng nhập màn hình cán bộ, người dùng phải
+đặt mật khẩu mới ngay trên trang đăng nhập (`/accounts/first-password`).
 
 ## Biến môi trường
 

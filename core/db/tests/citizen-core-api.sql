@@ -3,16 +3,27 @@
 --
 -- Kiểm thử API luồng chính của công dân (core/db/init/21-citizen-api-core-flow.sql) dưới vai trò
 -- "citizen-app", như khi gọi qua cổng /rest. Mọi thay đổi bị ROLLBACK. Chạy: make citizen-api-test
+-- Xã và công dân mẫu do make demo tạo (mã ngẫu nhiên theo từng bản cài): xa-a, xa-b, congdan.demo, congdan.khac.
+DO $demo$ BEGIN
+  IF (SELECT count(*) FROM tenants WHERE code IN ('xa-a','xa-b')) < 2
+     OR (SELECT count(*) FROM citizens WHERE login_name IN ('congdan.demo','congdan.khac')) < 2 THEN
+    RAISE EXCEPTION 'Chưa có dữ liệu mẫu: chạy make demo trước khi kiểm thử';
+  END IF;
+  PERFORM set_config('demo.tenant_a', (SELECT id::text FROM tenants WHERE code = 'xa-a'), false),
+          set_config('demo.tenant_b', (SELECT id::text FROM tenants WHERE code = 'xa-b'), false),
+          set_config('demo.citizen_a', (SELECT id::text FROM citizens WHERE login_name = 'congdan.demo'), false),
+          set_config('demo.citizen_b', (SELECT id::text FROM citizens WHERE login_name = 'congdan.khac'), false);
+END $demo$;
 \set ON_ERROR_STOP on
 BEGIN;
 SET LOCAL ROLE "citizen-app";
-SELECT set_config('app.citizen_id', '20000000-0000-4000-8000-000000000001', true),
-       set_config('app.tenant_id', '10000000-0000-4000-8000-000000000001', true) \gset
+SELECT set_config('app.citizen_id', current_setting('demo.citizen_a'), true),
+       set_config('app.tenant_id', current_setting('demo.tenant_a'), true) \gset
 
 DO $$
 DECLARE v json; v_id text; v_upd timestamptz; v_err text;
   v_proc text := (SELECT p.id FROM procedures p
-    WHERE p.published AND public.procedure_enabled_for('10000000-0000-4000-8000-000000000001', p.id)
+    WHERE p.published AND public.procedure_enabled_for(current_setting('demo.tenant_a')::uuid, p.id)
       AND EXISTS (SELECT 1 FROM procedure_documents d WHERE d.procedure_id = p.id AND d.is_required)
     ORDER BY p.id LIMIT 1);
 BEGIN
@@ -72,8 +83,8 @@ BEGIN
   END;
 
   -- Công dân khác không thấy hồ sơ này.
-  PERFORM set_config('app.citizen_id', '20000000-0000-4000-8000-000000000002', true),
-          set_config('app.tenant_id', '10000000-0000-4000-8000-000000000002', true);
+  PERFORM set_config('app.citizen_id', current_setting('demo.citizen_b'), true),
+          set_config('app.tenant_id', current_setting('demo.tenant_b'), true);
   BEGIN
     PERFORM api.citizen_application(v_id);
     RAISE EXCEPTION 'LỖI: công dân khác đọc được hồ sơ';
