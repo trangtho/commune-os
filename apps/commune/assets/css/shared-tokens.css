@@ -1,0 +1,15 @@
+/* SPDX-FileCopyrightText: 2026 CommuneOS Contributors
+ * SPDX-License-Identifier: Apache-2.0 */
+:root {
+  --cos-background: #f4f7fc;
+  --cos-background-wash-start: rgba(244,247,252,.82);
+  --cos-background-wash-end: rgba(244,247,252,.86);
+  --cos-background-image: linear-gradient(var(--cos-background-wash-start), var(--cos-background-wash-end)), url('/images/nen-trong-dong.webp');
+  --cos-radius-card: 1rem;
+  --cos-gap-content: clamp(.75rem, 1.4vw, 1.25rem);
+  --cos-focus-color: #2563eb;
+}
+:where(button, a, input, select, textarea):focus-visible { outline: 2px solid var(--cos-focus-color); outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { scroll-behavior: auto !important; animation-duration: .01ms !important; transition-duration: .01ms !important; }
+}
