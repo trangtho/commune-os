@@ -27,6 +27,9 @@ Mọi thay đổi đáng chú ý của dự án được ghi tại đây.
 ### Sửa lỗi (2026-11-28)
 
 - Trang đăng ký công dân liệt kê cả đơn vị không phải xã (ví dụ "Công ty A").
+- Trang đăng ký công dân không cuộn được trên màn hình rộng (từ 1280px): `layouts/blank.vue` đặt khung cố định
+  (`citizen-app-shell`, `overflow: clip`) và vùng cuộn trên cùng một thẻ nên `clip` đè `overflow-y-auto`; nay tách khung
+  ngoài và vùng cuộn như layout mặc định.
 
 ### Thay đổi (tách lõi khỏi gói nghiệp vụ, 2026-11-27)
 
