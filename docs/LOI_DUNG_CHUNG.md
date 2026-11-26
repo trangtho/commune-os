@@ -14,7 +14,9 @@ dữ liệu cách ly theo đơn vị, quy trình BPMN, lưu trữ tệp, sổ gh
 - **Gói doanh nghiệp** ([modules/doanh-nghiep](../modules/doanh-nghiep/README.md)): "Công ty A" duyệt đơn nghỉ
   phép trên cùng lõi, không sửa mã của lõi. Chạy `make example-enterprise`.
 
-Lõi cài và chạy được khi không có gói xã; gói nào được nạp do biến `COMMUNEOS_MODULES` quyết định.
+Lõi cài và chạy được khi không có gói xã; gói nào được nạp do biến `COMMUNEOS_MODULES` quyết định. Mỗi đơn vị chỉ dùng
+các gói được bật cho mình: xã A bật gói `xa`, Công ty A bật gói `doanh-nghiep`; quản trị hệ thống chọn gói khi tạo đơn
+vị và bật, tắt ở bảng quản trị (Đơn vị → chi tiết đơn vị).
 
 ## Ánh xạ H-P-D-I
 
@@ -46,7 +48,13 @@ Lõi không biết gói nào tồn tại:
   thêm rằng không có bảng, API nào của gói xã) và `make example-enterprise`.
 
 Gói nghiệp vụ chỉ được dựa vào phần lõi: bảng `tenants`, các hàm đọc token, `is_workflow_call`, `ledger_record`,
-`register_request_hook`, dịch vụ tài khoản. Không đọc ghi bảng của gói khác.
+`register_request_hook`, `tenant_has_module`, `require_module`, dịch vụ tài khoản. Không đọc ghi bảng của gói khác.
+
+**Gói theo đơn vị** (`core/db/init/08-goi-theo-don-vi.sql`): bảng `tenant_modules` ghi đơn vị nào bật gói nào. Gói tự
+kiểm tra trong RLS (`public.tenant_has_module(tenant_id, '<gói>')`) và trong hàm (`public.require_module('<gói>')`), nên
+đơn vị không bật gói thì API của gói trả rỗng hoặc 403. Ví dụ gói xã: đơn vị không bật gói xã không có thủ tục, hồ sơ,
+không hiện trong danh sách đăng ký công dân, người của đơn vị không đăng nhập được màn hình cán bộ xã
+(`apps/commune` hỏi `api.my_modules()`). Tắt gói không xóa dữ liệu; bật lại thì thấy lại.
 
 ## Thêm nghiệp vụ mới
 
@@ -54,16 +62,17 @@ Làm theo [modules/doanh-nghiep](../modules/doanh-nghiep/README.md):
 
 1. **Thư mục gói:** `modules/<tên-gói>/` gồm `module.json`, `db/`, `bpmn/`, bài kiểm thử.
 2. **Dữ liệu (`db/*.sql`, chạy lại được):** bảng trong schema riêng, có cột đơn vị (`tenant_id` tham chiếu `tenants`);
-   bật RLS lọc theo `public.current_tenant_code()` và vai trò (`public.has_role`); API là bảng ảo `security_invoker`
+   bật RLS lọc theo `public.current_tenant_code()`, gói đã bật (`public.tenant_has_module`) và vai trò (`public.has_role`);
+   hàm ghi gọi `public.require_module('<gói>')`; API là bảng ảo `security_invoker`
    và hàm `SECURITY DEFINER` trong schema `api`; ghi sổ bằng `public.ledger_record`; cấp quyền cho vai trò
    `commune-app`; cuối tệp `NOTIFY pgrst, 'reload schema'`.
 3. **Quy trình (`bpmn/*.bpmn20.xml`):** mỗi `userTask` có `id` trùng một trạng thái; nhánh đi tiếp theo biến `action`.
 4. **Khai báo (`module.json`):** `name`, `title`, `version`; `db` (tệp SQL theo thứ tự chạy); `workflows` (loại đối
    tượng, sơ đồ, bảng ảo, hàm đổi trạng thái, [các trường](../core/orchestrator/README.md#thêm-loại-đối-tượng-gói-nghiệp-vụ));
    `jobs` nếu cần việc định kỳ. Hàm đổi trạng thái phải kiểm tra `public.is_workflow_call()` để mọi bước đi qua sơ đồ.
-5. **Bật gói:** thêm tên gói vào `COMMUNEOS_MODULES` trong `.env`, chạy `make up`.
-6. **Đơn vị, tài khoản:** quản trị hệ thống tạo đơn vị kèm lãnh đạo (`POST /accounts/tenants`), lãnh đạo tạo nhân viên
-   (`POST /accounts/staff`).
+5. **Cài gói:** thêm tên gói vào `COMMUNEOS_MODULES` trong `.env`, chạy `make up`.
+6. **Đơn vị, tài khoản:** quản trị hệ thống tạo đơn vị kèm lãnh đạo và chọn gói (`POST /accounts/tenants` với
+   `"modules": ["<gói>"]`, hoặc bảng quản trị → Đơn vị → Thêm đơn vị); lãnh đạo tạo nhân viên (`POST /accounts/staff`).
 7. **Gọi qua cổng:** `/rest/...` cho dữ liệu, `/workflow/<loại>/<mã>/actions` cho từng bước. Giao diện (nếu cần) là ứng
    dụng mới trong `apps/`, chỉ gọi cổng API.
 
@@ -71,8 +80,6 @@ Làm theo [modules/doanh-nghiep](../modules/doanh-nghiep/README.md):
 
 - Vai trò cố định trong realm Keycloak (`leader`, `officer`, `receptionist`, `sys_admin`); gói mới dùng lại các vai trò
   này (ví dụ giám đốc là `leader`). Thông báo lỗi của dịch vụ tài khoản còn gọi đơn vị là "xã".
-- Gói được bật cho cả hệ thống, chưa bật riêng cho từng đơn vị. Trang đăng ký công dân liệt kê mọi đơn vị đang hoạt
-  động, kể cả đơn vị không dùng gói xã.
 - Kho tệp: dịch vụ `files` lưu được mọi tệp, nhưng API công khai mới chỉ gắn giấy tờ vào hồ sơ của gói xã.
 - AI: mô hình và dịch vụ `ai-gateway` thuộc lõi; kho tri thức và hàm tìm kiếm hiện thuộc gói xã (tri thức về thủ tục).
 - Hồ sơ cán bộ, giao việc, hai cấp duyệt (`modules/xa/db/17-nhan-vien.sql`) còn thuộc gói xã vì gắn với hồ sơ.

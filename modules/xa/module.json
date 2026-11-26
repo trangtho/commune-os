@@ -43,6 +43,7 @@
     "db/34-citizen-direct-access.sql",
     "db/35-account-onboarding.sql",
     "db/36-workflow-expected-status.sql",
+    "db/37-bat-goi-xa.sql",
     "db/25-api-comments.sql"
   ],
   "workflows": [

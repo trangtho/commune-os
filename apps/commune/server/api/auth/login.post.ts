@@ -65,6 +65,20 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 403, statusMessage: 'Tài khoản này chưa được gán xã (tenant_id), không dùng được màn hình cán bộ' })
   }
   if (!info.realm_access?.roles?.some(r => ['receptionist', 'officer', 'leader'].includes(r))) throw createError({ statusCode: 403, statusMessage: 'Tài khoản không có quyền cán bộ' })
+  // Màn hình cán bộ là ứng dụng của gói nghiệp vụ xã: đơn vị của tài khoản phải bật gói "xa" (lõi: api.my_modules).
+  // Người của đơn vị khác (ví dụ Công ty A chỉ dùng gói doanh nghiệp) đăng nhập đúng nhưng không vào được.
+  const { gatewayUrl } = useRuntimeConfig(event)
+  let modules: string[]
+  try {
+    modules = await $fetch<string[]>(`${gatewayUrl}/rest/rpc/my_modules`, {
+      method: 'POST', body: {}, headers: { Authorization: `Bearer ${tokens.access_token}` },
+    })
+  } catch {
+    throw createError({ statusCode: 503, statusMessage: 'Không gọi được API lõi để kiểm tra gói nghiệp vụ của đơn vị. Vui lòng thử lại sau.' })
+  }
+  if (!modules.includes('xa')) {
+    throw createError({ statusCode: 403, statusMessage: 'Đơn vị của bạn không dùng gói nghiệp vụ xã, nên không dùng được màn hình cán bộ xã' })
+  }
   const role = info.realm_access?.roles?.includes('leader') ? 'admin' : 'officer'
   const name = info.name || info.preferred_username || 'Cán bộ'
   setHeader(event, 'Cache-Control', 'no-store')

@@ -14,8 +14,8 @@
 //   DELETE /accounts/staff/:id                     xóa hẳn (phải khóa trước)
 //
 // Quản trị hệ thống (vai trò sys_admin):
-//   POST  /accounts/tenants                        tạo xã kèm lãnh đạo   { code, name, leaderUsername, leaderFullName, leaderEmail? }
-//                                                  → { tenant, leader: { id, username, temporaryPassword } }
+//   POST  /accounts/tenants                        tạo đơn vị kèm lãnh đạo { code, name, modules?, leaderUsername, leaderFullName, leaderEmail? }
+//                                                  → { tenant, modules, leader: { id, username, temporaryPassword } }
 //   GET   /accounts/tenants/:code/leaders          lãnh đạo của xã
 //   POST  /accounts/tenants/:code/leaders          thêm lãnh đạo         { username, fullName, email? }
 //   POST  /accounts/tenants/:code/leaders/:id/reset-password   cấp mật khẩu tạm mới
@@ -374,20 +374,26 @@ function leaderInput(b) {
 
 async function tenantsRoute(req, res, parts) {
   const admin = await sysAdmin(req)
-  // POST /accounts/tenants — tạo xã, tạo lãnh đạo, trả mật khẩu tạm; tạo tài khoản lỗi thì hủy xã vừa tạo.
+  // POST /accounts/tenants — tạo đơn vị, bật gói, tạo lãnh đạo, trả mật khẩu tạm; lỗi thì hủy đơn vị vừa tạo.
   if (req.method === 'POST' && parts.length === 2) {
     const b = await readJson(req)
     const leader = leaderInput(b)
     const code = String(b.code || '').trim()
+    // Gói nghiệp vụ bật cho đơn vị, ví dụ ["xa"] hoặc ["doanh-nghiep"]; lõi chỉ nhận gói đang được cài.
+    const modules = b.modules === undefined ? [] : b.modules
+    if (!Array.isArray(modules) || modules.length > 20 || !modules.every((m) => typeof m === 'string' && /^[a-z][a-z0-9-]{0,62}$/.test(m))) {
+      throw new HttpError(400, 'modules phải là danh sách tên gói, ví dụ ["xa"]')
+    }
     if ((await kcJson('GET', `/users?username=${encodeURIComponent(leader.username)}&exact=true`)).length) {
       throw new HttpError(409, 'Tên đăng nhập lãnh đạo đã được dùng')
     }
     const tenant = await coreRpc('add_tenant', { code, name: String(b.name || '') }, { token: admin.token })
     const password = temporaryPassword()
     try {
+      for (const m of modules) await coreRpc('set_tenant_module', { tenant_code: tenant.code, module: m, enabled: true }, { token: admin.token })
       const id = await createAccount({ ...leader, attributes: { tenant_id: [tenant.code] }, role: 'leader', password, temporary: true })
-      console.log(`Tạo xã ${tenant.code} kèm lãnh đạo ${leader.username}`)
-      return json(res, 201, { tenant, leader: { id, username: leader.username, temporaryPassword: password } })
+      console.log(`Tạo đơn vị ${tenant.code} (gói: ${modules.join(', ') || 'chưa bật'}) kèm lãnh đạo ${leader.username}`)
+      return json(res, 201, { tenant, modules, leader: { id, username: leader.username, temporaryPassword: password } })
     } catch (e) {
       await coreRpc('remove_new_tenant', { p_code: tenant.code }, { token: admin.token })
         .catch((x) => console.error(`Không hủy được xã ${tenant.code}: ${x.message}`))

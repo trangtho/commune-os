@@ -25,8 +25,9 @@ make example-enterprise
 
 `make example-enterprise` chạy `test.sh`. Lần đầu,
 bài kiểm thử tạo qua API của lõi đơn vị `cong-ty-a` ("Công ty A"), giám đốc `giamdoc.cong-ty-a` và nhân viên
-`nhanvien.cong-ty-a`, mật khẩu `DEMO_PASSWORD` (mặc định `Demo@2026!`); các lần sau dùng lại. Kết quả đúng: 8 dòng
+`nhanvien.cong-ty-a`, mật khẩu `DEMO_PASSWORD` (mặc định `Demo@2026!`); các lần sau dùng lại. Kết quả đúng: 10 dòng
 `ĐẠT` và dòng cuối `KẾT QUẢ: ĐẠT`. Khi không cài gói xã, hoặc chưa `make demo`, mục cách ly với xã A báo `BỎ QUA`.
+Công ty A được tạo với `"modules": ["doanh-nghiep"]`: chỉ dùng gói này, không dùng chức năng của gói xã.
 
 Chạy gói này **không có gói xã** (chỉ lõi): đặt `COMMUNEOS_MODULES=doanh-nghiep` trong `.env` rồi dựng lõi
 (CI chạy cách này, xem job "Chỉ lõi" trong `.github/workflows/ci.yml`).
@@ -39,7 +40,10 @@ Bài kiểm thử đi đường thật Keycloak → APISIX → dịch vụ đi�
 - nhân viên không tự duyệt được; gọi thẳng hàm đổi trạng thái (bỏ qua quy trình) bị chặn;
 - cán bộ xã A không thấy đơn của Công ty A, Công ty A không thấy hồ sơ của xã nào (khi có gói xã);
 - giám đốc duyệt qua quy trình; không đồng ý mà thiếu lý do bị chặn; đơn đã kết thúc không xử lý lại được;
-- sổ ghi nhận của lõi ghi đủ các bước, chuỗi băm riêng của Công ty A nguyên vẹn.
+- sổ ghi nhận của lõi ghi đủ các bước, chuỗi băm riêng của Công ty A nguyên vẹn;
+- Công ty A chỉ dùng gói doanh nghiệp: không có trong danh sách đăng ký công dân, không thấy thủ tục, không mở được
+  thủ tục xã;
+- tắt gói cho Công ty A thì không thấy đơn, không nộp được; bật lại thấy lại đơn; không bật được gói chưa cài.
 
 ## Xem trên giao diện
 
@@ -55,10 +59,11 @@ Ví dụ chưa có ứng dụng riêng; dùng các giao diện sẵn có của l
      thân `{"action":"approved"}`. Gửi lại lần nữa thì nhận 409;
    - đăng nhập `canbo.xa-a` rồi `GET /leave_requests`: danh sách rỗng (cách ly đơn vị).
 2. **Bảng quản trị** http://localhost:3001 (tài khoản quản trị trong `.env`):
-   - Danh sách xã: có đơn vị "Công ty A" (`cong-ty-a`), cạnh các xã;
+   - Đơn vị: có "Công ty A" (`cong-ty-a`) với gói `doanh-nghiep`, cạnh các xã dùng gói `xa`; mở chi tiết để tắt,
+     bật gói;
    - Kiểm tra hồ sơ đã ký (sổ ghi nhận): kiểm tra chuỗi, Công ty A nguyên vẹn; các dòng có mã đơn `NP-...` với bước `submitted`, `approved`.
-3. **Màn hình cán bộ** http://localhost:3002: đăng nhập `giamdoc.cong-ty-a`. Danh sách hồ sơ trống, vì Công ty A không
-   dùng gói nghiệp vụ xã; khu Nhân viên thấy `nhanvien.cong-ty-a`, vì tài khoản là phần dùng chung của lõi.
+3. **Màn hình cán bộ xã** http://localhost:3002: đăng nhập `giamdoc.cong-ty-a` bị từ chối ("Đơn vị của bạn không dùng
+   gói nghiệp vụ xã"), vì màn hình này là ứng dụng của gói xã.
 
 ## Gọi thử bằng tay
 

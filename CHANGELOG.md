@@ -11,6 +11,23 @@ Mọi thay đổi đáng chú ý của dự án được ghi tại đây.
 
 ## [Chưa phát hành]
 
+### Thêm (gói nghiệp vụ theo từng đơn vị, 2026-11-28)
+
+- Mỗi đơn vị chỉ dùng các gói được bật cho mình (`core/db/init/08-goi-theo-don-vi.sql`): bảng `tenant_modules`,
+  `GET /rest/tenant_modules`, `POST /rest/rpc/set_tenant_module` (chỉ quản trị hệ thống, chỉ gói đang được cài; tắt không
+  xóa dữ liệu), `POST /rest/rpc/my_modules`; gói kiểm tra bằng `tenant_has_module()`, `require_module()`.
+- Tạo đơn vị chọn gói: `POST /accounts/tenants` nhận `modules` (ví dụ `["xa"]`); lỗi thì hủy đơn vị vừa tạo.
+- Gói xã chỉ phục vụ đơn vị bật gói xã: thủ tục, nộp hồ sơ, hồ sơ của cán bộ, danh sách xã khi công dân đăng ký;
+  không mở được thủ tục cho đơn vị không dùng gói xã. Màn hình cán bộ từ chối đăng nhập của đơn vị không dùng gói xã.
+  Gói doanh nghiệp cũng kiểm tra như vậy. Nâng cấp bản cài cũ: tự bật gói cho các đơn vị đang có dữ liệu của gói (một lần).
+- Bảng quản trị: "Danh sách xã" thành "Đơn vị"; chọn gói khi thêm đơn vị; cột gói nghiệp vụ; bật, tắt gói ở trang chi
+  tiết; thủ tục, số hồ sơ chỉ hiện với đơn vị dùng gói xã.
+- `make demo` bật gói xã cho 2 xã mẫu; kiểm thử lõi và gói doanh nghiệp thêm các mục gói theo đơn vị.
+
+### Sửa lỗi (2026-11-28)
+
+- Trang đăng ký công dân liệt kê cả đơn vị không phải xã (ví dụ "Công ty A").
+
 ### Thay đổi (tách lõi khỏi gói nghiệp vụ, 2026-11-27)
 
 - Lõi không còn chứa nghiệp vụ nào: `core/db/init/` chỉ còn đơn vị, hàm đọc token, quy trình, sổ ghi nhận, nhật ký tài

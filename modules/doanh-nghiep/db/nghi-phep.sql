@@ -4,7 +4,8 @@
 -- Ví dụ gói nghiệp vụ doanh nghiệp chạy trên cùng lõi CommuneOS: đơn nghỉ phép.
 -- Không sửa bảng nào của lõi hay của gói nghiệp vụ xã; chỉ dùng phần dùng chung của lõi:
 --   * đơn vị (tenants) và token Keycloak: tenant_id = mã đơn vị, vai trò leader (giám đốc), officer (nhân viên);
---   * public.require_staff(), public.require_leader(), public.current_staff_id(), public.current_staff_name();
+--   * public.require_module('doanh-nghiep') (người của đơn vị đã bật gói này), public.require_leader(),
+--     public.tenant_has_module(), public.current_staff_id(), public.current_staff_name();
 --   * public.is_workflow_call(): chỉ dịch vụ điều phối (/workflow) được đổi trạng thái đơn;
 --   * public.ledger_record(): ghi sổ ghi nhận không sửa được, chuỗi riêng của từng đơn vị.
 -- Dữ liệu nằm trong schema riêng "nghi_phep"; API (PostgREST) là các bảng ảo, hàm trong schema "api".
@@ -32,13 +33,14 @@ CREATE TABLE IF NOT EXISTS nghi_phep.don (
 );
 CREATE INDEX IF NOT EXISTS don_tenant_status ON nghi_phep.don (tenant_id, status);
 
--- Cách ly ở cơ sở dữ liệu: chỉ thấy đơn của đơn vị mình (đơn vị đang hoạt động);
+-- Cách ly ở cơ sở dữ liệu: chỉ thấy đơn của đơn vị mình (đơn vị đang hoạt động, đã bật gói doanh-nghiep);
 -- nhân viên chỉ thấy đơn của chính mình, giám đốc thấy mọi đơn của đơn vị.
 ALTER TABLE nghi_phep.don ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS don_doc ON nghi_phep.don;
 CREATE POLICY don_doc ON nghi_phep.don FOR SELECT
   USING (tenant_id = (SELECT t.id FROM public.tenants t
-                      WHERE t.code = public.current_tenant_code() AND t.status = 'active')
+                      WHERE t.code = public.current_tenant_code() AND t.status = 'active'
+                        AND public.tenant_has_module(t.id, 'doanh-nghiep'))
          AND (public.has_role('leader') OR staff_id = public.current_staff_id()));
 
 DROP VIEW IF EXISTS api.leave_requests;
@@ -52,7 +54,7 @@ FROM nghi_phep.don d JOIN public.tenants t ON t.id = d.tenant_id;
 CREATE OR REPLACE FUNCTION api.leave_request_create(from_date date, to_date date, reason text)
 RETURNS json LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE
-  v_code   text := public.require_staff();
+  v_code   text := public.require_module('doanh-nghiep');
   v_tenant uuid := (SELECT id FROM tenants WHERE code = v_code);
   v_id     text := 'NP-' || to_char(now(), 'YYYYMMDD') || '-' || upper(encode(gen_random_bytes(3), 'hex'));
   v_row    nghi_phep.don;
@@ -84,7 +86,8 @@ BEGIN
   IF NOT public.is_workflow_call() THEN
     RAISE EXCEPTION 'Duyệt đơn phải đi qua động cơ quy trình (/workflow)' USING ERRCODE = '42501';
   END IF;
-  v_code := public.require_leader();
+  v_code := public.require_module('doanh-nghiep');
+  PERFORM public.require_leader();
   SELECT d.* INTO v_row FROM nghi_phep.don d JOIN tenants t ON t.id = d.tenant_id
    WHERE d.id = request_id AND t.code = v_code FOR UPDATE OF d;
   IF v_row.id IS NULL THEN
@@ -130,5 +133,12 @@ DO $$ BEGIN
       api.set_leave_request_status(text, text, text) TO "commune-app";
   END IF;
 END $$;
+
+-- Nâng cấp bản cài đã có dữ liệu: bật gói cho đơn vị đã có đơn nghỉ phép. Chỉ chạy một lần (khi chưa đơn vị nào bật
+-- gói này). Đơn vị tạo mới: quản trị chọn gói khi tạo (POST /accounts/tenants, "modules") hoặc bật ở bảng quản trị.
+INSERT INTO tenant_modules (tenant_id, module)
+SELECT DISTINCT d.tenant_id, 'doanh-nghiep' FROM nghi_phep.don d
+WHERE NOT EXISTS (SELECT 1 FROM tenant_modules WHERE module = 'doanh-nghiep')
+ON CONFLICT DO NOTHING;
 
 NOTIFY pgrst, 'reload schema';

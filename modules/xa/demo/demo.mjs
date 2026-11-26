@@ -3,11 +3,12 @@
 //
 // make demo: tạo dữ liệu trình diễn bằng chính các API của lõi, đúng như người dùng thật làm:
 //   1. Quản trị hệ thống (tài khoản trong .env) tạo 2 xã mẫu kèm lãnh đạo xã    POST /accounts/tenants
+//      bật gói xã                                                                POST /rest/rpc/set_tenant_module
 //      và mở mọi thủ tục đã công bố cho 2 xã                                     POST /rest/rpc/set_tenant_procedures
 //   2. Lãnh đạo xã tạo cán bộ xử lý                                              POST /accounts/staff
 //   3. Người dân tự đăng ký                                                      POST /public/accounts/register
 // Mật khẩu tạm của lãnh đạo, cán bộ được đổi thành DEMO_PASSWORD qua           POST /accounts/first-password
-// Hồ sơ mẫu (core/demo/demo-data.sql) do Makefile nạp sau bước này.
+// Hồ sơ mẫu (modules/xa/demo/demo-data.sql) do Makefile nạp sau bước này.
 //
 // Chạy lại nhiều lần được: tài khoản đã có thì giữ, chỉ đặt lại mật khẩu khi không đăng nhập được bằng DEMO_PASSWORD
 // (ví dụ bản cài cũ còn tài khoản mẫu mật khẩu 12345). Chạy trong mạng Docker của dự án (xem Makefile).
@@ -99,7 +100,7 @@ async function main() {
     const exists = (await must('GET', `/rest/tenants?code=eq.${t.code}&select=code`, { token: admin })).length > 0
     if (!exists) {
       const r = await must('POST', '/accounts/tenants', { token: admin, body: {
-        code: t.code, name: t.name, leaderUsername: t.leader.username, leaderFullName: t.leader.fullName, leaderEmail: t.leader.email } })
+        code: t.code, name: t.name, modules: ['xa'], leaderUsername: t.leader.username, leaderFullName: t.leader.fullName, leaderEmail: t.leader.email } })
       await setDemoPassword(t.leader.username, r.leader.temporaryPassword)
       console.log(`Tạo xã ${t.code} kèm lãnh đạo ${t.leader.username}`)
     } else {
@@ -118,6 +119,8 @@ async function main() {
         }
       }
     }
+    // Xã mẫu dùng gói xã (bật lại nếu quản trị đã tắt), rồi mở mọi thủ tục đã công bố.
+    await must('POST', '/rest/rpc/set_tenant_module', { token: admin, body: { tenant_code: t.code, module: 'xa', enabled: true } })
     await must('POST', '/rest/rpc/set_tenant_procedures', { token: admin, body: { tenant_code: t.code, procedure_ids: procedures, enabled: true } })
 
     const leaderToken = await login(t.leader.username, PASS)

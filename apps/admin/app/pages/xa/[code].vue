@@ -9,6 +9,7 @@ import {
   FileText,
   KeyRound,
   Lock,
+  Package,
   Plus,
   Search,
   ShieldCheck,
@@ -17,10 +18,12 @@ import {
 } from "lucide-vue-next";
 import type { IssuedPassword, LedgerCheck, Leader, Procedure } from "~/types";
 
-// Một xã: tổng quan và các thủ tục xã được mở.
-// Quản trị hệ thống cấu hình xã nhưng KHÔNG xem nội dung hồ sơ của dân (chỉ số liệu tổng hợp).
+// Một đơn vị: tổng quan, gói nghiệp vụ được bật, và (đơn vị dùng gói xã) các thủ tục được mở.
+// Quản trị hệ thống cấu hình đơn vị nhưng KHÔNG xem nội dung hồ sơ của dân (chỉ số liệu tổng hợp).
 const code = String(useRoute().params.code);
 const { tenants, load: loadTenants, toggleLock } = useTenants();
+const { modules, load: loadModules, has, setModule, xaInstalled } = useModules();
+const usesXa = computed(() => has(code, "xa"));
 const { procedures, load: loadProcedures, setForTenant, loadError } = useProcedures();
 const { api } = useApi();
 const config = useRuntimeConfig().public;
@@ -35,7 +38,8 @@ const isOpen = (p: Procedure) => p.enabled_tenants.includes(code);
 const openTotal = computed(() => procedures.value.filter(isOpen).length);
 
 async function loadAll() {
-  await Promise.all([loadTenants(), loadProcedures()]);
+  await Promise.all([loadTenants(), loadModules()]);
+  if (xaInstalled.value) await loadProcedures();
   try {
     const rows = await api<LedgerCheck[]>("/rpc/verify_ledger", {
       method: "POST",
@@ -100,6 +104,16 @@ async function toggleLeader(l: Leader) {
   await leadersApi.setEnabled(l, !l.enabled);
 }
 
+// ----- Gói nghiệp vụ: bật / tắt cho đơn vị (tắt không xóa dữ liệu của gói, bật lại là thấy lại) -----
+async function toggleModule(name: string, title: string) {
+  const on = has(code, name);
+  if (on && !window.confirm(`Tắt gói "${title}" cho ${tenant.value?.name}? Người của đơn vị sẽ không dùng được chức năng của gói này; dữ liệu vẫn giữ, bật lại là thấy lại.`)) return;
+  busy.value = true;
+  message.value = await setModule(code, name, !on);
+  busy.value = false;
+  if (!has(code, "xa") && tab.value === "thu-tuc") tab.value = "tong-quan";
+}
+
 async function toggleTenant() {
   if (!tenant.value) return;
   const action = tenant.value.status === "active" ? "khóa" : "mở khóa";
@@ -111,11 +125,11 @@ async function toggleTenant() {
 <template>
   <section>
     <NuxtLink to="/xa" class="inline-flex items-center gap-1 text-sm font-semibold text-brand-700 hover:underline">
-      <ArrowLeft class="h-4 w-4" aria-hidden="true" /> Danh sách xã
+      <ArrowLeft class="h-4 w-4" aria-hidden="true" /> Đơn vị
     </NuxtLink>
 
     <p v-if="!tenant && tenants.length" class="mt-6 rounded-md bg-red-50 px-3 py-2 text-red-700">
-      Không tìm thấy xã có mã "{{ code }}".
+      Không tìm thấy đơn vị có mã "{{ code }}".
     </p>
 
     <template v-if="tenant">
@@ -123,7 +137,7 @@ async function toggleTenant() {
         <div>
           <h1 class="text-2xl font-bold">{{ tenant.name }}</h1>
           <p class="mt-1 text-slate-600">
-            Mã xã <code>{{ tenant.code }}</code> ·
+            Mã đơn vị <code>{{ tenant.code }}</code> ·
             <span :class="tenant.status === 'active' ? 'text-green-700' : 'text-slate-600'">
               {{ tenant.status === "active" ? "Đang hoạt động" : "Đã khóa" }}
             </span>
@@ -135,15 +149,15 @@ async function toggleTenant() {
           @click="toggleTenant"
         >
           <component :is="tenant.status === 'active' ? Lock : Unlock" class="h-4 w-4" aria-hidden="true" />
-          {{ tenant.status === "active" ? "Khóa xã" : "Mở khóa xã" }}
+          {{ tenant.status === "active" ? "Khóa đơn vị" : "Mở khóa đơn vị" }}
         </button>
       </div>
 
-      <div role="tablist" aria-label="Thông tin xã" class="mt-6 flex gap-1 border-b border-slate-200">
+      <div role="tablist" aria-label="Thông tin đơn vị" class="mt-6 flex gap-1 border-b border-slate-200">
         <button
           v-for="t in [
             { id: 'tong-quan', label: 'Tổng quan' },
-            { id: 'thu-tuc', label: `Thủ tục (${openTotal}/${procedures.length})` },
+            ...(usesXa ? [{ id: 'thu-tuc', label: `Thủ tục (${openTotal}/${procedures.length})` }] : []),
             { id: 'tai-khoan', label: 'Tài khoản quản lý' },
           ]"
           :key="t.id"
@@ -164,12 +178,39 @@ async function toggleTenant() {
 
       <!-- Tổng quan -->
       <div v-if="tab === 'tong-quan'" class="mt-6 space-y-6">
+        <div class="rounded-lg border border-slate-200 bg-white p-5">
+          <h2 class="flex items-center gap-2 text-lg font-semibold">
+            <Package class="h-5 w-5 text-brand-700" aria-hidden="true" /> Gói nghiệp vụ
+          </h2>
+          <p class="mt-1 text-sm text-slate-600">
+            Đơn vị chỉ dùng được chức năng của các gói đang bật. Tắt gói không xóa dữ liệu của gói.
+          </p>
+          <ul class="mt-3 divide-y divide-slate-200">
+            <li v-for="m in modules" :key="m.name" class="flex flex-wrap items-center justify-between gap-3 py-2">
+              <span>
+                <b>{{ m.title }}</b> <code class="text-sm text-slate-500">{{ m.name }} {{ m.version }}</code>
+              </span>
+              <button
+                type="button"
+                :disabled="busy"
+                :aria-pressed="has(code, m.name)"
+                class="inline-flex h-9 items-center rounded-md px-3 text-sm font-semibold disabled:opacity-60"
+                :class="has(code, m.name) ? 'bg-green-100 text-green-800 hover:bg-green-200' : 'border border-slate-300 hover:bg-slate-100'"
+                @click="toggleModule(m.name, m.title)"
+              >
+                {{ has(code, m.name) ? "Đang bật · Tắt" : "Bật" }}
+              </button>
+            </li>
+            <li v-if="modules.length === 0" class="py-2 text-sm text-slate-500">Lõi chưa cài gói nghiệp vụ nào.</li>
+          </ul>
+        </div>
+
         <dl class="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
-          <div class="rounded-lg border border-slate-200 bg-white p-4">
+          <div v-if="usesXa" class="rounded-lg border border-slate-200 bg-white p-4">
             <dt class="text-sm text-slate-500">Hồ sơ của xã</dt>
-            <dd class="mt-1 text-2xl font-bold">{{ tenant.dossier_count }}</dd>
+            <dd class="mt-1 text-2xl font-bold">{{ tenant.dossier_count ?? 0 }}</dd>
           </div>
-          <div class="rounded-lg border border-slate-200 bg-white p-4">
+          <div v-if="usesXa" class="rounded-lg border border-slate-200 bg-white p-4">
             <dt class="text-sm text-slate-500">Thủ tục đang mở</dt>
             <dd class="mt-1 text-2xl font-bold">{{ openTotal }} / {{ procedures.length }}</dd>
           </div>
@@ -195,17 +236,19 @@ async function toggleTenant() {
           </h2>
           <ul class="mt-2 list-disc space-y-1 pl-5 text-sm text-slate-700">
             <li>
-              Quản trị hệ thống chỉ cấp tài khoản <b>lãnh đạo xã</b>, ở tab
+              Quản trị hệ thống chỉ cấp tài khoản <b>lãnh đạo</b> của đơn vị, ở tab
               <button type="button" class="font-semibold text-brand-700 hover:underline" @click="tab = 'tai-khoan'">Tài khoản quản lý</button>.
             </li>
-            <li>Lãnh đạo xã tự tạo, khóa và cấp lại mật khẩu cho cán bộ xử lý ở màn hình cán bộ xã (mục Nhân viên).</li>
+            <li v-if="usesXa">Lãnh đạo xã tự tạo, khóa và cấp lại mật khẩu cho cán bộ xử lý ở màn hình cán bộ xã (mục Nhân viên).</li>
+            <li v-else>Lãnh đạo tự tạo, khóa và cấp lại mật khẩu cho nhân viên qua API tài khoản của lõi (<code>/accounts/staff</code>).</li>
             <li>
               Quản trị hệ thống không đăng nhập thay cán bộ và không xem nội dung hồ sơ của dân;
-              cách ly dữ liệu giữa các xã được giữ ở cơ sở dữ liệu.
+              cách ly dữ liệu giữa các đơn vị được giữ ở cơ sở dữ liệu.
             </li>
           </ul>
           <div class="mt-4 flex flex-wrap gap-2">
             <a
+              v-if="usesXa"
               :href="config.communeUrl"
               target="_blank"
               rel="noopener"
@@ -226,7 +269,7 @@ async function toggleTenant() {
 
         <p class="flex items-center gap-2 text-sm text-slate-500">
           <ShieldCheck class="h-4 w-4" aria-hidden="true" />
-          Xã bị khóa thì cán bộ xã đó không xem được hồ sơ nào; người dân vẫn tra cứu được hồ sơ đã nộp.
+          Đơn vị bị khóa thì người của đơn vị đó không xem được dữ liệu nào<template v-if="usesXa">; người dân vẫn tra cứu được hồ sơ đã nộp</template>.
         </p>
       </div>
 

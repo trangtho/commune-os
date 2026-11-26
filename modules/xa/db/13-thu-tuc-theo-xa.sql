@@ -52,7 +52,8 @@ BEGIN
      AND coalesce(OLD.receiving_tenant_id, OLD.tenant_id) = v_tenant THEN
     RETURN NEW;
   END IF;
-  IF NOT EXISTS (SELECT 1 FROM tenant_procedures tp JOIN procedures p ON p.id = tp.procedure_id
+  IF NOT public.tenant_has_module(v_tenant, 'xa')
+     OR NOT EXISTS (SELECT 1 FROM tenant_procedures tp JOIN procedures p ON p.id = tp.procedure_id
                   WHERE tp.tenant_id = v_tenant AND tp.procedure_id = NEW.procedure_id
                     AND p.published) THEN
     RAISE EXCEPTION 'Xã tiếp nhận chưa mở thủ tục này. Vui lòng chọn thủ tục khác hoặc liên hệ UBND xã.'
@@ -66,9 +67,11 @@ CREATE TRIGGER check_procedure_enabled BEFORE INSERT OR UPDATE ON applications
   FOR EACH ROW EXECUTE FUNCTION public.check_procedure_enabled();
 
 -- Cho Kênh người dân hỏi "xã này có mở thủ tục này không" (không lộ gì khác).
+-- Đơn vị không bật gói xã (core/db/init/08-goi-theo-don-vi.sql) thì không có thủ tục nào.
 CREATE OR REPLACE FUNCTION public.procedure_enabled_for(p_tenant uuid, p_procedure text) RETURNS boolean
 LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
-  SELECT EXISTS (SELECT 1 FROM tenant_procedures WHERE tenant_id = p_tenant AND procedure_id = p_procedure)
+  SELECT public.tenant_has_module(p_tenant, 'xa')
+     AND EXISTS (SELECT 1 FROM tenant_procedures WHERE tenant_id = p_tenant AND procedure_id = p_procedure)
 $$;
 REVOKE ALL ON FUNCTION public.procedure_enabled_for(uuid, text) FROM PUBLIC;
 
@@ -86,7 +89,8 @@ SELECT p.id, p.title, p.category, p.summary, p.icon, p.sla_days, p.fee_note,
 FROM procedures p
 WHERE public.is_sys_admin()
    OR (p.published AND EXISTS (SELECT 1 FROM tenant_procedures tp JOIN tenants t ON t.id = tp.tenant_id
-                                WHERE tp.procedure_id = p.id AND t.code = public.current_tenant_code()))
+                                WHERE tp.procedure_id = p.id AND t.code = public.current_tenant_code()
+                                  AND public.tenant_has_module(t.id, 'xa')))
 ORDER BY p.category, p.title;
 
 -- Bật / tắt một thủ tục cho một xã (chỉ sys_admin).
@@ -104,6 +108,9 @@ BEGIN
   END IF;
   IF NOT EXISTS (SELECT 1 FROM procedures p WHERE p.id = set_tenant_procedure.procedure_id) THEN
     RAISE EXCEPTION 'Không tìm thấy thủ tục %', procedure_id USING ERRCODE = 'PT404';
+  END IF;
+  IF enabled AND NOT public.tenant_has_module(v_tenant, 'xa') THEN
+    RAISE EXCEPTION 'Đơn vị % chưa bật gói xã, không mở thủ tục được', tenant_code USING ERRCODE = '22023';
   END IF;
   IF enabled THEN
     INSERT INTO tenant_procedures (tenant_id, procedure_id)
@@ -127,6 +134,9 @@ BEGIN
   SELECT id INTO v_tenant FROM tenants t WHERE t.code = set_tenant_procedures.tenant_code;
   IF v_tenant IS NULL THEN
     RAISE EXCEPTION 'Không tìm thấy xã %', tenant_code USING ERRCODE = 'PT404';
+  END IF;
+  IF enabled AND NOT public.tenant_has_module(v_tenant, 'xa') THEN
+    RAISE EXCEPTION 'Đơn vị % chưa bật gói xã, không mở thủ tục được', tenant_code USING ERRCODE = '22023';
   END IF;
   IF enabled THEN
     INSERT INTO tenant_procedures (tenant_id, procedure_id)
@@ -153,7 +163,8 @@ BEGIN
   END IF;
   IF enabled THEN
     INSERT INTO tenant_procedures (tenant_id, procedure_id)
-    SELECT t.id, set_procedure_tenants.procedure_id FROM tenants t WHERE t.code = ANY (tenant_codes)
+    SELECT t.id, set_procedure_tenants.procedure_id FROM tenants t
+     WHERE t.code = ANY (tenant_codes) AND public.tenant_has_module(t.id, 'xa')   -- bỏ qua đơn vị không dùng gói xã
     ON CONFLICT DO NOTHING;
   ELSE
     DELETE FROM tenant_procedures tp USING tenants t

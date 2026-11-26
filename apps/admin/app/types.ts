@@ -27,7 +27,22 @@ export interface Tenant {
   name: string;
   status: TenantStatus;
   created_at: string;
-  dossier_count: number;
+  /** Gói xã thêm cột này; không cài gói xã thì không có. */
+  dossier_count?: number;
+}
+
+/** Gói nghiệp vụ đã cài trên lõi (GET /rest/modules). */
+export interface Module {
+  name: string;
+  title: string;
+  version: string;
+}
+
+/** Gói bật cho một đơn vị (GET /rest/tenant_modules). */
+export interface TenantModule {
+  tenant_code: string;
+  module: string;
+  title: string;
 }
 
 export type Channel = "counter" | "online";

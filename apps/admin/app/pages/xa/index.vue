@@ -9,11 +9,17 @@ import type { IssuedPassword, Tenant } from "~/types";
 const { tenants, loading, loadError, load, addTenant, toggleLock } =
   useTenants();
 
-// Số thủ tục đang mở của từng xã lấy từ danh mục thủ tục.
+// Gói nghiệp vụ đã cài và gói bật cho từng đơn vị.
+const { modules, load: loadModules, modulesOf, has, xaInstalled } = useModules();
+
+// Số thủ tục đang mở của từng xã lấy từ danh mục thủ tục (chỉ khi cài gói xã).
 const { procedures, load: loadProcedures, openCount } = useProcedures();
 
-// Mở trang là lấy danh sách xã từ API.
-onMounted(() => Promise.all([load(), loadProcedures()]));
+// Mở trang là lấy danh sách đơn vị và gói từ API; danh mục thủ tục chỉ có khi cài gói xã.
+onMounted(async () => {
+  await Promise.all([load(), loadModules()]);
+  if (xaInstalled.value) await loadProcedures();
+});
 
 // Tìm theo mã hoặc tên, lọc theo trạng thái: dùng được khi có hàng trăm xã.
 const query = ref("");
@@ -27,9 +33,13 @@ const visible = computed(() => {
   );
 });
 
-// Thêm xã kèm tài khoản lãnh đạo xã: một lần gọi lõi, mật khẩu tạm chỉ hiện một lần.
+// Thêm đơn vị kèm gói nghiệp vụ và tài khoản lãnh đạo: một lần gọi lõi, mật khẩu tạm chỉ hiện một lần.
+// Mặc định chọn gói xã nếu lõi có cài.
 const showForm = ref(false);
-const emptyForm = () => ({ code: "", name: "", leaderUsername: "", leaderFullName: "", leaderEmail: "" });
+const emptyForm = () => ({
+  code: "", name: "", leaderUsername: "", leaderFullName: "", leaderEmail: "",
+  modules: (xaInstalled.value ? ["xa"] : []) as string[],
+});
 const form = reactive(emptyForm());
 const error = ref<string | null>(null);
 const saving = ref(false);
@@ -57,7 +67,7 @@ async function confirmToggle(tenant: Tenant) {
   const action = tenant.status === "active" ? "khóa" : "mở khóa";
   const note =
     tenant.status === "active"
-      ? " Cán bộ của xã sẽ không xem được hồ sơ nào."
+      ? " Người của đơn vị sẽ không xem được dữ liệu nào."
       : "";
   if (window.confirm(`Bạn chắc chắn muốn ${action} ${tenant.name}?${note}`)) {
     const message = await toggleLock(tenant);
@@ -70,9 +80,10 @@ async function confirmToggle(tenant: Tenant) {
   <section>
     <div class="flex flex-wrap items-center justify-between gap-3">
       <div>
-        <h1 class="text-2xl font-bold">Danh sách xã</h1>
+        <h1 class="text-2xl font-bold">Đơn vị</h1>
         <p class="mt-1 text-slate-600">
-          Mỗi xã có dữ liệu riêng. Xã này không xem được dữ liệu của xã khác.
+          Mỗi đơn vị (xã, công ty...) có dữ liệu riêng, không xem được dữ liệu của đơn vị khác, và chỉ dùng các gói
+          nghiệp vụ được bật cho mình.
         </p>
       </div>
       <button
@@ -81,7 +92,7 @@ async function confirmToggle(tenant: Tenant) {
         @click="openForm"
       >
         <Plus class="h-4 w-4" aria-hidden="true" />
-        Thêm xã
+        Thêm đơn vị
       </button>
     </div>
 
@@ -92,7 +103,7 @@ async function confirmToggle(tenant: Tenant) {
       @submit.prevent="submit"
     >
       <div class="flex items-center justify-between">
-        <h2 class="text-lg font-semibold">Thêm xã mới</h2>
+        <h2 class="text-lg font-semibold">Thêm đơn vị mới</h2>
         <button
           type="button"
           class="rounded p-1 text-slate-500 hover:bg-slate-100"
@@ -106,7 +117,7 @@ async function confirmToggle(tenant: Tenant) {
       <div class="mt-4 grid gap-4 md:grid-cols-2">
         <div>
           <label for="tenant-code" class="block text-sm font-medium"
-            >Mã xã</label
+            >Mã đơn vị</label
           >
           <input
             id="tenant-code"
@@ -122,7 +133,7 @@ async function confirmToggle(tenant: Tenant) {
         </div>
         <div>
           <label for="tenant-name" class="block text-sm font-medium"
-            >Tên xã</label
+            >Tên đơn vị</label
           >
           <input
             id="tenant-name"
@@ -135,9 +146,24 @@ async function confirmToggle(tenant: Tenant) {
       </div>
 
       <fieldset class="mt-5 border-t border-slate-200 pt-4">
-        <legend class="pr-2 text-base font-semibold">Tài khoản lãnh đạo xã</legend>
+        <legend class="pr-2 text-base font-semibold">Gói nghiệp vụ</legend>
         <p class="text-sm text-slate-500">
-          Hệ thống tạo tài khoản lãnh đạo cùng lúc với xã và cấp mật khẩu tạm. Lãnh đạo tự tạo tài khoản cán bộ của xã.
+          Đơn vị chỉ dùng được các gói được chọn. Đổi được sau ở trang chi tiết đơn vị.
+        </p>
+        <div class="mt-3 flex flex-wrap gap-x-6 gap-y-2">
+          <label v-for="m in modules" :key="m.name" class="flex items-center gap-2 text-sm">
+            <input v-model="form.modules" type="checkbox" :value="m.name" class="h-4 w-4" />
+            <span><b>{{ m.title }}</b> <code class="text-slate-500">{{ m.name }}</code></span>
+          </label>
+          <span v-if="modules.length === 0" class="text-sm text-slate-500">Lõi chưa cài gói nghiệp vụ nào.</span>
+        </div>
+      </fieldset>
+
+      <fieldset class="mt-5 border-t border-slate-200 pt-4">
+        <legend class="pr-2 text-base font-semibold">Tài khoản lãnh đạo</legend>
+        <p class="text-sm text-slate-500">
+          Hệ thống tạo tài khoản lãnh đạo cùng lúc với đơn vị và cấp mật khẩu tạm. Lãnh đạo tự tạo tài khoản cán bộ của
+          đơn vị.
         </p>
         <div class="mt-3 grid gap-4 md:grid-cols-3">
           <div>
@@ -193,7 +219,7 @@ async function confirmToggle(tenant: Tenant) {
           :disabled="saving"
           class="h-11 rounded-md bg-brand-700 px-5 font-semibold text-white hover:bg-brand-800 disabled:opacity-60"
         >
-          {{ saving ? "Đang tạo..." : "Tạo xã và tài khoản lãnh đạo" }}
+          {{ saving ? "Đang tạo..." : "Tạo đơn vị và tài khoản lãnh đạo" }}
         </button>
         <button
           type="button"
@@ -209,12 +235,12 @@ async function confirmToggle(tenant: Tenant) {
 
     <div class="mt-6 flex flex-wrap items-center gap-3">
       <label class="relative block w-full max-w-sm">
-        <span class="sr-only">Tìm xã theo mã hoặc tên</span>
+        <span class="sr-only">Tìm đơn vị theo mã hoặc tên</span>
         <Search class="pointer-events-none absolute left-3 top-3 h-5 w-5 text-slate-400" aria-hidden="true" />
         <input
           v-model="query"
           type="search"
-          placeholder="Tìm theo mã hoặc tên xã"
+          placeholder="Tìm theo mã hoặc tên đơn vị"
           class="h-11 w-full rounded-md border border-slate-300 pl-10 pr-3"
         />
       </label>
@@ -226,7 +252,7 @@ async function confirmToggle(tenant: Tenant) {
           <option value="locked">Đã khóa</option>
         </select>
       </label>
-      <span class="text-sm text-slate-500">{{ visible.length }} / {{ tenants.length }} xã</span>
+      <span class="text-sm text-slate-500">{{ visible.length }} / {{ tenants.length }} đơn vị</span>
     </div>
 
     <p
@@ -242,8 +268,9 @@ async function confirmToggle(tenant: Tenant) {
       <table class="w-full text-left text-sm">
         <thead class="bg-slate-100 text-slate-700">
           <tr>
-            <th scope="col" class="px-4 py-3 font-semibold">Mã xã</th>
-            <th scope="col" class="px-4 py-3 font-semibold">Tên xã</th>
+            <th scope="col" class="px-4 py-3 font-semibold">Mã</th>
+            <th scope="col" class="px-4 py-3 font-semibold">Tên đơn vị</th>
+            <th scope="col" class="px-4 py-3 font-semibold">Gói nghiệp vụ</th>
             <th scope="col" class="px-4 py-3 font-semibold">Số hồ sơ</th>
             <th scope="col" class="px-4 py-3 font-semibold">Thủ tục đang mở</th>
             <th scope="col" class="px-4 py-3 font-semibold">Trạng thái</th>
@@ -259,14 +286,26 @@ async function confirmToggle(tenant: Tenant) {
             :key="tenant.id"
             class="border-t border-slate-200"
           >
-            <td class="px-4 py-3 font-mono">{{ tenant.code }}</td>
+            <td class="px-4 py-3 font-mono whitespace-nowrap">{{ tenant.code }}</td>
             <td class="px-4 py-3">
               <NuxtLink :to="`/xa/${tenant.code}`" class="font-semibold text-brand-700 hover:underline">
                 {{ tenant.name }}
               </NuxtLink>
             </td>
-            <td class="px-4 py-3">{{ tenant.dossier_count }}</td>
-            <td class="px-4 py-3">{{ openCount(tenant.code) }} / {{ procedures.length }}</td>
+            <td class="px-4 py-3">
+              <span
+                v-for="m in modulesOf(tenant.code)"
+                :key="m.module"
+                class="mr-1 inline-block whitespace-nowrap rounded-full bg-brand-50 px-2 py-0.5 text-xs font-semibold text-brand-800"
+                :title="m.title"
+              >{{ m.module }}</span>
+              <span v-if="modulesOf(tenant.code).length === 0" class="text-slate-400">Chưa bật</span>
+            </td>
+            <td class="px-4 py-3">{{ has(tenant.code, "xa") ? tenant.dossier_count ?? 0 : "—" }}</td>
+            <td class="px-4 py-3">
+              <template v-if="has(tenant.code, 'xa')">{{ openCount(tenant.code) }} / {{ procedures.length }}</template>
+              <template v-else>—</template>
+            </td>
             <td class="px-4 py-3">
               <span
                 class="inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-xs font-semibold"
@@ -309,18 +348,18 @@ async function confirmToggle(tenant: Tenant) {
             </td>
           </tr>
           <tr v-if="loading && tenants.length === 0">
-            <td colspan="7" class="px-4 py-8 text-center text-slate-500">
+            <td colspan="8" class="px-4 py-8 text-center text-slate-500">
               Đang tải...
             </td>
           </tr>
           <tr v-else-if="tenants.length > 0 && visible.length === 0">
-            <td colspan="7" class="px-4 py-8 text-center text-slate-500">
-              Không có xã nào khớp điều kiện tìm.
+            <td colspan="8" class="px-4 py-8 text-center text-slate-500">
+              Không có đơn vị nào khớp điều kiện tìm.
             </td>
           </tr>
           <tr v-else-if="tenants.length === 0">
-            <td colspan="7" class="px-4 py-8 text-center text-slate-500">
-              Chưa có xã nào. Bấm "Thêm xã" để tạo xã đầu tiên.
+            <td colspan="8" class="px-4 py-8 text-center text-slate-500">
+              Chưa có đơn vị nào. Bấm "Thêm đơn vị" để tạo đơn vị đầu tiên.
             </td>
           </tr>
         </tbody>
@@ -328,8 +367,8 @@ async function confirmToggle(tenant: Tenant) {
     </div>
 
     <p class="mt-4 text-sm text-slate-500">
-      Bấm vào tên xã để mở thủ tục cho xã và xem tình trạng của xã. Xã bị khóa
-      thì cán bộ xã đó không xem được hồ sơ nào.
+      Bấm vào tên đơn vị để bật, tắt gói nghiệp vụ, mở thủ tục (đơn vị dùng gói xã) và xem tình trạng.
+      Đơn vị bị khóa thì người của đơn vị đó không xem được dữ liệu nào.
     </p>
   </section>
 </template>
