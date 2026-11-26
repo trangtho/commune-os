@@ -165,3 +165,6 @@ backups/
 
 # Kết quả kiểm thử giao diện Playwright (make e2e-citizen)
 apps/citizen/test-results/
+
+# macOS system files
+.DS_Store
