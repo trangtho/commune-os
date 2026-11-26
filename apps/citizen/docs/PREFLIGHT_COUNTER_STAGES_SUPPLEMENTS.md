@@ -76,6 +76,6 @@ make COMPOSE="docker compose -f docker-compose.yml" repair-db
 make COMPOSE="docker compose -f docker-compose.yml" preflight-counter-test
 ```
 
-Migration: `core/db/init/12-citizen-case-review-counter.sql`.
+Migration: `modules/xa/db/12-citizen-case-review-counter.sql`.
 
 Lưu ý: cần có đội cán bộ công bố lịch/công đoạn và tạo yêu cầu bổ sung thật. Kiểm thử tĩnh không thay thế kiểm thử RLS, truy cập chéo tài khoản, thử đặt lịch đồng thời và Playwright trên hệ thống Docker thực tế.

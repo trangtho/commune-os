@@ -17,7 +17,7 @@ Hai chức năng này mở rộng **Kênh công dân** theo bố cục `main`. B
 
 ## Migration, phân quyền và kiểm thử
 
-- Migration: `core/db/init/07-citizen-handoff-support.sql` chạy sau migration `06` trong `docker-compose.yml`, có thể chạy lại; không xóa dữ liệu cũ.
+- Migration: `modules/xa/db/07-citizen-handoff-support.sql` chạy sau migration `06` trong `docker-compose.yml`, có thể chạy lại; không xóa dữ liệu cũ.
 - `citizen_case_handoffs`: lưu **SHA-256 của mã**, không lưu mã rõ; thời hạn, người phát hành, người tiếp nhận; PostgreSQL `FORCE ROW LEVEL SECURITY` theo `citizen_id` và `tenant_id`.
 - `citizen_support_tickets` + `citizen_support_ticket_events`: kiểm soát quyền đọc/ghi theo tài khoản và địa phương. Công dân không thể tự đổi người phụ trách hay trạng thái staff; nhật ký tin nhắn không bị ghi đè.
 - `npm --prefix apps/citizen test` kiểm tra logic và cấu trúc; `make COMPOSE="docker compose -f docker-compose.yml" handoff-support-test` thử RLS, tenant, mã dùng một lần và phân quyền (SQL `ROLLBACK`). Cần chạy cả Nuxt build và kiểm thử UI thực tế trước khi tích hợp.

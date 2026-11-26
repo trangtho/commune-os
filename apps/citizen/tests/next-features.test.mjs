@@ -8,7 +8,7 @@ import { fileURLToPath, pathToFileURL } from 'node:url'
 import { spawnSync } from 'node:child_process'
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 const read = path => readFileSync(resolve(root, path), 'utf8')
-const core = read('../../core/db/init/21-citizen-api-core-flow.sql')
+const core = read('../../modules/xa/db/21-citizen-api-core-flow.sql')
 
 test('Forms support all six published demonstration procedures, with validation in both draft and submit APIs', () => {
   const config = read('shared/procedure-forms.ts')
@@ -62,7 +62,7 @@ test('Feedback and case support histories use existing RLS-backed tables', () =>
   for (const [endpoint, table] of [['feedback/index.get.ts', 'citizen_feedback'], ['support/index.get.ts', 'citizen_support_messages']]) {
     const handler = read('server/api/' + endpoint)
     assert.match(handler, /citizenRpc\(event,'citizen_(feedback|support_messages)'/)
-    const sql = read('../../core/db/init/31-citizen-api-support.sql')
+    const sql = read('../../modules/xa/db/31-citizen-api-support.sql')
     const fn = sql.slice(sql.indexOf(`FUNCTION api.${endpoint.startsWith('feedback') ? 'citizen_feedback()' : 'citizen_support_messages('}`)).split('END $$;')[0]
     assert.ok(fn.includes(table))
     assert.match(fn, /LIMIT 50/)

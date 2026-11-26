@@ -2,10 +2,11 @@
 # SPDX-FileCopyrightText: 2026 CommuneOS Contributors
 # SPDX-License-Identifier: Apache-2.0
 #
-# Tạo 2 vai trò cho API dữ liệu (PostgREST):
+# Tạo các vai trò cho API dữ liệu (PostgREST):
 #   authenticator : PostgREST đăng nhập bằng vai trò này, tự nó không đọc được bảng nào.
-#   "commune-app" : vai trò PostgREST chuyển sang sau khi kiểm tra token Keycloak
+#   "commune-app" : vai trò PostgREST chuyển sang sau khi kiểm tra token Keycloak của người trong đơn vị
 #                   (lấy từ claim "azp" của token). Chỉ đọc được schema api.
+#   web_anon      : khách chưa đăng nhập (PGRST_DB_ANON_ROLE), chỉ gọi được hàm được cấp riêng.
 # Chạy lại nhiều lần không lỗi; mật khẩu được đồng bộ theo .env.
 set -eu
 : "${POSTGRES_REST_PASSWORD:?Thiếu POSTGRES_REST_PASSWORD trong .env}"
@@ -18,4 +19,8 @@ SELECT 'CREATE ROLE "commune-app" NOLOGIN'
 WHERE NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'commune-app') \gexec
 SELECT 'GRANT "commune-app" TO authenticator'
 WHERE NOT pg_has_role('authenticator', 'commune-app', 'MEMBER') \gexec
+SELECT 'CREATE ROLE web_anon NOLOGIN'
+WHERE NOT EXISTS (SELECT 1 FROM pg_roles WHERE rolname = 'web_anon') \gexec
+SELECT 'GRANT web_anon TO authenticator'
+WHERE NOT pg_has_role('authenticator', 'web_anon', 'MEMBER') \gexec
 SQL

@@ -5,7 +5,7 @@ import assert from 'node:assert/strict'
 import {readFileSync} from 'node:fs'
 import {matchSituation,compareObservedFields,nextCaseActions} from '../shared/citizen-intelligence.mjs'
 const read=rel=>readFileSync(new URL(rel,import.meta.url),'utf8')
-const core=read('../../../core/db/init/21-citizen-api-core-flow.sql')
+const core=read('../../../modules/xa/db/21-citizen-api-core-flow.sql')
 
 test('Preserves commune-specific procedure availability while pinning drafts to legal version',()=>{
  const draft=read('../server/api/applications/index.post.ts')
@@ -14,7 +14,7 @@ test('Preserves commune-specific procedure availability while pinning drafts to 
  assert.match(core,/v_version := public\.citizen_latest_version\(p_procedure_id\)/)
  assert.match(core,/procedure_version_id, acknowledged_procedure_version_id/)
  assert.match(read('../pages/thu-tuc/[slug].vue'),/available_in_my_commune/)
- const docker=read('../../../docker-compose.yml')
+ const docker=read('../../../modules/xa/module.json')
  const chain=['13-thu-tuc-theo-xa.sql','15-citizen-vault-autofill.sql','16-citizen-procedure-privacy.sql','17-citizen-intelligent-services.sql']
  let last=-1
  for(const filename of chain){ const pos=docker.indexOf(filename);assert(pos>last,`DB migration must include ${filename} in order`);last=pos }

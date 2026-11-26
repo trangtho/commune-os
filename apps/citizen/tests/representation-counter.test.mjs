@@ -4,14 +4,14 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import {readFileSync} from 'node:fs'
 const read = path => readFileSync(new URL(path,import.meta.url),'utf8')
-const core=read('../../../core/db/init/21-citizen-api-core-flow.sql')
-const sql=read('../../../core/db/init/05-citizen-representation-counter.sql')
-const compose=read('../../../docker-compose.yml')
+const core=read('../../../modules/xa/db/21-citizen-api-core-flow.sql')
+const sql=read('../../../modules/xa/db/05-citizen-representation-counter.sql')
+const compose=read('../../../modules/xa/module.json')
 const create=read('../server/api/applications/index.post.ts')
 const update=read('../server/api/applications/[id].patch.ts')
 const submit=read('../server/api/applications/[id]/submit.post.ts')
 const helper=read('../server/utils/representations.ts')
-const repApi=read('../../../core/db/init/29-citizen-api-representation.sql')
+const repApi=read('../../../modules/xa/db/29-citizen-api-representation.sql')
 const repFn=name=>repApi.slice(repApi.indexOf(`FUNCTION api.${name}(`)).split('END $$;')[0]
 const counter=read('../pages/tai-quay.vue')
 const counterAPI=read('../server/api/counter/sessions/index.post.ts')
@@ -65,7 +65,7 @@ test('Guest counter sessions are short-lived, non-identifying and do not grant c
   assert.match(counterAPI,/randomBytes\(10\)/)
   assert.match(counterAPI,/'public_counter_session_start'/)
   assert.match(counterAPI,/setCounterCookie/)
-  const publicApi=read('../../../core/db/init/33-citizen-api-public.sql')
+  const publicApi=read('../../../modules/xa/db/33-citizen-api-public.sql')
   const start=publicApi.slice(publicApi.indexOf('FUNCTION api.public_counter_session_start(')).split('END $$;')[0]
   assert.match(start,/now\(\) \+ interval '15 minutes'/)
   assert.match(start,/published = true/)

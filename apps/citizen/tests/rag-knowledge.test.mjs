@@ -22,7 +22,7 @@ const catalog=[
 test('RAG retrieves published procedures directly on every request, no private tables or caches',()=>{
  const util=read('server/utils/procedure-knowledge.ts')
  assert.match(util,/publicRpc<[^>]+>\('public_knowledge'\)/)
- const publicApi=read('../../core/db/init/33-citizen-api-public.sql')
+ const publicApi=read('../../modules/xa/db/33-citizen-api-public.sql')
  const start=publicApi.indexOf('FUNCTION api.public_knowledge()')
  const sql=publicApi.slice(start,publicApi.indexOf('CREATE OR REPLACE FUNCTION',start))
  assert.match(sql,/FROM procedures p LEFT JOIN procedure_documents d/)

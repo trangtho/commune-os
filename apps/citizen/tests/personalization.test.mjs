@@ -5,10 +5,10 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { execFileSync } from 'node:child_process'
 const read=file=>readFileSync(new URL(file, import.meta.url),'utf8')
-const core=read('../../../core/db/init/21-citizen-api-core-flow.sql')
-const personal=read('../../../core/db/init/32-citizen-api-personal.sql')
+const core=read('../../../modules/xa/db/21-citizen-api-core-flow.sql')
+const personal=read('../../../modules/xa/db/32-citizen-api-personal.sql')
 const personalFn=name=>personal.slice(personal.indexOf(`FUNCTION api.${name}(`)).split('END $$;')[0]
-const migration=read('../../../core/db/init/04-citizen-personalization.sql')
+const migration=read('../../../modules/xa/db/04-citizen-personalization.sql')
 const api=read('../server/api/procedures/recommended.get.ts')
 const prefs=read('../server/api/citizen/preferences/index.patch.ts')
 const get=read('../server/api/citizen/preferences/index.get.ts')
@@ -16,7 +16,7 @@ const del=read('../server/api/citizen/preferences/index.delete.ts')
 const login=read('../server/api/auth/oidc/callback.get.ts')
 const oidc=read('../server/utils/oidc.ts')
 // Tuyến tiếp nhận kiểm tra trong lõi (21-citizen-api-core-flow.sql, 33-citizen-api-public.sql).
-const publicApi=read('../../../core/db/init/33-citizen-api-public.sql')
+const publicApi=read('../../../modules/xa/db/33-citizen-api-public.sql')
 const routes=publicApi.slice(publicApi.indexOf('FUNCTION api.citizen_receivers(')).split('END $$;')[0]
 const form=read('../pages/nop-ho-so/[slug].vue')
 const catalog=read('../pages/thu-tuc/index.vue')
@@ -55,7 +55,7 @@ test('Preferences migration uses FORCE RLS and does not allow application to aut
   assert.match(migration,/valid_until/)
   assert.doesNotMatch(migration,/GRANT (?:INSERT|UPDATE).*citizen_procedure_receivers TO communeos_app/)
   assert.match(migration,/ADD COLUMN IF NOT EXISTS receiving_tenant_id/)
-  assert.match(read('../../../docker-compose.yml'),/04-citizen-personalization\.sql/)
+  assert.match(read('../../../modules/xa/module.json'),/04-citizen-personalization\.sql/)
 })
 
 test('Personalization endpoints are owner-scoped with opt-in and server-side validated categories and localities',()=>{
@@ -94,7 +94,7 @@ test('Approved identity OIDC requires verified signed token, explicit consent, a
   assert.match(login,/flow\.useResidence && c\.vneid/)
   // Liên kết và ghi dữ liệu trong lõi bằng tài khoản dịch vụ của Kênh người dân, không nối thẳng cơ sở dữ liệu.
   assert.match(login,/serviceRpc<[^>]+>\('citizen_service_oidc_link'/)
-  assert.match(read('../../../core/db/init/34-citizen-direct-access.sql'),/IF NOT public\.is_citizen_service\(\)/)
+  assert.match(read('../../../modules/xa/db/34-citizen-direct-access.sql'),/IF NOT public\.is_citizen_service\(\)/)
   assert.doesNotMatch(login,/db\(\)|citizenTx|publicQuery/)
   assert.doesNotMatch(login,/citizenId.*getQuery/)
   assert.match(read('../pages/dang-nhap.vue'),/shareLocality/)

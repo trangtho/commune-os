@@ -8,9 +8,10 @@ SPDX-License-Identifier: Apache-2.0
 Dịch vụ headless (không có giao diện) đứng giữa cổng APISIX, động cơ quy trình
 Flowable và API dữ liệu PostgREST. Viết bằng Node.js 22, không dùng thư viện ngoài.
 
-Dịch vụ không gắn với một nghiệp vụ cụ thể: mỗi **loại đối tượng** có quy trình (hồ sơ thủ tục của
-gói nghiệp vụ xã, đơn nghỉ phép của [ví dụ doanh nghiệp](../../examples/doanh-nghiep/README.md)...) chỉ cần
-khai báo sơ đồ BPMN, bảng ảo đọc trạng thái và hàm đổi trạng thái. Loại `dossiers` có sẵn.
+Dịch vụ không gắn với một nghiệp vụ cụ thể và không có sẵn loại đối tượng nào: mỗi gói nghiệp vụ trong
+`COMMUNEOS_MODULES` khai báo trong `module.json` các **loại đối tượng** có quy trình (hồ sơ thủ tục `dossiers` của
+[gói xã](../../modules/xa/README.md), đơn nghỉ phép `leave-requests` của [gói doanh nghiệp](../../modules/doanh-nghiep/README.md)):
+sơ đồ BPMN, bảng ảo đọc trạng thái, hàm đổi trạng thái; cùng các việc định kỳ của gói.
 
 ```
 Cán bộ bấm nút → APISIX /workflow/* (kiểm tra token)
@@ -37,17 +38,16 @@ Cán bộ bấm nút → APISIX /workflow/* (kiểm tra token)
 
 ## Sơ đồ quy trình
 
-Sơ đồ nằm trong `bpmn/`. Khi khởi động, dịch vụ tự nạp mọi tệp `*.bpmn20.xml` vào
-Flowable; tệp nào đã nạp với đúng nội dung đó thì bỏ qua.
+Sơ đồ nằm trong `modules/<gói>/bpmn/`. Khi khởi động, dịch vụ tự nạp mọi tệp `*.bpmn20.xml` của các gói
+đang bật vào Flowable; tệp nào đã nạp với đúng nội dung đó thì bỏ qua.
 
-`xu-ly-ho-so.bpmn20.xml` có 3 bước (tiếp nhận, xử lý, chờ bổ sung) và 2 kết thúc
-(hoàn thành, từ chối). Mỗi bước (userTask) có `id` trùng tên trạng thái hồ sơ;
-nhánh đi tiếp chọn theo biến `action`.
+Ví dụ `modules/xa/bpmn/xu-ly-ho-so.bpmn20.xml` có 3 bước (tiếp nhận, xử lý, chờ bổ sung) và 2 kết thúc
+(hoàn thành, từ chối). Mỗi bước (userTask) có `id` trùng tên trạng thái; nhánh đi tiếp chọn theo biến `action`.
 
 ## Thêm loại đối tượng (gói nghiệp vụ)
 
-Mỗi thư mục con của `MODULES_DIR` (docker compose gắn `./examples` vào `/modules`) có `workflow.json` và thư mục
-`bpmn/`. Ví dụ [`examples/doanh-nghiep/workflow.json`](../../examples/doanh-nghiep/workflow.json):
+Mục `workflows` trong `modules/<gói>/module.json` (docker compose gắn `./modules` vào `/modules`), ví dụ
+[`modules/doanh-nghiep/module.json`](../../modules/doanh-nghiep/module.json):
 
 | Trường       | Ý nghĩa                                                                                           |
 | ------------ | ------------------------------------------------------------------------------------------------- |
@@ -61,7 +61,11 @@ Mỗi thư mục con của `MODULES_DIR` (docker compose gắn `./examples` vào
 | `variables`  | (tùy chọn) Biến quy trình lấy từ cột của `view`, ví dụ `{"tenant": "tenant_code"}`                |
 
 Dịch vụ gửi kèm header `X-Workflow-Expected-Status` (trạng thái lúc đọc); hàm đổi trạng thái nên từ chối (409)
-khi trạng thái đã khác. Khai báo xong chạy `docker compose restart orchestrator` (hoặc `make up`).
+khi trạng thái đã khác. Khai báo xong chạy `make up`.
+
+Mục `jobs` (tùy chọn): việc định kỳ, gọi hàm hệ thống `api.<rpc>` của gói kèm `X-Workflow-Token` mỗi `everyMinutes`
+phút, chỉ khi biến môi trường `enabledBy` bằng `true`. Ví dụ gói xã: nhắc việc (`CITIZEN_REMINDERS_ENABLED`),
+rà soát lưu trữ (`CITIZEN_RETENTION_SCAN_ENABLED`).
 
 **Đổi quy trình mà không sửa mã nguồn:** sửa sơ đồ rồi chạy
 `docker compose restart orchestrator`. Sơ đồ mới được nạp thành phiên bản mới;
@@ -75,7 +79,7 @@ hồ sơ nộp sau dùng phiên bản mới, hồ sơ đang xử lý giữ phiê
 | `FLOWABLE_USER`, `FLOWABLE_PASSWORD` | Tài khoản `rest-admin` của Flowable               |
 | `REST_URL`                           | Địa chỉ PostgREST                                 |
 | `WORKFLOW_TOKEN`                     | Bí mật để database nhận ra lời gọi từ dịch vụ này |
-| `BPMN_DIR`                           | Thư mục chứa sơ đồ (mặc định `/app/bpmn`)         |
-| `MODULES_DIR`                        | Thư mục các gói nghiệp vụ khác (compose: `/modules`) |
+| `COMMUNEOS_MODULES`                  | Gói nghiệp vụ đang bật (cùng danh sách với `db-setup`) |
+| `MODULES_DIR`                        | Thư mục các gói (mặc định `/modules`)             |
 
 Gọi thẳng `/rest/rpc/set_dossier_status` (hay hàm đổi trạng thái của gói khác) mà không qua dịch vụ này sẽ bị từ chối (403).

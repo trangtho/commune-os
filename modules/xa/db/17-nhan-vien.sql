@@ -12,43 +12,8 @@
 -- Mọi thao tác đi qua hàm SECURITY DEFINER, kiểm tra xã và vai trò từ token. Không bảng nào lộ trực tiếp.
 -- Cán bộ được nhận diện bằng `sub` của token Keycloak. Chạy lại nhiều lần không sao. Chạy sau 11-workflow.sql.
 
--- ===== 0. Hàm đọc token =====
-CREATE OR REPLACE FUNCTION public.jwt_claims() RETURNS jsonb
-LANGUAGE sql STABLE AS $$ SELECT coalesce(nullif(current_setting('request.jwt.claims', true), '')::jsonb, '{}'::jsonb) $$;
-
-CREATE OR REPLACE FUNCTION public.current_staff_id() RETURNS text
-LANGUAGE sql STABLE AS $$ SELECT public.jwt_claims() ->> 'sub' $$;
-
-CREATE OR REPLACE FUNCTION public.current_staff_name() RETURNS text
-LANGUAGE sql STABLE AS $$
-  SELECT coalesce(public.jwt_claims() ->> 'name', public.jwt_claims() ->> 'preferred_username', 'Cán bộ') $$;
-
-CREATE OR REPLACE FUNCTION public.has_role(p_role text) RETURNS boolean
-LANGUAGE sql STABLE AS $$
-  SELECT coalesce(public.jwt_claims() -> 'realm_access' -> 'roles', '[]'::jsonb) ? p_role $$;
-
--- Cán bộ của một xã đang hoạt động (bất kỳ vai trò nào trong xã).
-CREATE OR REPLACE FUNCTION public.require_staff() RETURNS text
-LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public AS $$
-DECLARE v_code text := public.current_tenant_code();
-BEGIN
-  IF v_code IS NULL OR public.current_staff_id() IS NULL
-     OR NOT (public.has_role('receptionist') OR public.has_role('officer') OR public.has_role('leader'))
-     OR NOT EXISTS (SELECT 1 FROM tenants WHERE code = v_code AND status = 'active') THEN
-    RAISE EXCEPTION 'Chỉ cán bộ của xã đang hoạt động được dùng chức năng này' USING ERRCODE = '42501';
-  END IF;
-  RETURN v_code;
-END $$;
-
-CREATE OR REPLACE FUNCTION public.require_leader() RETURNS text
-LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public AS $$
-DECLARE v_code text := public.require_staff();
-BEGIN
-  IF NOT public.has_role('leader') THEN
-    RAISE EXCEPTION 'Chỉ lãnh đạo xã được dùng chức năng này' USING ERRCODE = '42501';
-  END IF;
-  RETURN v_code;
-END $$;
+-- Hàm đọc token (jwt_claims, current_staff_id, has_role, require_staff, require_leader...) thuộc lõi
+-- (core/db/init/02-don-vi.sql).
 
 -- ===== 1. Bảng =====
 CREATE TABLE IF NOT EXISTS staff_profiles (
@@ -525,8 +490,7 @@ DO $$ BEGIN
     GRANT SELECT ON api.my_profile, api.my_documents, api.my_requests, api.my_tasks, api.staff_profiles,
       api.staff_documents, api.staff_requests, api.staff_tasks, api.staff_workload, api.dossier_assignments
       TO "commune-app";
-    GRANT EXECUTE ON FUNCTION public.jwt_claims(), public.current_staff_id(), public.current_staff_name(),
-      public.has_role(text), api.request_profile_update(jsonb, text),
+    GRANT EXECUTE ON FUNCTION api.request_profile_update(jsonb, text),
       api.request_document_add(text, text, text, text, integer, text, text), api.request_document_remove(uuid, text),
       api.request_dossier_approval(text, text, text), api.request_other(text), api.cancel_my_request(uuid),
       api.update_my_task(uuid, text, text), api.decide_staff_request(uuid, boolean, text),

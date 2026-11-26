@@ -4,7 +4,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 const read = file => readFileSync(new URL(file, import.meta.url), 'utf8')
-const migration = read('../../../core/db/init/03-citizen-chat-history.sql')
+const migration = read('../../../modules/xa/db/03-citizen-chat-history.sql')
 const api = read('../server/api/chat/index.post.ts')
 const list = read('../server/api/chat/conversations/index.get.ts')
 const detail = read('../server/api/chat/conversations/[id].get.ts')
@@ -12,9 +12,9 @@ const remove = read('../server/api/chat/conversations/[id].delete.ts')
 const chat = read('../pages/tro-ly.vue')
 const panel = read('../components/ChatHistoryPanel.vue')
 // Lưu, đọc, xóa lịch sử trò chuyện là API của lõi (gọi qua cổng bằng token công dân).
-const supportApi = read('../../../core/db/init/31-citizen-api-support.sql')
+const supportApi = read('../../../modules/xa/db/31-citizen-api-support.sql')
 const fn = name => supportApi.slice(supportApi.indexOf(`FUNCTION api.${name}(`)).split('END $$;')[0]
-const compose = read('../../../docker-compose.yml')
+const compose = read('../../../modules/xa/module.json')
 
 test('Migration grants account+tenant scoped RLS and cascades deletion', () => {
   assert.match(migration, /CREATE TABLE IF NOT EXISTS citizen_ai_conversations/)

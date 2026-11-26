@@ -48,9 +48,9 @@ Mọi lời gọi cần header `Authorization: Bearer <token>`. Không có token
 Token công dân có vai trò `citizen`, claim `citizen_id` và `citizen_tenant`. PostgREST chuyển sang
 vai trò `citizen-app`; hàm `public.rest_pre_request()` (biến `PGRST_DB_PRE_REQUEST`) đặt
 `app.citizen_id`, `app.tenant_id` để chính sách RLS của các bảng công dân áp dụng
-(`core/db/init/19-citizen-rest-api.sql`). Token công dân không đọc được các API của cán bộ ở trên (403).
+(`modules/xa/db/19-citizen-rest-api.sql`). Token công dân không đọc được các API của cán bộ ở trên (403).
 
-Luồng chính của Kênh người dân là các hàm trong `core/db/init/21-citizen-api-core-flow.sql`, gọi bằng
+Luồng chính của Kênh người dân là các hàm trong `modules/xa/db/21-citizen-api-core-flow.sql`, gọi bằng
 `POST /rest/rpc/<tên hàm>` với tham số JSON (tên bắt đầu bằng `p_`). Hàm chạy bằng quyền người gọi nên RLS
 áp dụng; ràng buộc nghiệp vụ kiểm tra lại khi ghi. Lỗi nghiệp vụ trả mã HTTP tương ứng (mã `PTxyz`) kèm
 lời nhắn tiếng Việt.
@@ -85,7 +85,9 @@ Cú pháp lọc, sắp xếp, chọn cột theo tài liệu PostgREST:
 
 ## Tệp liên quan
 
-- `core/db/init/02-create-api-roles.sh`: vai trò `authenticator` và `commune-app`.
-- `core/db/init/03-api.sql`: schema `api`, chính sách RLS, hàm ghi.
+- `core/db/init/01-create-api-roles.sh`: vai trò `authenticator`, `commune-app`, `web_anon`.
+- `core/db/init/02-don-vi.sql`: schema `api`, bảng đơn vị, hàm đọc token, API đơn vị.
+- `core/db/init/07-goi-nghiep-vu.sql`: `rest_pre_request()` (PostgREST gọi đầu mỗi yêu cầu, chạy các móc của gói).
+- `modules/xa/db/03-api.sql`, `08-api-can-bo.sql`...: API, chính sách RLS của gói xã.
 - `core/rest/fetch-jwks.mjs`: lấy khóa công khai của Keycloak khi khởi động (dịch vụ `rest-keys`).
   Nếu đổi khóa trong Keycloak: `docker compose up -d --force-recreate rest-keys rest`.

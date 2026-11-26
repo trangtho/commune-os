@@ -2,7 +2,7 @@
 // SPDX-License-Identifier: Apache-2.0
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import {readFileSync, existsSync} from 'node:fs'
+import {readFileSync, existsSync, readdirSync} from 'node:fs'
 import {resolve} from 'node:path'
 import {sealToken, openToken} from '../../packages/auth/token-seal.ts'
 import {securePortalCookie, portalOrigin, isSamePortalOrigin} from '../../packages/auth/cookie-policy.ts'
@@ -22,9 +22,9 @@ test('Staff supplement follows workflow; no direct database utility', () => {
   assert.ok(!existsSync(resolve(root,'apps/commune/server/utils/database.ts')))
   assert.match(read('apps/commune/server/api/applications/[id]/complete-supplement.post.ts'), /coreWorkflow.*'supplement'/)
   assert.match(read('core/orchestrator/server.mjs'), /X-Workflow-Expected-Status/)
-  assert.match(read('core/db/init/36-workflow-expected-status.sql'), /FOR UPDATE/)
-  assert.match(read('core/db/init/36-workflow-expected-status.sql'), /x-workflow-expected-status/)
-  assert.match(read('docker-compose.yml'), /-f \/setup\/init\/36-workflow-expected-status.sql/)
+  assert.match(read('modules/xa/db/36-workflow-expected-status.sql'), /FOR UPDATE/)
+  assert.match(read('modules/xa/db/36-workflow-expected-status.sql'), /x-workflow-expected-status/)
+  assert.match(read('modules/xa/module.json'), /"db\/36-workflow-expected-status.sql"/)
   assert.ok(!JSON.parse(read('apps/commune/package.json')).dependencies.pg)
 })
 test('All copies of shared source are in sync', () => {
@@ -105,5 +105,19 @@ test('Direct LAN origin matches exactly and proxy headers are not trusted', () =
   }
   for (const p of ['packages/auth/portal-session.ts','apps/citizen/server/utils/session.ts','apps/citizen/server/utils/identity.ts','apps/citizen/server/utils/counter-sessions.ts','apps/citizen/server/utils/oidc.ts']) {
     assert.match(read(p), /securePortalCookie\(getRequestURL\(event, \{xForwardedHost: false, xForwardedProto: false\}\)\)/)
+  }
+})
+test('Core SQL knows nothing about the commune module (citizens, procedures, dossiers)', () => {
+  // Lõi phải cài được khi không có gói xã: SQL của lõi không dùng bảng, hàm của gói xã (bỏ qua chú thích).
+  const dir = resolve(root, 'core/db/init')
+  for (const f of readdirSync(dir).filter((f) => f.endsWith('.sql'))) {
+    const code = readFileSync(resolve(dir, f), 'utf8').replace(/--.*$/gm, '')
+    assert.doesNotMatch(code, /\b(citizens|procedures|applications|application_events|set_dossier_status|dossier_count)\b/, f)
+  }
+  assert.doesNotMatch(read('core/orchestrator/server.mjs').replace(/\/\/.*$/gm, ''), /xu-ly-ho-so|set_dossier_status|CITIZEN_/)
+  for (const m of ['xa', 'doanh-nghiep']) {
+    const manifest = JSON.parse(read(`modules/${m}/module.json`))
+    assert.equal(manifest.name, m)
+    for (const f of manifest.db) assert.ok(existsSync(resolve(root, `modules/${m}/${f}`)), `${m}/${f}`)
   }
 })

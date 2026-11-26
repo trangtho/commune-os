@@ -16,22 +16,7 @@ ALTER TABLE citizens ADD COLUMN IF NOT EXISTS privacy_consent_at timestamptz;
 -- Mật khẩu do Keycloak giữ; cột cũ chỉ còn để tương thích.
 ALTER TABLE citizens ALTER COLUMN password_hash SET DEFAULT '';
 
--- ===== 2. Quản trị: hủy xã vừa tạo khi tạo tài khoản lãnh đạo lỗi =====
--- Chỉ xã tạo trong vòng 1 giờ và chưa có dữ liệu nào tham chiếu; thủ tục đã bật cho xã (tenant_procedures) xóa theo.
-CREATE OR REPLACE FUNCTION api.remove_new_tenant(p_code text) RETURNS json
-LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
-BEGIN
-  IF NOT public.is_sys_admin() THEN
-    RAISE EXCEPTION 'Chỉ quản trị hệ thống được hủy xã' USING ERRCODE = '42501';
-  END IF;
-  DELETE FROM tenants WHERE code = p_code AND created_at > now() - interval '1 hour';
-  IF NOT FOUND THEN
-    RAISE EXCEPTION 'Chỉ hủy được xã vừa tạo trong vòng 1 giờ' USING ERRCODE = 'PT409';
-  END IF;
-  RETURN json_build_object('removed', p_code);
-EXCEPTION WHEN foreign_key_violation THEN
-  RAISE EXCEPTION 'Xã đã có dữ liệu, không hủy được' USING ERRCODE = 'PT409';
-END $$;
+-- Hủy đơn vị vừa tạo (api.remove_new_tenant) thuộc lõi (core/db/init/02-don-vi.sql).
 
 -- ===== 3. Đăng ký công dân (chỉ dịch vụ tài khoản của lõi gọi, kèm X-Workflow-Token) =====
 -- Xã đang hoạt động để người dân chọn khi đăng ký (công khai).
@@ -84,11 +69,8 @@ END $$;
 -- ===== 4. Quyền =====
 DO $$
 BEGIN
-  REVOKE ALL ON FUNCTION api.remove_new_tenant(text), api.public_registration_tenants(),
+  REVOKE ALL ON FUNCTION api.public_registration_tenants(),
     api.system_register_citizen(text, text, text, text, text), api.system_unregister_citizen(uuid) FROM PUBLIC;
-  IF EXISTS (SELECT FROM pg_roles WHERE rolname = 'commune-app') THEN
-    GRANT EXECUTE ON FUNCTION api.remove_new_tenant(text) TO "commune-app";
-  END IF;
   GRANT EXECUTE ON FUNCTION api.public_registration_tenants() TO web_anon, "citizen-app";
   GRANT EXECUTE ON FUNCTION api.system_register_citizen(text, text, text, text, text), api.system_unregister_citizen(uuid) TO web_anon;
 END $$;

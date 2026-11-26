@@ -23,6 +23,45 @@ jobs:
           pipx install reuse
           reuse lint
 
+  # Lõi cài và chạy khi KHÔNG có gói nghiệp vụ xã: chỉ lõi và gói doanh nghiệp, không ứng dụng nào của xã.
+  chi-loi:
+    name: Chỉ lõi, không có gói xã
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    env:
+      COMMUNEOS_MODULES: doanh-nghiep
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Tạo .env từ mẫu
+        run: |
+          cp .env.example .env
+          sed -i "s/^SESSION_SECRET=.*/SESSION_SECRET=$(openssl rand -hex 32)/" .env
+          sed -i "s/^COMMUNEOS_ADMIN_PASSWORD=.*/COMMUNEOS_ADMIN_PASSWORD=Ci$(openssl rand -hex 12)/" .env
+          sed -i "s/^COMMUNEOS_MODULES=.*/COMMUNEOS_MODULES=doanh-nghiep/" .env
+          make check-env
+
+      - name: Dựng lõi (không ứng dụng của xã)
+        run: >-
+          docker compose up -d
+          db db-setup identity identity-setup rest-keys rest gateway api-docs workflow-engine orchestrator
+          storage files accounts
+
+      - name: Chờ mọi dịch vụ sẵn sàng (healthcheck)
+        run: sh core/tests/wait-ready.sh 600
+
+      - name: Lõi dùng chung, và không có bảng, API nào của gói xã
+        run: make test-platform
+
+      - name: Gói doanh nghiệp chạy trên lõi không có gói xã
+        run: make example-enterprise
+
+      - name: In log khi lỗi
+        if: failure()
+        run: |
+          docker compose ps -a || true
+          docker compose logs --no-color --tail=200 db-setup orchestrator rest gateway accounts identity-setup || true
+
   kiem-thu:
     name: Dựng toàn bộ từ mã nguồn và kiểm thử
     runs-on: ubuntu-latest
@@ -43,11 +82,11 @@ jobs:
       - name: Kiểm tra cú pháp docker-compose và script
         run: |
           docker compose config -q
-          for f in core/tests/tenant-isolation.sh core/tests/wait-ready.sh core/identity/check-admin-env.sh \
-                   examples/doanh-nghiep/test.sh apps/citizen/e2e/run.sh core/db/init/00-create-app-role.sh core/db/init/02-create-api-roles.sh; do
+          for f in core/tests/tenant-isolation.sh core/tests/platform.sh core/tests/wait-ready.sh core/identity/check-admin-env.sh \
+                   core/db/migrate.sh core/db/init/*.sh modules/doanh-nghiep/test.sh apps/citizen/e2e/run.sh; do
             sh -n "$f"
           done
-          for f in core/demo/demo.mjs core/accounts/server.mjs core/orchestrator/server.mjs core/files/server.mjs core/ai/server.mjs; do
+          for f in modules/xa/demo/demo.mjs core/accounts/server.mjs core/orchestrator/server.mjs core/files/server.mjs core/ai/server.mjs; do
             node --check "$f"
           done
 
@@ -78,7 +117,10 @@ jobs:
       - name: Kiểm thử qua cổng API (cách ly xã, quy trình, tệp, tài khoản, công dân)
         run: make test
 
-      - name: Ví dụ doanh nghiệp trên cùng lõi (đơn vị Công ty A, quy trình duyệt nghỉ phép)
+      - name: Lõi dùng chung (đơn vị, gói, sổ ghi nhận, quy trình)
+        run: make test-platform
+
+      - name: Gói doanh nghiệp trên cùng lõi (đơn vị Công ty A, quy trình duyệt nghỉ phép)
         run: make example-enterprise
 
       - name: Kiểm thử SQL (RLS, phân quyền; ROLLBACK)

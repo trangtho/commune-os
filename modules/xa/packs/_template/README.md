@@ -5,7 +5,7 @@ SPDX-License-Identifier: Apache-2.0
 
 # Mẫu gói thủ tục
 
-Sao thư mục này thành `packs/<ma-thu-tuc>/` để tạo thủ tục mới.
+Sao thư mục này thành `modules/xa/packs/<ma-thu-tuc>/` để tạo thủ tục mới.
 
 | Tệp | Nội dung | Trạng thái mẫu |
 | --- | --- | --- |

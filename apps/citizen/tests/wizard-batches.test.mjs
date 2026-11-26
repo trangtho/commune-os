@@ -5,8 +5,8 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { matchGuidance } from '../shared/procedure-wizard.mjs'
 const read=file=>readFileSync(new URL(file,import.meta.url),'utf8')
-const core=read('../../../core/db/init/21-citizen-api-core-flow.sql')
-const migration=read('../../../core/db/init/11-citizen-guidance-batches.sql')
+const core=read('../../../modules/xa/db/21-citizen-api-core-flow.sql')
+const migration=read('../../../modules/xa/db/11-citizen-guidance-batches.sql')
 const draft=read('../server/api/applications/index.post.ts')
 const createBatch=read('../server/api/service-batches/index.post.ts')
 const matchApi=read('../server/api/procedures/match.post.ts')
@@ -32,11 +32,11 @@ test('Guidance rules cannot be approved without source; app role is read-only',(
  assert.doesNotMatch(migration,/GRANT (?:INSERT|UPDATE|DELETE) ON citizen_procedure_guidance_rules TO communeos_app/)
  assert.match(matchApi,/publicRpc<[^>]+>\('public_guidance_rules'\)/)
  assert.match(matchApi,/\.strict\(\)/)
- assert.match(read('../../../core/db/init/33-citizen-api-public.sql'),/WHERE r\.enabled AND p\.published/)
+ assert.match(read('../../../modules/xa/db/33-citizen-api-public.sql'),/WHERE r\.enabled AND p\.published/)
 })
 test('Guidance demo seed skips missing procedures on fresh init and can populate after seed',()=>{
  const demoIds=[...migration.matchAll(/\('demo-[a-z]+','([^']+)'/g)].map(match=>match[1])
- const seed=read('../../../core/db/seed/seed.sql')
+ const seed=read('../../../modules/xa/db/seed.sql')
  assert.equal(demoIds.length,6)
  for(const id of demoIds) assert.ok(seed.includes(`('${id}'`),`Missing seeded procedure: ${id}`)
  assert.match(migration,/FROM \(VALUES[\s\S]*?\) AS rule\(id,procedure_id,purpose,audiences,situations,explanation,distinction\)/)
@@ -52,7 +52,7 @@ test('Batch preparation is private, consented, owner-scoped and never self-submi
  assert.match(createBatch,/shareConsent/)
  assert.match(createBatch,/new Set\(input.procedureIds\)/)
  assert.match(createBatch,/citizenRpc\(event,'citizen_service_batch_create'/)
- const batchApi=read('../../../core/db/init/29-citizen-api-representation.sql')
+ const batchApi=read('../../../modules/xa/db/29-citizen-api-representation.sql')
  assert.match(batchApi,/WHERE id = ANY \(p_procedure_ids\) AND published = true/)
  assert.match(draft,/p_batch_id/)
  assert.match(core,/b\.citizen_id = a\.citizen_id AND b\.tenant_id = a\.tenant_id/)
@@ -61,7 +61,7 @@ test('Batch preparation is private, consented, owner-scoped and never self-submi
  assert.match(read('../pages/lien-thong/index.vue'),/không phải quy trình liên thông chính thức/)
  assert.match(read('../pages/lien-thong/[id].vue'),/bundle=\$\{encodeURIComponent\(id\)\}/)
  assert.match(read('../pages/nop-ho-so/[slug].vue'),/batchId/)
- assert.match(read('../../../docker-compose.yml'),/11-citizen-guidance-batches\.sql/)
+ assert.match(read('../../../modules/xa/module.json'),/11-citizen-guidance-batches\.sql/)
 })
 test('Both pages retain main navigation and public catalog access',()=>{
  const layout=read('../layouts/default.vue')

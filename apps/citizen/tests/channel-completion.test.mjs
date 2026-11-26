@@ -8,7 +8,7 @@ import {fileURLToPath,pathToFileURL} from 'node:url'
 import {spawnSync} from 'node:child_process'
 const root=resolve(dirname(fileURLToPath(import.meta.url)),'..')
 const read=path=>readFileSync(resolve(root,path),'utf8')
-const core=read('../../core/db/init/21-citizen-api-core-flow.sql')
+const core=read('../../modules/xa/db/21-citizen-api-core-flow.sql')
 test('Server-side owner-scoped document DELETE and no result forgery',()=>{
   const deletion=read('server/api/applications/[id]/documents/[documentId].delete.ts')
   assert.match(deletion,/citizen_document_remove/)

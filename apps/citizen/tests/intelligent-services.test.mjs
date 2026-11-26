@@ -76,7 +76,7 @@ test('OCR requires user agreement and trusted endpoint; client never auto-fills'
  assert.match(form,/CitizenDocumentReview/)
 })
 test('SQL uses RLS, staff authorization and non-destructive migration',()=>{
- const sql=read('../../../core/db/init/17-citizen-intelligent-services.sql')
+ const sql=read('../../../modules/xa/db/17-citizen-intelligent-services.sql')
  for(const name of ['citizen_result_verifications','citizen_sync_requests','citizen_document_observations']){
   assert.match(sql,new RegExp(`ALTER TABLE ${name} FORCE ROW LEVEL SECURITY`))
  }
@@ -84,16 +84,16 @@ test('SQL uses RLS, staff authorization and non-destructive migration',()=>{
  assert.match(sql,/HAVING count\(\*\)>=5/)
  assert.match(sql,/total>=10/)
  assert.doesNotMatch(sql,/DROP TABLE|TRUNCATE|DELETE FROM applications/i)
- assert.match(read('../../../docker-compose.yml'),/17-citizen-intelligent-services\.sql/)
+ assert.match(read('../../../modules/xa/module.json'),/17-citizen-intelligent-services\.sql/)
 })
 test('Private-case advice requires session-scoped SQL; staff analytics restricted',()=>{
  // Dữ liệu hồ sơ cá nhân chỉ lấy qua API của lõi bằng token công dân (RLS theo công dân), có ghi nhật ký sử dụng.
  assert.match(read('../server/api/applications/[id]/ask.post.ts'),/citizenRpc<Facts>\(event,'citizen_case_facts'/)
  assert.match(read('../server/api/applications/[id]/insights.get.ts'),/citizenRpc<Facts>\(event,'citizen_case_insight_facts'/)
- const caseApi=read('../../../core/db/init/28-citizen-api-case.sql')
+ const caseApi=read('../../../modules/xa/db/28-citizen-api-case.sql')
  assert.match(caseApi,/citizen_record_access\('view_case', 'Trả lời câu hỏi về hồ sơ cá nhân'/)
  assert.match(caseApi,/citizen_record_access\('view_case', 'Gợi ý bước tiếp theo và cảnh báo hồ sơ'/)
- const staffApi=read('../../../core/db/init/26-citizen-staff-api.sql')
+ const staffApi=read('../../../modules/xa/db/26-citizen-staff-api.sql')
  assert.match(staffApi,/FUNCTION api\.citizen_unanswered_summary[\s\S]*?staff_tenant_id\(true\)/)
  assert.match(staffApi,/FUNCTION api\.citizen_sync_queue[\s\S]*?staff_tenant_id\(true\)/)
  assert.match(staffApi,/FUNCTION api\.decide_citizen_sync[\s\S]*?staff_tenant_id\(true\)/)

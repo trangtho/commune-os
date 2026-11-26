@@ -22,15 +22,15 @@ test('Citizen server does not call the retired direct SQL helpers', () => {
 })
 
 test('Database setup restores the main RPC stack before revoking direct access', () => {
-  const compose = read('../../../docker-compose.yml')
+  const compose = read('../../../modules/xa/module.json')
   const names = ['26-citizen-staff-api.sql', '27-citizen-api-vault.sql', '28-citizen-api-case.sql', '29-citizen-api-representation.sql', '30-citizen-api-appointment.sql', '31-citizen-api-support.sql', '32-citizen-api-personal.sql', '33-citizen-api-public.sql', '34-citizen-direct-access.sql', '35-account-onboarding.sql', '25-api-comments.sql']
   let previous = -1
   for (const name of names) {
-    const position = compose.indexOf(`/setup/init/${name}`)
+    const position = compose.indexOf(`db/${name}`)
     assert.ok(position > previous, name)
     previous = position
   }
-  assert.match(read('../../../core/db/init/34-citizen-direct-access.sql'), /REVOKE ALL ON/)
+  assert.match(read('../../../modules/xa/db/34-citizen-direct-access.sql'), /REVOKE ALL ON/)
 })
 
 test('Scheduled citizen jobs receive their enable flags in the core orchestrator', () => {
@@ -41,7 +41,7 @@ test('Scheduled citizen jobs receive their enable flags in the core orchestrator
 })
 
 test('Latest main onboarding and renamed routes survive the migration', () => {
-  for (const path of ['../pages/dang-ky.vue', '../server/api/auth/register.post.ts', '../server/api/auth/registration-tenants.get.ts', '../pages/lien-thong/index.vue', '../pages/yeu-cau-ho-tro/index.vue', '../../../core/db/init/35-account-onboarding.sql']) {
+  for (const path of ['../pages/dang-ky.vue', '../server/api/auth/register.post.ts', '../server/api/auth/registration-tenants.get.ts', '../pages/lien-thong/index.vue', '../pages/yeu-cau-ho-tro/index.vue', '../../../modules/xa/db/35-account-onboarding.sql']) {
     assert.ok(existsSync(new URL(path, import.meta.url)), path)
   }
   for (const path of ['../pages/lien-thong.vue', '../pages/yeu-cau-ho-tro.vue']) {

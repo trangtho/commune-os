@@ -2,8 +2,8 @@
 # SPDX-FileCopyrightText: 2026 CommuneOS Contributors
 # SPDX-License-Identifier: Apache-2.0
 #
-# Ghi mã băm của WORKFLOW_TOKEN vào cơ sở dữ liệu để hàm set_dossier_status
-# nhận ra lời gọi từ dịch vụ điều phối. Bí mật gốc chỉ nằm trong .env.
+# Ghi mã băm của WORKFLOW_TOKEN vào cơ sở dữ liệu để public.is_workflow_call() (hàm đổi trạng thái của các gói,
+# hàm hệ thống) nhận ra lời gọi từ dịch vụ của lõi. Bí mật gốc chỉ nằm trong .env.
 # Chạy lại nhiều lần không lỗi; đổi WORKFLOW_TOKEN trong .env rồi chạy lại là cập nhật.
 set -eu
 : "${WORKFLOW_TOKEN:?Thiếu WORKFLOW_TOKEN trong .env}"

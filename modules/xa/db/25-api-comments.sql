@@ -1,25 +1,13 @@
 -- SPDX-FileCopyrightText: 2026 CommuneOS Contributors
 -- SPDX-License-Identifier: Apache-2.0
 --
--- Mô tả tiếng Việt cho từng hàm, bảng ảo của schema api. PostgREST đưa các mô tả này vào tài liệu
+-- Gói nghiệp vụ xã: mô tả tiếng Việt cho từng hàm, bảng ảo của gói trong schema api. PostgREST đưa các mô tả này vào tài liệu
 -- OpenAPI tự sinh (GET /rest/), trang tài liệu API (/docs/ ở cổng APISIX) hiển thị lại.
 -- Dòng đầu là tóm tắt, phần sau dòng trống là mô tả chi tiết.
--- Chạy cuối cùng trong db-setup (các tệp trước có thể tạo lại bảng ảo làm mất mô tả). Chạy lại nhiều lần được;
+-- Chạy cuối cùng trong gói (các tệp trước có thể tạo lại bảng ảo làm mất mô tả). Chạy lại nhiều lần được;
 -- hàm, bảng ảo chưa có thì bỏ qua.
 
-COMMENT ON SCHEMA api IS $$CommuneOS – API dữ liệu của lõi
-
-API tự sinh bởi PostgREST trên schema `api` của PostgreSQL, gọi qua cổng APISIX tại `/rest/`.
-Mọi lời gọi cần token Keycloak (`Authorization: Bearer <token>`); token của client `commune-app` dùng cho cán bộ,
-lãnh đạo, quản trị hệ thống; token của client `citizen-app` dùng cho công dân. Row Level Security tự lọc theo xã
-(và theo công dân), nên cùng một đường dẫn mỗi người thấy dữ liệu khác nhau.
-
-Bảng ảo: `GET /rest/<tên>` với bộ lọc PostgREST, ví dụ `?status=eq.processing&order=submitted_at.desc&limit=20`.
-Hàm: `POST /rest/rpc/<tên>` với thân JSON gồm các tham số.
-Khách chưa đăng nhập chỉ gọi được `procedure_catalog`, `procedure_detail` qua `/public/rpc/`.
-
-Trang này liệt kê mọi phương thức PostgREST hỗ trợ cho mỗi bảng ảo; quyền thật do vai trò trong token quyết định.
-Bảng ảo chỉ cho đọc (GET); mọi thao tác ghi đi qua hàm `rpc/*`, nơi lõi kiểm tra xã, vai trò và dữ liệu.$$;
+-- Mô tả chung của schema api và của các API thuộc lõi: core/db/init/90-mo-ta-api.sql (chạy sau mọi gói).
 
 DO $$
 DECLARE
@@ -28,8 +16,6 @@ DECLARE
 BEGIN
   FOR item IN SELECT * FROM (VALUES
     -- ===== Bảng ảo: cán bộ, lãnh đạo, quản trị =====
-    ('tenants', 'Danh sách xã',
-     'Quản trị hệ thống thấy mọi xã; cán bộ chỉ thấy xã mình. Cột status: active (đang hoạt động) hoặc locked (đã khóa).'),
     ('procedures', 'Danh mục thủ tục kèm trạng thái bật theo xã',
      'Cán bộ thấy thủ tục xã mình đang mở; quản trị hệ thống thấy toàn bộ danh mục.'),
     ('dossiers', 'Hồ sơ của dân gửi tới xã',
@@ -42,8 +28,6 @@ BEGIN
     ('dossier_transitions', 'Các bước chuyển trạng thái hồ sơ được phép',
      'Cặp from_status → to_status. Chuyển bước thực tế đi qua dịch vụ điều phối (/workflow), không gọi thẳng set_dossier_status.'),
     ('procedure_documents', 'Giấy tờ yêu cầu của từng thủ tục', 'Bảng kiểm giấy tờ: mã loại, tên, bắt buộc hay không.'),
-    ('ledger', 'Sổ ghi nhận chống sửa',
-     'Mỗi thao tác trên hồ sơ nối với thao tác trước bằng mã băm. Kiểm tra toàn chuỗi bằng rpc/verify_ledger.'),
     ('staff_profiles', 'Hồ sơ cán bộ của xã', 'Lãnh đạo xem toàn bộ cán bộ xã mình; cán bộ xem hồ sơ của chính mình qua my_profile.'),
     ('staff_tasks', 'Việc lãnh đạo giao cho cán bộ', 'Lãnh đạo thấy mọi việc của xã; tạo bằng rpc/create_staff_task.'),
     ('staff_requests', 'Đề nghị của cán bộ chờ lãnh đạo duyệt',
@@ -51,7 +35,6 @@ BEGIN
     ('staff_documents', 'Giấy tờ cá nhân của cán bộ', 'Tải nội dung bằng GET /files/staff-documents/{id}.'),
     ('staff_workload', 'Khối lượng việc của từng cán bộ', 'Số hồ sơ đang xử lý, việc được giao còn mở, quá hạn; dùng cho trang báo cáo của lãnh đạo.'),
     ('staff_notifications', 'Thông báo cho cán bộ đang đăng nhập', 'Đánh dấu đã đọc bằng rpc/read_staff_notification.'),
-    ('staff_audit', 'Nhật ký quản lý tài khoản cán bộ', 'Tạo, khóa, mở, cấp lại mật khẩu, sửa, xóa; không chứa mật khẩu.'),
     ('my_profile', 'Hồ sơ cá nhân của cán bộ đang đăng nhập', NULL),
     ('my_tasks', 'Việc được giao cho cán bộ đang đăng nhập', 'Cập nhật tiến độ bằng rpc/update_my_task.'),
     ('my_requests', 'Đề nghị cán bộ đang đăng nhập đã gửi', 'Rút đề nghị chưa duyệt bằng rpc/cancel_my_request.'),
@@ -117,19 +100,13 @@ BEGIN
     ('decide_staff_request', 'Duyệt hoặc từ chối đề nghị của cán bộ', 'approve = true thì áp dụng thay đổi; note: lý do khi từ chối.'),
     ('leader_save_staff_profile', 'Lãnh đạo sửa thẳng hồ sơ cán bộ', 'Không cần duyệt; có thể đánh dấu cán bộ đã nghỉ việc.'),
     ('broadcast_citizen_notice', 'Gửi thông báo tới mọi công dân của xã', NULL),
-    ('log_staff_action', 'Ghi nhật ký quản lý tài khoản (chỉ dịch vụ tài khoản gọi)', 'Cần khóa nội bộ X-Workflow-Token.'),
 
     -- ===== Hàm: quản trị hệ thống =====
-    ('add_tenant', 'Thêm xã mới', 'Chỉ sys_admin. Bảng quản trị tạo xã kèm lãnh đạo qua POST /accounts/tenants.'),
-    ('remove_new_tenant', 'Hủy xã vừa tạo khi tạo tài khoản lãnh đạo lỗi', 'Chỉ sys_admin; chỉ xã tạo trong vòng 1 giờ, chưa có dữ liệu.'),
-    ('set_tenant_status', 'Khóa hoặc mở một xã', 'status: active hoặc locked. Chỉ sys_admin.'),
     ('import_procedure', 'Nạp hoặc cập nhật một thủ tục từ gói thủ tục',
      'pack: nội dung pack.yaml đã đọc thành JSON. Thủ tục mới chưa bật cho xã nào. Chỉ sys_admin.'),
     ('set_tenant_procedure', 'Bật hoặc tắt một thủ tục cho một xã', 'Ví dụ {"tenant_code":"xa-b","procedure_id":"khai-sinh","enabled":false}. Chỉ sys_admin.'),
     ('set_tenant_procedures', 'Bật hoặc tắt nhiều thủ tục cho một xã', 'Ví dụ {"tenant_code":"xa-b","procedure_ids":["khai-sinh","ket-hon"],"enabled":true}. Chỉ sys_admin.'),
     ('set_procedure_tenants', 'Bật hoặc tắt một thủ tục cho nhiều xã', 'Ví dụ {"procedure_id":"khai-sinh","tenant_codes":["xa-a","xa-b"],"enabled":true}. Chỉ sys_admin.'),
-    ('verify_ledger', 'Kiểm tra toàn vẹn sổ ghi nhận',
-     'Tính lại từng mã băm và so với sổ. Thân {} kiểm tra mọi xã, hoặc {"only_tenant":"xa-a"}. broken_seq: vị trí đầu tiên bị sửa.'),
 
     -- ===== Hàm: cán bộ xử lý phần việc từ Kênh người dân (core/db/init/26-citizen-staff-api.sql) =====
     ('citizen_support_tickets', 'Yêu cầu hỗ trợ công dân gửi tới xã', 'p_limit: số yêu cầu tối đa (1–200, mặc định 50).'),

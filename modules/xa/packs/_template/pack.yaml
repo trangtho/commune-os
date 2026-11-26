@@ -1,7 +1,7 @@
 # SPDX-FileCopyrightText: 2026 CommuneOS Contributors
 # SPDX-License-Identifier: Apache-2.0
 #
-# Mẫu gói thủ tục. Sao cả thư mục _template thành packs/<ma-thu-tuc>/ rồi sửa.
+# Mẫu gói thủ tục. Sao cả thư mục _template thành modules/xa/packs/<ma-thu-tuc>/ rồi sửa.
 # Các giá trị dưới đây là ví dụ; đối chiếu quy định hiện hành trước khi dùng.
 
 code: ma-thu-tuc            # chữ thường, không dấu, nối bằng gạch ngang

@@ -11,10 +11,13 @@ CommuneOS là lõi mở headless, đa đơn vị (multi-tenant), chạy ngầm p
 dữ liệu cách ly theo đơn vị, quy trình BPMN, lưu trữ tệp, sổ ghi nhận và AI chạy ngay trên máy chủ của tổ chức,
 không phụ thuộc nhà cung cấp. Trên lõi này:
 
-- **Ứng dụng minh họa chính:** một cửa cấp xã, gồm Kênh người dân, màn hình cán bộ, bảng quản trị.
-  Mỗi xã là một đơn vị.
-- **Ví dụ doanh nghiệp:** "Công ty A" duyệt đơn nghỉ phép trên cùng lõi, chỉ thêm một thư mục gói nghiệp vụ
-  ([examples/doanh-nghiep](examples/doanh-nghiep/README.md)).
+- **Gói nghiệp vụ xã (ứng dụng minh họa chính)** ([modules/xa](modules/xa/README.md)): một cửa cấp xã, gồm Kênh
+  người dân, màn hình cán bộ, bảng quản trị. Mỗi xã là một đơn vị.
+- **Gói doanh nghiệp** ([modules/doanh-nghiep](modules/doanh-nghiep/README.md)): "Công ty A" duyệt đơn nghỉ phép trên
+  cùng lõi, chỉ thêm một thư mục gói nghiệp vụ.
+
+Lõi cài và chạy được khi không có gói xã (CI kiểm tra mỗi lần đưa mã lên); gói nào được nạp do biến
+`COMMUNEOS_MODULES` quyết định.
 
 | Trụ cột | Lõi cung cấp |
 | --- | --- |
@@ -50,16 +53,17 @@ Giấy phép của các thành phần bên thứ ba được liệt kê trong
 | Tầng 2 - Ứng dụng     | `apps/commune/` | Ứng dụng xã cho cán bộ, lãnh đạo, cấp trên                                        |
 | Tầng 2 - Ứng dụng     | `apps/citizen/` | Kênh nộp hồ sơ trực tuyến cho người dân                                           |
 | Tầng 2 - Ứng dụng     | `apps/admin/`   | Bảng quản trị hệ thống: xã, thủ tục, sổ ghi nhận                                  |
-| Cấu hình              | `packs/`        | Gói thủ tục: BPMN, biểu mẫu, bảng kiểm giấy tờ, wiki                              |
-| Gói nghiệp vụ khác    | `examples/`     | Ví dụ doanh nghiệp chạy trên cùng lõi: duyệt đơn nghỉ phép                        |
+| Gói nghiệp vụ         | `modules/xa/`   | Gói xã: dữ liệu công dân, thủ tục, hồ sơ; quy trình hồ sơ; dữ liệu mẫu; gói thủ tục (`packs/`) |
+| Gói nghiệp vụ         | `modules/doanh-nghiep/` | Gói doanh nghiệp: duyệt đơn nghỉ phép                                     |
 
-Ba ứng dụng trong `apps/` và phần dữ liệu người dân, thủ tục, hồ sơ trong `core/db/init/` là gói nghiệp vụ xã;
-bảng phân loại từng tệp ở [docs/LOI_DUNG_CHUNG.md](docs/LOI_DUNG_CHUNG.md#ranh-giới-trong-mã-nguồn).
+Ba ứng dụng trong `apps/` dùng gói xã. Mỗi gói khai báo trong `module.json` tệp SQL, quy trình BPMN, việc định kỳ;
+lõi nạp các gói trong `COMMUNEOS_MODULES` (mặc định `xa,doanh-nghiep`). Ranh giới lõi và gói:
+[docs/LOI_DUNG_CHUNG.md](docs/LOI_DUNG_CHUNG.md#ranh-giới-trong-mã-nguồn).
 
 Lõi hoàn toàn không có giao diện: chỉ có dịch vụ và API. Bảng quản trị (`apps/admin`) và
-phần xử lý hồ sơ của màn hình cán bộ (`apps/commune`) gọi lõi qua cửa ngõ API.
-Kênh người dân (`apps/citizen`) đăng nhập qua Keycloak và gọi lõi qua cửa ngõ cho mọi thao tác dữ liệu (hàm `api.*`,
-`core/db/init/21-*.sql`, `26-*.sql` đến `34-*.sql`); không còn đọc ghi PostgreSQL trực tiếp. Kết nối duy nhất còn lại tới
+màn hình cán bộ (`apps/commune`) gọi lõi qua cửa ngõ API.
+Kênh người dân (`apps/citizen`) đăng nhập qua Keycloak và gọi lõi qua cửa ngõ cho mọi thao tác dữ liệu (hàm `api.*`
+của gói xã, `modules/xa/db/21-*.sql`, `26-*.sql` đến `34-*.sql`); không còn đọc ghi PostgreSQL trực tiếp. Kết nối duy nhất còn lại tới
 PostgreSQL chỉ để nhận tín hiệu thay đổi cho thông báo thời gian thực, bằng vai trò đã bị thu hồi mọi quyền dữ liệu.
 Mỗi xã tự có danh sách thủ tục được mở. Cán bộ và người dân chỉ thấy, chỉ nộp được thủ tục xã mình đang mở; cơ sở dữ liệu tự chặn nếu ai đó vượt qua giao diện. Quản trị hệ thống cấu hình xã và thủ tục nhưng không đọc được nội dung hồ sơ.
 
@@ -104,7 +108,8 @@ make test                 # chạy make demo rồi 54 kiểm tra qua gateway: c�
 make test-citizen         # kiểm thử đơn vị Kênh người dân
 make test-sql             # mọi bài kiểm thử RLS, phân quyền bằng SQL (ROLLBACK)
 make e2e-citizen          # kiểm thử giao diện Kênh người dân bằng Playwright (chạy trong Docker, không cần cài trình duyệt)
-make example-enterprise   # ví dụ doanh nghiệp trên cùng lõi: Công ty A duyệt đơn nghỉ phép qua cổng API
+make test-platform        # lõi dùng chung: đơn vị, gói đã cài, sổ ghi nhận, quy trình (chạy được khi không có gói xã)
+make example-enterprise   # gói doanh nghiệp trên cùng lõi: Công ty A duyệt đơn nghỉ phép qua cổng API
 ```
 
 Sau mỗi lần `git pull`, chạy lại `make up`: lệnh này dừng ngay nếu `.env` thiếu biến bắt buộc mới thêm
@@ -216,10 +221,10 @@ Trang quản trị Keycloak: http://localhost:8080 (tài khoản quản trị l�
 
 ## Mở rộng
 
-- Thêm thủ tục mới: sao `packs/_template/`, sửa `pack.yaml`, nạp ở bảng quản trị → Danh mục thủ tục → Thêm thủ tục,
+- Thêm thủ tục mới: sao `modules/xa/packs/_template/`, sửa `pack.yaml`, nạp ở bảng quản trị → Danh mục thủ tục → Thêm thủ tục,
   rồi mở cho từng xã (Danh sách xã → bấm vào xã → tab Thủ tục). Thủ tục mới chưa mở cho xã nào.
-- Thêm nghiệp vụ mới (gói nghiệp vụ): bảng dữ liệu cách ly theo đơn vị, sơ đồ BPMN, khai báo `workflow.json`,
-  theo mẫu [examples/doanh-nghiep](examples/doanh-nghiep/README.md) và hướng dẫn trong
+- Thêm nghiệp vụ mới (gói nghiệp vụ): thư mục `modules/<tên>/` gồm SQL cách ly theo đơn vị, sơ đồ BPMN, `module.json`;
+  thêm tên gói vào `COMMUNEOS_MODULES`. Làm theo mẫu [modules/doanh-nghiep](modules/doanh-nghiep/README.md) và hướng dẫn trong
   [docs/LOI_DUNG_CHUNG.md](docs/LOI_DUNG_CHUNG.md#thêm-nghiệp-vụ-mới).
 - Xây ứng dụng mới trên lõi: thêm thư mục trong `apps/`, gọi API qua cửa ngõ. Danh sách API, tham số, phản hồi mẫu
   và nút gọi thử nằm ở trang tài liệu http://localhost:9080/docs/ (cổng theo `GATEWAY_PORT`).

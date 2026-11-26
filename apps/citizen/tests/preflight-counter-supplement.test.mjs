@@ -5,9 +5,9 @@ import assert from 'node:assert/strict'
 import {readFileSync} from 'node:fs'
 const root=new URL('../../../',import.meta.url)
 const read=(path)=>readFileSync(new URL(path,root),'utf8')
-const caseApi=read('core/db/init/28-citizen-api-case.sql')
+const caseApi=read('modules/xa/db/28-citizen-api-case.sql')
 const fn=name=>caseApi.slice(caseApi.indexOf(`FUNCTION api.${name}(`)).split('END $$;')[0]
-const core=read('core/db/init/21-citizen-api-core-flow.sql')
+const core=read('modules/xa/db/21-citizen-api-core-flow.sql')
 test('Preflight verifies persisted form and required document types at API and submission',()=>{
  const checker=read('apps/citizen/server/utils/preflight.ts')
  assert.match(checker,/validateProcedureForm/)
@@ -25,7 +25,7 @@ test('Preflight verifies persisted form and required document types at API and s
  assert.match(form,/!preflight\?\.ready/)
 })
 test('Counter queue allocates tickets atomically and limits cross-tenant access',()=>{
- const sql=read('core/db/init/12-citizen-case-review-counter.sql')
+ const sql=read('modules/xa/db/12-citizen-case-review-counter.sql')
  assert.match(sql,/citizen_book_counter_slot/)
  assert.match(sql,/FOR UPDATE/)
  assert.match(sql,/next_ticket_no=next_ticket_no\+1/)
@@ -35,7 +35,7 @@ test('Counter queue allocates tickets atomically and limits cross-tenant access'
  assert.match(sql,/REVOKE ALL ON FUNCTION api\.set_counter_ticket_status/)
  assert.match(sql,/GRANT EXECUTE ON FUNCTION citizen_cancel_counter_booking/)
  assert.match(read('apps/citizen/server/api/counter/bookings/index.post.ts'),/'citizen_counter_book'/)
- assert.match(read('core/db/init/30-citizen-api-appointment.sql'),/RETURN public\.citizen_book_counter_slot\(p_slot_id\)/)
+ assert.match(read('modules/xa/db/30-citizen-api-appointment.sql'),/RETURN public\.citizen_book_counter_slot\(p_slot_id\)/)
  assert.match(read('apps/citizen/pages/lich-hen-mot-cua.vue'),/Đang phục vụ/)
 })
 test('Citizen-facing stages are derived from authenticated staff updates, not invented workflow deadlines',()=>{
@@ -47,7 +47,7 @@ test('Citizen-facing stages are derived from authenticated staff updates, not in
  assert.match(ui,/stage\.reason/)
 })
 test('Structured supplement demands specific fresh documents or field responses',()=>{
- const sql=read('core/db/init/12-citizen-case-review-counter.sql')
+ const sql=read('modules/xa/db/12-citizen-case-review-counter.sql')
  assert.match(sql,/api\.request_citizen_case_supplement/)
  assert.match(sql,/citizen_answer_supplement_item/)
  assert.match(sql,/d\.uploaded_at>r\.created_at/)

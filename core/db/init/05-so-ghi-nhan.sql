@@ -2,12 +2,12 @@
 -- SPDX-License-Identifier: Apache-2.0
 --
 -- Sổ ghi nhận không sửa được (hash-chain), thành phần dùng chung của lõi.
--- Mỗi đơn vị (xã, công ty...) một chuỗi. Gói nghiệp vụ ghi sổ qua public.ledger_record; gói nghiệp vụ xã
--- tự ghi mỗi sự kiện của hồ sơ (nộp, chuyển xử lý, bổ sung, hoàn thành, từ chối...).
--- Mỗi dòng chứa mã băm của dòng liền trước trong cùng xã, nên sửa hoặc xóa
+-- Mỗi đơn vị (xã, công ty...) một chuỗi. Gói nghiệp vụ ghi sổ qua public.ledger_record (gói xã ghi mỗi sự kiện
+-- của hồ sơ: modules/xa/db/10-ledger.sql).
+-- Mỗi dòng chứa mã băm của dòng liền trước trong cùng đơn vị, nên sửa hoặc xóa
 -- một dòng bất kỳ sẽ làm gãy chuỗi và bị phát hiện khi kiểm tra.
 --
---   hash = sha256( prev_hash | seq | mã xã | mã hồ sơ | hành động | người làm | băm ghi chú | thời điểm )
+--   hash = sha256( prev_hash | seq | mã đơn vị | mã đối tượng | hành động | người làm | băm ghi chú | thời điểm )
 --
 -- Sổ chỉ lưu MÃ BĂM của ghi chú, không lưu nội dung, để không giữ dữ liệu cá nhân vĩnh viễn.
 -- Chạy lại nhiều lần không lỗi.
@@ -15,7 +15,7 @@
 CREATE TABLE IF NOT EXISTS ledger_entries (
   seq        bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   tenant_id  uuid NOT NULL REFERENCES tenants(id),
-  event_id   bigint UNIQUE,              -- application_events.id; mỗi sự kiện ghi sổ đúng 1 lần
+  event_id   bigint UNIQUE,              -- gói xã: application_events.id, mỗi sự kiện ghi sổ đúng 1 lần
   dossier_id text NOT NULL,
   action     text NOT NULL,
   actor      text NOT NULL,
@@ -67,34 +67,6 @@ BEGIN
 END $$;
 REVOKE ALL ON FUNCTION public.ledger_record(uuid, text, text, text, text, timestamptz, bigint) FROM PUBLIC;
 
--- Ghi 1 dòng sổ cho 1 sự kiện hồ sơ (gói nghiệp vụ xã).
-CREATE OR REPLACE FUNCTION public.ledger_append(
-  p_event_id bigint, p_dossier_id text, p_action text, p_actor text,
-  p_note text, p_created_at timestamptz
-) RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
-DECLARE
-  v_tenant uuid;
-BEGIN
-  SELECT coalesce(a.receiving_tenant_id, a.tenant_id) INTO v_tenant
-    FROM applications a WHERE a.id = p_dossier_id;
-  IF v_tenant IS NULL OR EXISTS (SELECT 1 FROM ledger_entries WHERE event_id = p_event_id) THEN
-    RETURN;
-  END IF;
-  PERFORM public.ledger_record(v_tenant, p_dossier_id, p_action, p_actor, p_note, p_created_at, p_event_id);
-END $$;
-
--- Tự ghi sổ mỗi khi có sự kiện hồ sơ mới (từ Kênh người dân lẫn cán bộ).
-CREATE OR REPLACE FUNCTION public.ledger_on_event() RETURNS trigger
-LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
-BEGIN
-  PERFORM public.ledger_append(NEW.id, NEW.application_id, NEW.event_type,
-                               NEW.actor_name, NEW.note, NEW.created_at);
-  RETURN NEW;
-END $$;
-DROP TRIGGER IF EXISTS ledger_on_event ON application_events;
-CREATE TRIGGER ledger_on_event AFTER INSERT ON application_events
-  FOR EACH ROW EXECUTE FUNCTION public.ledger_on_event();
-
 -- Không ai được sửa hay xóa dòng sổ qua SQL thông thường.
 CREATE OR REPLACE FUNCTION public.ledger_block_change() RETURNS trigger
 LANGUAGE plpgsql AS $$
@@ -109,20 +81,9 @@ CREATE TRIGGER ledger_no_truncate BEFORE TRUNCATE ON ledger_entries
   FOR EACH STATEMENT EXECUTE FUNCTION public.ledger_block_change();
 REVOKE ALL ON ledger_entries FROM PUBLIC;
 
--- Ghi sổ cho các sự kiện đã có từ trước (dữ liệu mẫu), theo thứ tự thời gian.
-DO $$
-DECLARE e record;
-BEGIN
-  FOR e IN SELECT ev.* FROM application_events ev
-            WHERE NOT EXISTS (SELECT 1 FROM ledger_entries l WHERE l.event_id = ev.id)
-            ORDER BY ev.created_at, ev.id
-  LOOP
-    PERFORM public.ledger_append(e.id, e.application_id, e.event_type, e.actor_name, e.note, e.created_at);
-  END LOOP;
-END $$;
-
 -- ===== API =====
--- Xem sổ: quản trị hệ thống thấy mọi xã, cán bộ chỉ thấy xã mình.
+-- Xem sổ: quản trị hệ thống thấy mọi đơn vị, người của đơn vị chỉ thấy đơn vị mình.
+-- Cột dossier_id là mã đối tượng (mã hồ sơ, mã đơn...), giữ tên cũ để không đổi API.
 DROP VIEW IF EXISTS api.ledger;
 CREATE VIEW api.ledger AS
 SELECT l.seq, t.code AS tenant_code, l.dossier_id, l.action, l.actor,

@@ -35,11 +35,11 @@ Khởi tạo thông thường không tự nạp thêm 36 thủ tục demo. Dữ 
 
 ## Vị trí mã nguồn
 
-- `core/demo/expanded-catalog.sql`: dữ liệu thủ tục demo và tài liệu đính kèm tùy chọn.
-- `Makefile` và `core/demo/demo.mjs`: nạp SQL trước khi mở thủ tục cho xã mẫu qua API.
+- `modules/xa/demo/expanded-catalog.sql`: dữ liệu thủ tục demo và tài liệu đính kèm tùy chọn.
+- `Makefile` và `modules/xa/demo/demo.mjs`: nạp SQL trước khi mở thủ tục cho xã mẫu qua API.
 - `apps/citizen/pages/thu-tuc/index.vue`: tìm kiếm, phân trang.
 - `apps/citizen/components/ProcedureCard.vue`, `apps/citizen/pages/thu-tuc/[slug].vue`, `apps/citizen/pages/tai-quay.vue`, `apps/citizen/pages/lo-trinh-hanh-chinh/[id].vue`: không hiển thị sai thời hạn chưa xác minh.
-- `core/db/init/21-citizen-api-core-flow.sql`: RPC nộp hồ sơ không tạo hạn xử lý giả khi thời hạn chưa có.
-- `core/db/init/33-citizen-api-public.sql` và `apps/citizen/server/api/procedures/recommended.get.ts`: gợi ý lọc theo địa phương từ token, qua RPC.
+- `modules/xa/db/21-citizen-api-core-flow.sql`: RPC nộp hồ sơ không tạo hạn xử lý giả khi thời hạn chưa có.
+- `modules/xa/db/33-citizen-api-public.sql` và `apps/citizen/server/api/procedures/recommended.get.ts`: gợi ý lọc theo địa phương từ token, qua RPC.
 
 **Cảnh báo**: Không nhập thông tin nhạy cảm thật vào môi trường demo. Nguồn tham khảo tên nhóm thủ tục (không phải nguồn xác nhận chi tiết từng thủ tục): Cổng Bộ Tư pháp và Trung tâm Phục vụ hành chính công Hà Nội. Đối chiếu lại trước khi triển khai thật.

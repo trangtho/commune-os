@@ -20,7 +20,7 @@ npm --prefix apps/citizen test
 make COMPOSE="docker compose -f docker-compose.yml" representation-test
 ```
 
-Migration `core/db/init/05-citizen-representation-counter.sql` thêm bảng, index, cột tham chiếu và quyền **không xóa dữ liệu cũ**.
+Migration `modules/xa/db/05-citizen-representation-counter.sql` thêm bảng, index, cột tham chiếu và quyền **không xóa dữ liệu cũ**.
 
 ## Quy trình xác minh thực tế phải tích hợp với hệ thống cán bộ
 

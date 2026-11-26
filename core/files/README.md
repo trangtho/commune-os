@@ -8,7 +8,7 @@ SPDX-License-Identifier: Apache-2.0
 Dịch vụ không giao diện của lõi, quản lý giấy tờ của hồ sơ.
 
 - Nội dung tệp nằm trong kho đối tượng chuẩn S3 (SeaweedFS, dịch vụ `storage`).
-- PostgreSQL giữ thông tin mô tả và mã băm SHA-256 (`application_documents`, `core/db/init/14-luu-tru-tep.sql`).
+- PostgreSQL giữ thông tin mô tả và mã băm SHA-256 (`application_documents`, `modules/xa/db/14-luu-tru-tep.sql`).
 - Mỗi giấy tờ mới sinh một sự kiện hồ sơ có ghi mã băm, nên mã băm nằm trong sổ ghi nhận.
 - Khi tải về, dịch vụ tính lại mã băm. Tệp bị sửa trong kho sẽ bị từ chối (409).
 - Có quét mã độc bằng ClamAV nếu đặt `CLAMAV_HOST`. Khi đã bật mà ClamAV không chạy thì từ chối tải lên.

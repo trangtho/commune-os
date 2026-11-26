@@ -3,30 +3,33 @@ SPDX-FileCopyrightText: 2026 CommuneOS Contributors
 SPDX-License-Identifier: Apache-2.0
 -->
 
-# Ví dụ doanh nghiệp: duyệt đơn nghỉ phép
+# modules/doanh-nghiep – Ví dụ doanh nghiệp: duyệt đơn nghỉ phép
 
-Gói nghiệp vụ nhỏ chạy trên cùng lõi CommuneOS với gói nghiệp vụ xã, để cho thấy lõi dùng chung được cho tổ chức
-khác: đơn vị "Công ty A", giám đốc và nhân viên, quy trình duyệt nghỉ phép theo sơ đồ BPMN. Không sửa mã của lõi,
+Gói nghiệp vụ nhỏ chạy trên cùng lõi CommuneOS với gói nghiệp vụ xã (hoặc chạy một mình, không cần gói xã), để cho
+thấy lõi dùng chung được cho tổ chức khác: đơn vị "Công ty A", giám đốc và nhân viên, quy trình duyệt nghỉ phép theo sơ đồ BPMN. Không sửa mã của lõi,
 không dùng bảng nào của gói nghiệp vụ xã. Chưa có giao diện; mọi thao tác gọi qua cổng API.
 
 | Tệp | Nội dung |
 | --- | --- |
 | [`db/nghi-phep.sql`](db/nghi-phep.sql) | Bảng đơn nghỉ phép (schema `nghi_phep`), RLS theo đơn vị, API `api.leave_requests`, `api.leave_request_create`, `api.set_leave_request_status` |
 | [`bpmn/duyet-nghi-phep.bpmn20.xml`](bpmn/duyet-nghi-phep.bpmn20.xml) | Quy trình: nhân viên nộp đơn → giám đốc đồng ý hoặc không đồng ý (bắt buộc lý do) |
-| [`workflow.json`](workflow.json) | Khai báo loại đối tượng `leave-requests` cho dịch vụ điều phối của lõi |
+| [`module.json`](module.json) | Khai báo gói: tệp SQL, loại đối tượng `leave-requests` cho dịch vụ điều phối của lõi |
 | [`test.sh`](test.sh) | Kiểm thử qua cổng API |
 
 ## Chạy
 
 ```bash
-make up
+make up                   # có doanh-nghiep trong COMMUNEOS_MODULES (mặc định có): db-setup nạp db/nghi-phep.sql
 make example-enterprise
 ```
 
-`make example-enterprise` chạy `make demo`, nạp `db/nghi-phep.sql` (chạy lại được), rồi chạy `test.sh`. Lần đầu,
+`make example-enterprise` chạy `test.sh`. Lần đầu,
 bài kiểm thử tạo qua API của lõi đơn vị `cong-ty-a` ("Công ty A"), giám đốc `giamdoc.cong-ty-a` và nhân viên
 `nhanvien.cong-ty-a`, mật khẩu `DEMO_PASSWORD` (mặc định `Demo@2026!`); các lần sau dùng lại. Kết quả đúng: 8 dòng
-`ĐẠT` và dòng cuối `KẾT QUẢ: ĐẠT`.
+`ĐẠT` và dòng cuối `KẾT QUẢ: ĐẠT`. Khi không cài gói xã, hoặc chưa `make demo`, mục cách ly với xã A báo `BỎ QUA`.
+
+Chạy gói này **không có gói xã** (chỉ lõi): đặt `COMMUNEOS_MODULES=doanh-nghiep` trong `.env` rồi dựng lõi
+(CI chạy cách này, xem job "Chỉ lõi" trong `.github/workflows/ci.yml`).
 
 Bài kiểm thử đi đường thật Keycloak → APISIX → dịch vụ điều phối → Flowable → PostgREST → PostgreSQL:
 
@@ -34,7 +37,7 @@ Bài kiểm thử đi đường thật Keycloak → APISIX → dịch vụ đi�
 - nhân viên nộp đơn qua `/rest/rpc/leave_request_create`;
 - sơ đồ BPMN trả đúng bước "Chờ giám đốc duyệt" và hai nhánh qua `/workflow/leave-requests/<mã>/actions`;
 - nhân viên không tự duyệt được; gọi thẳng hàm đổi trạng thái (bỏ qua quy trình) bị chặn;
-- cán bộ xã A không thấy đơn của Công ty A, Công ty A không thấy hồ sơ của xã nào;
+- cán bộ xã A không thấy đơn của Công ty A, Công ty A không thấy hồ sơ của xã nào (khi có gói xã);
 - giám đốc duyệt qua quy trình; không đồng ý mà thiếu lý do bị chặn; đơn đã kết thúc không xử lý lại được;
 - sổ ghi nhận của lõi ghi đủ các bước, chuỗi băm riêng của Công ty A nguyên vẹn.
 

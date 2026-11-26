@@ -17,4 +17,4 @@ Tài liệu của dự án.
 | [ghi-chu/](ghi-chu/) | Ghi chú quá trình làm (lịch sử, có thể đã cũ) |
 
 Tài liệu từng thành phần của lõi nằm cạnh mã nguồn: [core/](../core/README.md).
-Gói thủ tục: [packs/](../packs/README.md).
+Gói nghiệp vụ: [modules/xa](../modules/xa/README.md) (chính quyền cấp xã, gói thủ tục trong `packs/`), [modules/doanh-nghiep](../modules/doanh-nghiep/README.md).
