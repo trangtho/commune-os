@@ -4,6 +4,8 @@
 // Đổi tên đăng nhập + mật khẩu (+ mã xác thực hai lớp nếu đã bật) lấy token từ Keycloak.
 // Trình duyệt gọi POST /api/dang-nhap; máy chủ Nuxt gọi Keycloak giúp (tránh lỗi CORS).
 // Mật khẩu và mã xác thực không được lưu ở đâu cả.
+import { adminSession } from '../utils/session'
+import { claims, type PortalTokens } from '../utils/portal-session'
 export default defineEventHandler(async (event) => {
   const { username, password, otp } = await readBody<{ username?: string; password?: string; otp?: string }>(event);
   if (!username || !password) {
@@ -17,12 +19,17 @@ export default defineEventHandler(async (event) => {
   // Keycloak nhận mã OTP qua tham số "otp" trong luồng đăng nhập trực tiếp.
   if (otp) body.set("otp", otp);
   try {
-    const res = await $fetch<{ access_token: string; expires_in: number }>(
+    const res = await $fetch<PortalTokens>(
       `${keycloakUrl}/realms/communeos/protocol/openid-connect/token`,
       { method: "POST", body },
     );
-    return { access_token: res.access_token, expires_in: res.expires_in };
+    const info = claims(res.access_token);
+    if (!info.sub || !info.realm_access?.roles?.includes('sys_admin')) throw createError({statusCode: 403, statusMessage: 'Tài khoản này không có quyền quản trị hệ thống.'});
+    adminSession.save(event, res);
+    setHeader(event, 'Cache-Control', 'no-store');
+    return { authenticated: true, username: info.preferred_username || info.name || '', isSysAdmin: true };
   } catch (e: any) {
+    if (e?.statusCode === 403 && !e?.response) throw e;
     const reason = String(e?.data?.error_description || "");
     if (reason.includes("not fully set up")) {
       throw createError({

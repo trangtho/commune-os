@@ -3,6 +3,18 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* Match the citizen portal's soft background; retain the existing layout. */
+@media screen {
+  .commune-app-shell {
+    background-color: var(--cos-background);
+    background-image: var(--cos-background-image);
+    background-size: cover;
+    background-position: center bottom;
+    background-repeat: no-repeat;
+  }
+  body .commune-sheet { background-color: transparent; }
+}
 :root { color-scheme: light; }
 html, body, #__nuxt {
   width: 100%;
@@ -79,6 +91,54 @@ body { @apply bg-[#f3faf8] text-ink antialiased font-sans; }
  .commune-app-shell > section p { margin-top: .2rem; }
  .commune-app-shell > section .snap-start { padding-top: .35rem; padding-bottom: .35rem; }
  .commune-app-shell > section .snap-start > span { height: 2.25rem; width: 2.25rem; }
+}
+/* Responsive staff workspace: base decisions on available content, not viewport width. */
+.commune-sheet { container: staff-content / inline-size; min-width: 0; overflow-wrap: anywhere; }
+.staff-metric-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+.staff-metric-card { min-width: 0; min-height: 104px; flex-direction: column; align-items: flex-start; justify-content: center; padding: 12px; gap: 8px; }
+.staff-metric-card > span:first-child { width: 38px; height: 38px; }
+.staff-metric-card svg { flex-shrink: 0; }
+.staff-pair-grid, .staff-catalog-grid, .staff-split-grid { grid-template-columns: minmax(0, 1fr); }
+.staff-split-grid > *, .staff-pair-grid > *, .staff-catalog-grid > *, .staff-metric-grid > * { min-width: 0; }
+.staff-split-grid > * { grid-column: auto; }
+.staff-dossier-table { display: none; }
+.staff-dossier-cards { grid-template-columns: minmax(0, 1fr); }
+.staff-filter-tabs { scrollbar-width: thin; scrollbar-color: #99f6e4 transparent; }
+.staff-filter-tabs > button { min-height: 40px; }
+.commune-sheet .panel:has(> table), .commune-sheet .panel > .overflow-x-auto { scrollbar-width: thin; scrollbar-color: #99f6e4 transparent; }
+.commune-sheet .panel > .overflow-x-auto { max-width: 100%; }
+@container staff-content (min-width: 520px) {
+  .staff-metric-card { flex-direction: row; align-items: center; justify-content: flex-start; gap: 12px; padding: 16px; }
+  .staff-metric-card > span:first-child { width: 44px; height: 44px; }
+}
+@container staff-content (min-width: 600px) {
+  .staff-catalog-grid, .staff-dossier-cards { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@container staff-content (min-width: 820px) {
+  .staff-metric-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+  .staff-pair-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .staff-dossier-cards { display: none; }
+  .staff-dossier-table { display: block; }
+  .staff-filter-tabs { flex-wrap: wrap; overflow-x: visible; }
+}
+@container staff-content (min-width: 1080px) {
+  .staff-catalog-grid, .staff-split-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .staff-split-grid > .lg\:col-span-2 { grid-column: span 2 / span 2; }
+}
+@media screen and (max-width: 639px) {
+  .commune-sheet { border-radius: 12px; padding: 10px; }
+  .commune-sheet .panel.p-5, .commune-sheet .panel.p-6, .commune-sheet .panel.p-8, .commune-sheet .panel.p-9 { padding: 14px; }
+  .commune-sheet .field, #commune-mobile-search, input.field, textarea.field, select.field { font-size: 16px; }
+  .btn-primary, .btn-outline, .side-link { min-height: 44px; }
+  .commune-sheet .panel .btn-outline, .commune-sheet .panel .btn-primary { max-width: 100%; }
+  .commune-sheet { padding-bottom: max(16px, env(safe-area-inset-bottom)); }
+}
+@container staff-content (max-width: 279px) {
+  .staff-metric-grid { grid-template-columns: minmax(0, 1fr); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .loading-sheen { animation: none; }
+  .staff-metric-card { transition: none; }
 }
 @media print {
  html, body, #__nuxt { height: auto !important; min-height: 0 !important; overflow: visible !important; }

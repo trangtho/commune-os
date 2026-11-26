@@ -161,7 +161,7 @@ async function resetPassword(s: Staff) {
         </p>
       </div>
 
-      <div class="grid gap-4 lg:grid-cols-3">
+      <div class="staff-split-grid grid gap-4">
         <section class="panel p-5 lg:col-span-2">
           <h3 class="section-label"><Users :size="20" class="text-brand-600" />Cán bộ ({{ staff?.length || 0 }})</h3>
           <div class="overflow-x-auto">

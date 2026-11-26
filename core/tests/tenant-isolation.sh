@@ -86,6 +86,9 @@ actions=$(curl -s -H "Authorization: Bearer $TA" "$GW/workflow/dossiers/HS-2026-
   python3 -c 'import json,sys; print(",".join(sorted(json.load(sys.stdin).get("actions", []))))')
 [ "$actions" = "completed,rejected,supplement" ] && ok "Sơ đồ BPMN trả đúng các bước đi tiếp ($actions)" || fail "Bước đi tiếp từ BPMN sai: '$actions'"
 
+code=$(wf "$TA" HS-2026-001197 '{"action":"completed","expectedStatus":"supplement"}')
+[ "$code" = "409" ] && ok "Điều kiện trạng thái cũ bị từ chối (409)" || fail "Trạng thái kỳ vọng không đúng phải 409, nhận $code"
+
 code=$(curl -s -o /dev/null -w '%{http_code}' -X POST -H "Authorization: Bearer $TA" -H 'Content-Type: application/json' \
   -d '{"dossier_id":"HS-2026-001197","status":"completed"}' "$GW/rest/rpc/set_dossier_status")
 [ "$code" = "403" ] && ok "Không bỏ qua được động cơ quy trình: gọi thẳng API ghi bị chặn (403)" || fail "Gọi thẳng set_dossier_status phải 403, nhận $code"

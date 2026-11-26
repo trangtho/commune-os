@@ -2,9 +2,8 @@
 # SPDX-License-Identifier: Apache-2.0
 FROM node:22-alpine AS builder
 WORKDIR /app
-COPY package.json ./
-RUN npm install --no-audit --no-fund
 COPY . .
+RUN npm ci --no-audit --no-fund
 RUN npm run build
 
 FROM node:22-alpine

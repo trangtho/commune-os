@@ -1,60 +1,31 @@
 // SPDX-FileCopyrightText: 2026 CommuneOS Contributors
 // SPDX-License-Identifier: Apache-2.0
-
-// Giữ token đăng nhập. Token nằm trong sessionStorage: đóng tab là phải đăng nhập lại.
-const KEY = "communeos-admin-token";
-
-interface TokenInfo {
-  preferred_username?: string;
-  exp?: number;
-  realm_access?: { roles?: string[] };
-}
-
-/** Đọc phần nội dung (payload) của JWT. Chỉ để hiển thị; việc kiểm tra chữ ký do cổng và API làm. */
-function readToken(token: string): TokenInfo {
-  try {
-    const part = token.split(".")[1]!.replace(/-/g, "+").replace(/_/g, "/");
-    const bytes = Uint8Array.from(atob(part), (c) => c.charCodeAt(0));
-    return JSON.parse(new TextDecoder().decode(bytes));
-  } catch {
-    return {};
-  }
-}
-
+type AdminInfo = { authenticated: boolean; username: string; isSysAdmin: boolean }
+const empty = (): AdminInfo => ({authenticated: false, username: '', isSysAdmin: false})
 export function useAuth() {
-  const token = useState<string | null>("auth-token", () => sessionStorage.getItem(KEY));
-
-  const info = computed(() => (token.value ? readToken(token.value) : {}));
-  const username = computed(() => info.value.preferred_username ?? "");
-  const isSysAdmin = computed(() => info.value.realm_access?.roles?.includes("sys_admin") ?? false);
-  const isLoggedIn = computed(() => {
-    const exp = info.value.exp;
-    return !!token.value && !!exp && exp * 1000 > Date.now();
-  });
-
-  /** Trả về thông báo lỗi, hoặc null nếu đăng nhập được. */
-  async function login(user: string, password: string, otp = ""): Promise<string | null> {
+  const info = useState<AdminInfo>('admin-session', empty)
+  const username = computed(() => info.value.username)
+  const isSysAdmin = computed(() => info.value.isSysAdmin)
+  const isLoggedIn = computed(() => info.value.authenticated)
+  async function check() {
     try {
-      const res = await $fetch<{ access_token: string }>("/api/dang-nhap", {
-        method: "POST",
-        body: { username: user, password, otp },
-      });
-      if (!readToken(res.access_token).realm_access?.roles?.includes("sys_admin")) {
-        return "Tài khoản này không có quyền quản trị hệ thống.";
-      }
-      token.value = res.access_token;
-      sessionStorage.setItem(KEY, res.access_token);
-      return null;
-    } catch (e: any) {
-      return e?.data?.statusMessage || e?.statusMessage || "Sai tên đăng nhập, mật khẩu hoặc mã xác thực.";
+      info.value = await $fetch<AdminInfo>('/api/auth/me', {credentials: 'same-origin'})
+    } catch (error: any) {
+      const status = error?.statusCode ?? error?.response?.status
+      if (status === 401 || status === 403) info.value = empty()
+      else throw createError({statusCode: 503, statusMessage: 'Chưa kiểm tra được phiên đăng nhập, vui lòng tải lại trang'})
     }
   }
-
-  function logout() {
-    token.value = null;
-    sessionStorage.removeItem(KEY);
-    return navigateTo("/dang-nhap");
+  async function login(user: string, password: string, otp = ''): Promise<string | null> {
+    try {
+      info.value = await $fetch<AdminInfo>('/api/dang-nhap', {method: 'POST', body: {username: user, password, otp}})
+      return info.value.authenticated && info.value.isSysAdmin ? null : 'Tài khoản không có quyền quản trị.'
+    } catch (e: any) { return e?.data?.statusMessage || e?.statusMessage || 'Không đăng nhập được.' }
   }
-
-  return { token, username, isSysAdmin, isLoggedIn, login, logout };
+  async function logout() {
+    await $fetch('/api/auth/logout', {method: 'POST'})
+    info.value = empty()
+    return navigateTo('/dang-nhap')
+  }
+  return {username, isSysAdmin, isLoggedIn, check, login, logout}
 }

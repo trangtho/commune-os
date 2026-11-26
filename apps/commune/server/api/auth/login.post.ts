@@ -2,8 +2,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
 // Đăng nhập cán bộ bằng tài khoản Keycloak (vd canbo.xa-a).
-// Token được giữ trong cookie phiên httpOnly đã ký, trình duyệt không đọc được.
+// Token được giữ trong cookie HttpOnly mã hóa AES-GCM, trình duyệt không đọc được.
 import { signSession } from '../../utils/session'
+import type { PortalTokens } from '../../utils/portal-session'
 import { loginSchema, validate } from '../../utils/validation'
 
 interface TokenInfo {
@@ -22,9 +23,9 @@ export default defineEventHandler(async (event) => {
   const credentials = validate(loginSchema, await readBody(event))
   const { keycloakUrl } = useRuntimeConfig(event)
 
-  let token: string
+  let tokens: PortalTokens
   try {
-    const res = await $fetch<{ access_token: string }>(
+    tokens = await $fetch<PortalTokens>(
       `${keycloakUrl}/realms/communeos/protocol/openid-connect/token`,
       {
         method: 'POST',
@@ -36,7 +37,6 @@ export default defineEventHandler(async (event) => {
         }),
       },
     )
-    token = res.access_token
   } catch (e: any) {
     // Tài khoản mới tạo hoặc vừa được cấp lại mật khẩu tạm: Keycloak bắt đổi mật khẩu trước.
     if (String(e?.data?.error_description || '').includes('not fully set up')) {
@@ -60,12 +60,14 @@ export default defineEventHandler(async (event) => {
     throw createError({ statusCode: 503, statusMessage: `Cấu hình đăng nhập với Keycloak chưa đúng (${e?.data?.error || e.response.status}). Chạy lại make up hoặc báo quản trị.` })
   }
 
-  const info = readToken(token)
+  const info = readToken(tokens.access_token)
   if (!info.tenant_id) {
     throw createError({ statusCode: 403, statusMessage: 'Tài khoản này chưa được gán xã (tenant_id), không dùng được màn hình cán bộ' })
   }
+  if (!info.realm_access?.roles?.some(r => ['receptionist', 'officer', 'leader'].includes(r))) throw createError({ statusCode: 403, statusMessage: 'Tài khoản không có quyền cán bộ' })
   const role = info.realm_access?.roles?.includes('leader') ? 'admin' : 'officer'
   const name = info.name || info.preferred_username || 'Cán bộ'
-  signSession(event, { id: info.sub, tenantId: info.tenant_id, name, role, token })
+  setHeader(event, 'Cache-Control', 'no-store')
+  signSession(event, tokens)
   return { authenticated: true, role, name }
 })

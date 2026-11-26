@@ -9,27 +9,19 @@ export default defineNuxtConfig({
   devtools: { enabled: true },
   modules: ["@nuxtjs/tailwindcss"],
   // Phông Be Vietnam Pro (OFL-1.1) đóng gói cùng ứng dụng, không tải từ máy chủ ngoài lúc chạy.
-  css: ['@fontsource/be-vietnam-pro/400.css', '@fontsource/be-vietnam-pro/500.css', '@fontsource/be-vietnam-pro/600.css', '@fontsource/be-vietnam-pro/700.css', '~/assets/css/main.css'],
+  css: ['@fontsource/be-vietnam-pro/400.css', '@fontsource/be-vietnam-pro/500.css', '@fontsource/be-vietnam-pro/600.css', '@fontsource/be-vietnam-pro/700.css', '~/assets/css/shared-tokens.css', '~/assets/css/main.css'],
   // Bảng quản trị chạy hoàn toàn trên trình duyệt (không cần SEO), đơn giản hơn.
   ssr: false,
   app: { head: { title: "CommuneOS – Quản trị hệ thống", link: [{ rel: "icon", type: "image/svg+xml", href: "/images/logo-communeos.svg" }] } },
   runtimeConfig: {
     // Chỉ dùng phía máy chủ Nuxt (server/api/dang-nhap.post.ts).
     keycloakUrl: process.env.KEYCLOAK_URL || "http://localhost:8080",
+    gatewayUrl,
+    sessionSecret: process.env.SESSION_SECRET || "",
     public: {
       // Địa chỉ trình duyệt mở được: màn hình cán bộ xã và trang quản trị Keycloak.
       communeUrl: "http://localhost:3002",
       keycloakPublicUrl: "http://localhost:8080",
     },
-  },
-  routeRules: {
-    // Trình duyệt gọi /rest/... cùng địa chỉ với trang → không lỗi CORS.
-    // Nuxt chuyển tiếp nguyên yêu cầu (kèm token) sang cổng APISIX.
-    "/rest/**": { proxy: `${gatewayUrl}/rest/**` },
-    // Trang Tình trạng hệ thống kiểm tra từng dịch vụ lõi qua cổng (cần token sys_admin).
-    "/workflow/**": { proxy: `${gatewayUrl}/workflow/**` },
-    "/files/**": { proxy: `${gatewayUrl}/files/**` },
-    "/accounts/**": { proxy: `${gatewayUrl}/accounts/**` },
-    "/ai/**": { proxy: `${gatewayUrl}/ai/**` },
   },
 });

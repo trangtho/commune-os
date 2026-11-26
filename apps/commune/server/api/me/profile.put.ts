@@ -10,7 +10,7 @@ const FIELDS = ['full_name', 'gender', 'birth_date', 'staff_code', 'position', '
   'education', 'phone', 'work_email', 'duties', 'address'] as const
 
 export default defineEventHandler(async (event) => {
-  const actor = requireStaff(event)
+  const actor = await requireStaff(event)
   if (actor.role !== 'admin') throw createError({ statusCode: 403, statusMessage: 'Cán bộ xử lý gửi đề nghị sửa hồ sơ để lãnh đạo duyệt' })
   const b = await readBody<Record<string, unknown>>(event)
   const data: Record<string, unknown> = { active: true }

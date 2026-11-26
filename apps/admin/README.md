@@ -26,8 +26,9 @@ Cần các dịch vụ lõi đang chạy (`docker compose up -d` ở thư mục 
 
 ```bash
 cd apps/admin
-npm install
-npm run dev -- --port 3001
+npm ci
+# Dùng secret riêng đủ 32 ký tự trở lên, không commit vào Git.
+SESSION_SECRET=$(openssl rand -hex 32) npm run dev -- --port 3001
 ```
 
 Mở http://localhost:3001 và đăng nhập bằng tài khoản quản trị trong `.env`.
@@ -35,10 +36,10 @@ Mở http://localhost:3001 và đăng nhập bằng tài khoản quản trị tr
 ## Cách gọi dữ liệu
 
 - Đăng nhập: trang gọi `POST /api/dang-nhap`, máy chủ Nuxt đổi tài khoản lấy
-  token từ Keycloak (`server/api/dang-nhap.post.ts`). Token giữ trong
-  `sessionStorage`, đóng tab là phải đăng nhập lại.
-- Dữ liệu: mọi lời gọi `/rest/...` (và `/workflow`, `/files`, `/accounts`, `/ai` của trang Tình trạng hệ thống)
-  được Nuxt chuyển tiếp sang cổng APISIX (`routeRules` trong `nuxt.config.ts`), nên không có lỗi CORS.
+  token từ Keycloak (`server/api/dang-nhap.post.ts`). Token được mã hóa và lưu trong cookie HttpOnly;
+  máy chủ tự gia hạn bằng refresh token, không trả token về trình duyệt.
+- Dữ liệu: `/api/core/*` gọi cổng APISIX từ Nuxt với token quản trị, kiểm tra vai trò sys_admin.
+  Chi tiết xem [hợp đồng kiến trúc](../../docs/PORTAL_ARCHITECTURE.md).
 - Một chỗ duy nhất gọi API: `app/composables/useApi.ts`. Danh sách API xem
   [core/rest/README.md](../../core/rest/README.md).
 
@@ -46,3 +47,5 @@ Mở http://localhost:3001 và đăng nhập bằng tài khoản quản trị tr
 | --------------- | ----------------------- | ---------------- |
 | `GATEWAY_URL`   | `http://localhost:9080` | Cổng APISIX      |
 | `KEYCLOAK_URL`  | `http://localhost:8080` | Máy chủ Keycloak |
+
+| `SESSION_SECRET` | Không có mặc định | Khóa mã hóa cookie, tối thiểu 32 ký tự |

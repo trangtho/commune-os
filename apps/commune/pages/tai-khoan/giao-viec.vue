@@ -36,7 +36,7 @@ async function cancelTask(t: StaffTask) {
 <template>
   <div class="space-y-4">
     <p v-if="message" role="status" :class="['rounded-lg p-3 text-sm', isError ? 'bg-rose-50 text-rose-800' : 'bg-brand-50 text-brand-800']">{{ message }}</p>
-    <div class="grid gap-4 lg:grid-cols-3">
+    <div class="staff-split-grid grid gap-4">
       <section class="panel p-5 lg:col-span-2">
         <div class="mb-3 flex flex-wrap items-center justify-between gap-2">
           <h3 class="section-label !mb-0">Việc đã giao</h3>

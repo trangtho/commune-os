@@ -7,9 +7,8 @@ WORKDIR /app
 # Địa chỉ cổng APISIX mà bảng quản trị chuyển tiếp /rest tới (cố định lúc build).
 ARG GATEWAY_URL=http://gateway:9080
 ENV GATEWAY_URL=${GATEWAY_URL}
-COPY package.json ./
-RUN npm install --no-audit --no-fund
 COPY . .
+RUN npm ci --no-audit --no-fund
 RUN npm run build
 
 # Giai đoạn 2: ảnh chạy, chỉ mang theo kết quả build.

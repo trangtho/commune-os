@@ -45,13 +45,27 @@ seed: .env ## Nạp lại danh mục thủ tục mẫu (idempotent)
 test: demo ## Kiểm thử cách ly xã qua gateway (cần docker compose up; tự chạy make demo trước)
 	sh core/tests/tenant-isolation.sh
 
+.PHONY: test-architecture test-commune portal-smoke workflow-expected-status-test
+
+test-architecture: ## Kiểm thử hợp đồng kiến trúc và mã hóa cookie (Node 22)
+	docker run --rm -v "$(CURDIR)":/w -w /w node:22-alpine node --experimental-strip-types --test core/tests/architecture.test.mjs
+
+workflow-expected-status-test: demo ## Kiểm thử điều kiện trạng thái trong RPC workflow (ROLLBACK)
+	$(COMPOSE) exec -T db sh -c 'psql -v ON_ERROR_STOP=1 -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"' < core/db/tests/workflow-expected-status.sql
+
+test-commune: ## Kiểm thử đơn vị Kênh cán bộ
+	docker run --rm -v "$(CURDIR)":/w -w /w/apps/commune node:22-alpine npm test
+
+portal-smoke: ## Kiểm thử đăng nhập demo ba kênh (Node 22 trên máy chủ, make demo trước)
+	node core/tests/portal-smoke.mjs
+
 test-citizen: ## Kiểm thử đơn vị Kênh người dân (chạy trong Node 22 chính thức)
 	docker run --rm -v "$(CURDIR)":/w -w /w/apps/citizen node:22-alpine npm test
 
 e2e-citizen: demo ## Kiểm thử giao diện Kênh người dân bằng Playwright trong Docker (cần make up; tạo dữ liệu trên tài khoản mẫu)
 	sh apps/citizen/e2e/run.sh
 
-test-sql: rls-test rag-test chat-history-test personalization-test representation-test citizen-experience-test handoff-support-test guidance-batches-test preflight-counter-test case-actions-test vault-autofill-test procedure-privacy-test life-journey-test intelligent-services-test citizen-api-test ## Chạy mọi bài kiểm thử SQL (RLS, phân quyền; ROLLBACK)
+test-sql: workflow-expected-status-test rls-test rag-test chat-history-test personalization-test representation-test citizen-experience-test handoff-support-test guidance-batches-test preflight-counter-test case-actions-test vault-autofill-test procedure-privacy-test life-journey-test intelligent-services-test citizen-api-test ## Chạy mọi bài kiểm thử SQL (RLS, phân quyền; ROLLBACK)
 
 citizen-dev: ## Chạy Nuxt dev; cần export PG*, SESSION_SECRET theo tài liệu
 	cd apps/citizen && npm run dev

@@ -11,8 +11,8 @@ Bảng quản trị cán bộ (Nuxt) cho CommuneOS. Dùng để duyệt, giải 
 - `components/` – MetricCard, StatusPill, ProcedureCard, CaseTimeline, DocUploader
 - `server/api/` – API route xử lý nghiệp vụ (auth, hồ sơ, thủ tục, thông báo, nhân viên)
 - `server/utils/` – gọi API lõi (`core-api.ts`, `core-files.ts`, `core-accounts.ts`), phiên làm việc, xác thực đầu vào.
-  `database.ts` (kết nối PostgreSQL trực tiếp bằng vai trò `communeos_app`) chỉ còn dùng cho xác nhận
-  bổ sung hồ sơ và `/api/health`; biến kết nối `NUXT_DB_*` khai báo trong `docker-compose.yml`.
+  Không kết nối PostgreSQL trực tiếp. Xác nhận bổ sung hồ sơ đi qua Workflow; `/api/health` kiểm tra lõi qua APISIX.
+  Phiên đăng nhập dùng cookie mã hóa HttpOnly và refresh token.
 - Thông báo (`/thong-bao`): thông báo cho cán bộ do lõi tự sinh (hồ sơ mới, được giao hồ sơ, hồ sơ đã bổ sung,
   yêu cầu và kết quả duyệt), đọc qua `/rest/staff_notifications`; trạng thái đã đọc tính riêng từng cán bộ.
   Chỉ lãnh đạo xã gửi được thông báo cho công dân của xã.
@@ -24,8 +24,8 @@ Bảng quản trị cán bộ (Nuxt) cho CommuneOS. Dùng để duyệt, giải 
 
 ```bash
 cd apps/commune
-npm install
-npm run dev
+npm ci
+SESSION_SECRET=$(openssl rand -hex 32) npm run dev
 ```
 
 Tài khoản thử do `make demo` tạo: `canbo.xa-a`, `canbo.xa-b` (cán bộ xử lý), `lanhdao.xa-a`, `lanhdao.xa-b`

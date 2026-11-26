@@ -6,8 +6,14 @@ export default defineNuxtRouteMiddleware(async(to)=>{
   if(isPublic) return
   try {
     const fetcher=import.meta.server?useRequestFetch():$fetch
-    const me=await fetcher<{authenticated:boolean}>('/api/auth/me')
+    const me=await fetcher<{authenticated:boolean}>('/api/auth/me', {
+      headers: import.meta.server ? useRequestHeaders(['cookie']) : undefined,
+      credentials: 'same-origin'
+    })
     if(me.authenticated)return
-  } catch {/* expired or invalid session */}
+  } catch (error: any) {
+    const status = error?.statusCode ?? error?.response?.status
+    if (status !== 401 && status !== 403) throw createError({statusCode: 503, statusMessage: 'Chưa kiểm tra được phiên đăng nhập, vui lòng tải lại trang'})
+  }
   return navigateTo(`/dang-nhap?next=${encodeURIComponent(to.fullPath)}`)
 })

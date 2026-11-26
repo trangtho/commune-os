@@ -88,6 +88,7 @@ services:
       KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN}
       KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD}
       CITIZEN_KEYCLOAK_SECRET: ${CITIZEN_KEYCLOAK_SECRET}
+      KEYCLOAK_ACCOUNTS_SECRET: ${KEYCLOAK_ACCOUNTS_SECRET}
       # Tài khoản quản trị hệ thống duy nhất (make check-env kiểm tra độ mạnh mật khẩu).
       COMMUNEOS_ADMIN_USERNAME: ${COMMUNEOS_ADMIN_USERNAME}
       COMMUNEOS_ADMIN_PASSWORD: ${COMMUNEOS_ADMIN_PASSWORD}
@@ -205,6 +206,7 @@ services:
         psql -v ON_ERROR_STOP=1 -f /setup/init/33-citizen-api-public.sql
         psql -v ON_ERROR_STOP=1 -f /setup/init/34-citizen-direct-access.sql
         psql -v ON_ERROR_STOP=1 -f /setup/init/35-account-onboarding.sql
+        psql -v ON_ERROR_STOP=1 -f /setup/init/36-workflow-expected-status.sql
         # Mô tả API chạy sau cùng (sau mọi tệp tạo hàm, bảng ảo).
         psql -v ON_ERROR_STOP=1 -f /setup/init/25-api-comments.sql
         psql -v ON_ERROR_STOP=1 -c "SELECT count(*) AS published_procedures FROM procedures WHERE published = true"
@@ -495,6 +497,7 @@ services:
       NUXT_DB_USER: communeos_app
       NUXT_DB_PASSWORD: ${POSTGRES_APP_PASSWORD}
       NUXT_SESSION_SECRET: ${SESSION_SECRET}
+      PORTAL_ALLOW_LOCAL_HTTP: ${PORTAL_ALLOW_LOCAL_HTTP:-false}
       # Đăng nhập công dân bằng Keycloak (client citizen-app), gọi lõi qua cổng APISIX.
       NUXT_KEYCLOAK_URL: http://identity:8080
       NUXT_GATEWAY_URL: http://gateway:9080
@@ -575,12 +578,7 @@ services:
       PORT: 3000
       # Biến NUXT_* ghi đè runtimeConfig lúc chạy container.
       NUXT_SESSION_SECRET: ${SESSION_SECRET}
-      # Thông báo và xác nhận bổ sung hồ sơ còn đọc PostgreSQL trực tiếp (vai trò có RLS).
-      NUXT_DB_HOST: db
-      NUXT_DB_PORT: "5432"
-      NUXT_DB_NAME: ${POSTGRES_DB}
-      NUXT_DB_USER: communeos_app
-      NUXT_DB_PASSWORD: ${POSTGRES_APP_PASSWORD}
+      PORTAL_ALLOW_LOCAL_HTTP: ${PORTAL_ALLOW_LOCAL_HTTP:-false}
       NUXT_KEYCLOAK_URL: http://identity:8080
       NUXT_GATEWAY_URL: http://gateway:9080
     ports:
@@ -608,6 +606,9 @@ services:
       HOST: 0.0.0.0
       PORT: 3000
       NUXT_KEYCLOAK_URL: http://identity:8080
+      NUXT_GATEWAY_URL: http://gateway:9080
+      NUXT_SESSION_SECRET: ${SESSION_SECRET}
+      PORTAL_ALLOW_LOCAL_HTTP: ${PORTAL_ALLOW_LOCAL_HTTP:-false}
     ports:
       - "127.0.0.1:${ADMIN_PORT:-3001}:3000"
 

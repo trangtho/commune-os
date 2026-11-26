@@ -23,7 +23,7 @@ const answerPart = (c: Chunk) => c.source_type === 'staff_guide' ? c.content.spl
   : c.source_type === 'faq' ? c.content.slice(c.content.indexOf(': ') + 2) : c.content
 
 export default defineEventHandler(async (event) => {
-  const actor = requireStaff(event)
+  const actor = await requireStaff(event)
   const { message } = validate(schema, await readBody(event))
   const { gatewayUrl } = useRuntimeConfig(event)
   let ai: AiResult

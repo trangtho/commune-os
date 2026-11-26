@@ -31,7 +31,10 @@ const IMPORT = {
 const SYS_ADMIN_USERNAME = String(process.env.COMMUNEOS_ADMIN_USERNAME || '').trim().toLowerCase()
 const SYS_ADMIN_PASSWORD = String(process.env.COMMUNEOS_ADMIN_PASSWORD || '')
 // Client bí mật và biến môi trường chứa secret.
-const CONFIDENTIAL = { 'citizen-app': 'CITIZEN_KEYCLOAK_SECRET' }
+const CONFIDENTIAL = {
+  'citizen-app': 'CITIZEN_KEYCLOAK_SECRET',
+  'accounts-service': 'KEYCLOAK_ACCOUNTS_SECRET',
+}
 
 if (!ADMIN_USER || !ADMIN_PASSWORD) {
   console.error('Thiếu KEYCLOAK_ADMIN hoặc KEYCLOAK_ADMIN_PASSWORD')

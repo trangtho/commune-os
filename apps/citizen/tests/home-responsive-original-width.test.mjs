@@ -15,7 +15,10 @@ test('Homepage retains original centered 1280px layout with a lighter background
   assert.doesNotMatch(css, /\.citizen-home-wide/)
   assert.doesNotMatch(css, /\.citizen-home-workspace\s*\{[^}]*max-width:\s*none/s)
   assert.match(css, /\.citizen-home-workspace \.citizen-sheet\s*\{[^}]*background:\s*transparent/s)
-  assert.match(css, /rgba\(244,247,252,\.82\),rgba\(244,247,252,\.86\)/)
+  const tokens = read('assets/css/shared-tokens.css')
+  assert.match(css, /background-image:\s*var\(--cos-background-image\)/)
+  assert.match(tokens, /--cos-background-wash-start:\s*rgba\(244,247,252,\.82\)/)
+  assert.match(tokens, /--cos-background-wash-end:\s*rgba\(244,247,252,\.86\)/)
   assert.match(css, /url\('\/images\/nen-trong-dong\.webp'\)/)
 })
 

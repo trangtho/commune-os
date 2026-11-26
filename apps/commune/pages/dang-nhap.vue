@@ -59,7 +59,7 @@ async function login() {
 }
 </script>
 <template>
-  <div class="grid min-h-screen lg:grid-cols-2">
+  <div class="grid min-h-[100dvh] lg:grid-cols-2">
     <div
       class="hero-gradient relative hidden items-center justify-center overflow-hidden p-12 text-white lg:flex"
     >
@@ -76,8 +76,8 @@ async function login() {
         </p>
       </div>
     </div>
-    <div class="flex items-center justify-center p-6">
-      <form class="panel w-full max-w-md space-y-5 p-7" @submit.prevent="login">
+    <div class="flex min-w-0 items-center justify-center p-3 sm:p-6">
+      <form class="panel w-full max-w-md space-y-4 p-4 sm:space-y-5 sm:p-7" @submit.prevent="login">
         <div class="mb-6 text-center">
           <span
             class="mx-auto mb-3 grid h-14 w-14 place-items-center rounded-2xl bg-brand-100 text-brand-700"

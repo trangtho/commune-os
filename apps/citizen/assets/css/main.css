@@ -346,10 +346,8 @@ html.citizen-access-contrast .hero-gradient { background: #05336f !important; }
    The floral illustration remains behind a softer translucent #f4f7fc wash;
    only the home cards/sheet are refined for responsiveness. */
 .citizen-app-shell {
-  background-color: #f4f7fc;
-  background-image:
-    linear-gradient(rgba(244,247,252,.82),rgba(244,247,252,.86)),
-    url('/images/nen-trong-dong.webp');
+  background-color: var(--cos-background);
+  background-image: var(--cos-background-image);
   background-size: cover;
   background-position: center bottom;
   background-repeat: no-repeat;

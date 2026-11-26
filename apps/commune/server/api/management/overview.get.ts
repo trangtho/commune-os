@@ -7,7 +7,7 @@ import { coreGet } from '../../utils/core-api'
 import { requireStaff } from '../../utils/session'
 
 export default defineEventHandler(async (event) => {
-  if (requireStaff(event).role !== 'admin') throw createError({ statusCode: 403, statusMessage: 'Chỉ lãnh đạo xã được dùng chức năng này' })
+  if ((await requireStaff(event)).role !== 'admin') throw createError({ statusCode: 403, statusMessage: 'Chỉ lãnh đạo xã được dùng chức năng này' })
   const [profiles, documents, requests, tasks, workload] = await Promise.all([
     coreGet<any[]>(event, '/staff_profiles?order=full_name'),
     coreGet<any[]>(event, '/staff_documents?order=created_at.desc'),

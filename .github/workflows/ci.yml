@@ -61,7 +61,17 @@ jobs:
         run: sh core/tests/wait-ready.sh 900
 
       - name: Tạo dữ liệu mẫu qua API của lõi (xã, lãnh đạo, cán bộ, công dân, hồ sơ)
-        run: make demo
+        run: DEMO_PASSWORD='Demo@2026!' make demo
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Kiểm thử kiến trúc và phiên đăng nhập ba kênh
+        run: |
+          node --experimental-strip-types --test core/tests/architecture.test.mjs
+          node core/tests/portal-smoke.mjs
+          npm --prefix apps/commune test
 
       - name: Kiểm thử qua cổng API (cách ly xã, quy trình, tệp, tài khoản, công dân)
         run: make test

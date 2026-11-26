@@ -3,6 +3,18 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* Match the citizen portal's soft background; retain the existing layout. */
+@media screen {
+  body:has(.admin-sheet) {
+    background-color: var(--cos-background);
+    background-image: var(--cos-background-image);
+    background-size: cover;
+    background-position: center bottom;
+    background-repeat: no-repeat;
+  }
+  body .admin-sheet { background-color: transparent; }
+}
 /* Hình nền trống đồng, hoa sen của dự án; nội dung luôn nằm trên tấm nền đặc để chữ không chìm vào ảnh. */
 body {
   @apply bg-[#f5f5fc] text-slate-900 antialiased font-sans;
@@ -14,3 +26,15 @@ body {
 }
 .admin-sheet { @apply min-h-full rounded-2xl border border-[#e0dff5] bg-[#f5f5fc]/[.97] p-4 sm:p-6 lg:p-8; }
 @media print { body { background: white; } .admin-sheet { border: 0; padding: 0; } }
+
+/* Keep wide tables local to their scroll containers; never widen the whole page. */
+.admin-content { min-width: 0; max-width: 100%; }
+.admin-sheet { min-width: 0; overflow-wrap: anywhere; }
+.admin-sheet :where(.overflow-x-auto) { min-width: 0; max-width: 100%; }
+.admin-sheet :where(table) { overflow-wrap: normal; }
+.admin-app-shell { max-width: 1920px; margin-inline: auto; }
+@media (max-width: 767px) {
+  .admin-app-shell nav { scrollbar-width: thin; }
+  .admin-sheet { padding: clamp(.75rem, 3vw, 1rem); }
+  .admin-sheet :where(input:not([type=checkbox]):not([type=radio]), select, textarea) { max-width: 100%; min-height: 2.5rem; font-size: 1rem; }
+}

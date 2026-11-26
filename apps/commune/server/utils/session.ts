@@ -1,35 +1,20 @@
 // SPDX-FileCopyrightText: 2026 CommuneOS Contributors
 // SPDX-License-Identifier: Apache-2.0
-import { createHmac, timingSafeEqual } from 'node:crypto'
-import { getCookie, setCookie, deleteCookie, createError, type H3Event } from 'h3'
-type Identity={ id:string; tenantId:string; name:string; role:'officer'|'admin'; token:string; exp:number }
-const cookieName = 'communeos_staff_demo'
-function secret(){
-  const value=String(useRuntimeConfig().sessionSecret || 'communeos-demo-secret-key-at-least-32-chars-long')
-  if (value.length < 32) throw createError({statusCode:503, statusMessage:'SESSION_SECRET phải có ít nhất 32 ký tự'})
-  return value
+import { deleteCookie, type H3Event } from 'h3'
+import { claims, portalSession, type PortalTokens } from './portal-session'
+const cookieName = 'communeos_staff_demo' // remove legacy signed, unencrypted token cookie
+const session = portalSession('staff', info => Boolean(info.sub && info.tenant_id && info.realm_access?.roles?.some(r => ['receptionist','officer','leader'].includes(r))))
+export function signSession(event: H3Event, tokens: PortalTokens) {
+  deleteCookie(event, cookieName, {path: '/'})
+  session.save(event, tokens)
 }
-function signature(body:string){return createHmac('sha256',secret()).update(body).digest('base64url')}
-export function signSession(event:H3Event, staff:{id:string;tenantId:string;name:string;role:'officer'|'admin';token:string}) {
-  const body=Buffer.from(JSON.stringify({...staff,exp:Date.now()+12*60*60*1000})).toString('base64url')
-  setCookie(event,cookieName,`${body}.${signature(body)}`,{httpOnly:true,sameSite:'lax',secure:process.env.NODE_ENV==='production',path:'/',maxAge:12*60*60})
+export async function requireStaff(event: H3Event) {
+  const token = await session.token(event)
+  const info = claims(token)
+  return {id: info.sub!, tenantId: info.tenant_id!, name: info.name || info.preferred_username || 'Cán bộ', role: info.realm_access?.roles?.includes('leader') ? 'admin' : 'officer', token}
 }
-export function readSession(event:H3Event):Identity|null {
-  const token=getCookie(event,cookieName)
-  if(!token) return null
-  const [body,mac,...extra]=token.split('.')
-  if(!body||!mac||extra.length) return null
-  const expected=Buffer.from(signature(body)); const got=Buffer.from(mac)
-  if(got.length!==expected.length || !timingSafeEqual(expected,got)) return null
-  try {
-    const data=JSON.parse(Buffer.from(body,'base64url').toString()) as Identity
-    if(!data.id||!data.tenantId||!data.token||data.exp<Date.now()) return null
-    return data
-  } catch {return null}
+export async function readSession(event: H3Event) {
+  try { return await requireStaff(event) } catch (e: any) { if (e?.statusCode === 401) return null; throw e }
 }
-export function requireStaff(event:H3Event):Identity {
-  const actor=readSession(event)
-  if(!actor) throw createError({statusCode:401,statusMessage:'Vui lòng đăng nhập tài khoản cán bộ'})
-  return actor
-}
-export function signOut(event:H3Event){deleteCookie(event,cookieName,{path:'/'})}
+export function signOut(event: H3Event) { session.clear(event); deleteCookie(event, cookieName, {path: '/'}) }
+export async function logoutStaff(event: H3Event) { await session.logout(event); signOut(event) }
