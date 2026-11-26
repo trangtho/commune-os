@@ -11,6 +11,20 @@ Mọi thay đổi đáng chú ý của dự án được ghi tại đây.
 
 ## [Chưa phát hành]
 
+### Thêm (lõi dùng chung cho nhiều gói nghiệp vụ, ví dụ doanh nghiệp, 2026-11-27)
+
+- Ví dụ doanh nghiệp chạy trên cùng lõi ([examples/doanh-nghiep](examples/doanh-nghiep/README.md)): đơn vị
+  "Công ty A", giám đốc, nhân viên tạo qua API tài khoản của lõi; quy trình BPMN duyệt đơn nghỉ phép; dữ liệu trong
+  schema riêng, cách ly đơn vị bằng RLS; ghi sổ ghi nhận. `make example-enterprise` nạp gói và kiểm thử 8 mục qua cổng
+  API; CI chạy bài này.
+- Dịch vụ điều phối quy trình không còn gắn cứng với hồ sơ: mỗi loại đối tượng khai báo sơ đồ BPMN, bảng ảo, hàm đổi
+  trạng thái (`workflow.json` trong thư mục gói, biến `MODULES_DIR`); API `/workflow/<loại>/<mã>/actions`. Hồ sơ thủ
+  tục (`/workflow/dossiers/...`) giữ nguyên cách gọi.
+- Sổ ghi nhận: hàm dùng chung `public.ledger_record` cho mọi gói nghiệp vụ; cách ghi sổ hồ sơ và công thức băm không
+  đổi, chuỗi cũ vẫn hợp lệ.
+- `docs/LOI_DUNG_CHUNG.md`: ánh xạ H-P-D-I, ranh giới giữa lõi dùng chung và gói nghiệp vụ xã, các bước thêm nghiệp
+  vụ mới, giới hạn hiện tại. README giới thiệu CommuneOS là lõi dùng chung, một cửa cấp xã là ứng dụng minh họa.
+
 ### Thay đổi (chuẩn hóa kiến trúc portal, 2026-11-26)
 
 - Màn hình cán bộ gọi API lõi/Workflow qua APISIX thay cho truy vấn PostgreSQL trực tiếp; gỡ `pg` và `@types/pg` khỏi ứng dụng cán bộ.

@@ -9,6 +9,7 @@ Tài liệu của dự án.
 
 | Tệp | Nội dung |
 | --- | --- |
+| [LOI_DUNG_CHUNG.md](LOI_DUNG_CHUNG.md) | Lõi dùng chung và gói nghiệp vụ: ánh xạ H-P-D-I, ranh giới, thêm nghiệp vụ mới |
 | [CITIZEN_SETUP.md](CITIZEN_SETUP.md) | Chạy, kiểm thử và giới hạn của Kênh người dân |
 | [REALTIME_CITIZEN.md](REALTIME_CITIZEN.md) | Cập nhật thời gian thực trên Kênh người dân |
 | [QUAN_LY_NHAN_VIEN.md](QUAN_LY_NHAN_VIEN.md) | Hồ sơ cá nhân cán bộ, giao việc, hai cấp duyệt |

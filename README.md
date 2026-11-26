@@ -5,11 +5,25 @@ SPDX-License-Identifier: Apache-2.0
 
 # CommuneOS
 
-**DX-OS Open-Core cho chính quyền cơ sở.**
+**DX-OS Open-Core cho mọi tổ chức nhiều đơn vị, kèm ứng dụng minh họa: một cửa cấp xã.**
 
-CommuneOS là nền tảng lõi mở headless, đa xã (multi-tenant), giúp một xã tự dựng hệ
-điều hành số của mình: định danh, cổng API, dữ liệu, quy trình và AI chạy
-ngay trên máy chủ của xã, không phụ thuộc nhà cung cấp.
+CommuneOS là lõi mở headless, đa đơn vị (multi-tenant), chạy ngầm phía sau các ứng dụng: định danh, cổng API,
+dữ liệu cách ly theo đơn vị, quy trình BPMN, lưu trữ tệp, sổ ghi nhận và AI chạy ngay trên máy chủ của tổ chức,
+không phụ thuộc nhà cung cấp. Trên lõi này:
+
+- **Ứng dụng minh họa chính:** một cửa cấp xã, gồm Kênh người dân, màn hình cán bộ, bảng quản trị.
+  Mỗi xã là một đơn vị.
+- **Ví dụ doanh nghiệp:** "Công ty A" duyệt đơn nghỉ phép trên cùng lõi, chỉ thêm một thư mục gói nghiệp vụ
+  ([examples/doanh-nghiep](examples/doanh-nghiep/README.md)).
+
+| Trụ cột | Lõi cung cấp |
+| --- | --- |
+| **H** (Con người) | Đăng nhập một lần, tài khoản theo đơn vị và vai trò; hồ sơ cán bộ, giao việc |
+| **P** (Quy trình) | Động cơ BPMN cho mọi loại đối tượng (thủ tục hành chính, đơn nghỉ phép...) |
+| **D** (Dữ liệu) | API dữ liệu cách ly đơn vị bằng RLS, kho tệp, sổ ghi nhận không sửa được, báo cáo điều hành |
+| **I** (Trí tuệ) | Trợ lý AI dùng RAG trên tri thức nội bộ, mô hình chạy cục bộ |
+
+Ranh giới giữa lõi dùng chung và gói nghiệp vụ xã, cách thêm nghiệp vụ mới: [docs/LOI_DUNG_CHUNG.md](docs/LOI_DUNG_CHUNG.md).
 
 Bài dự thi Phần mềm nguồn mở - Olympic Tin học Sinh viên Việt Nam (OLP) 2026,
 chủ đề "Xây dựng Hệ điều hành Chuyển đổi số bằng Công nghệ Lõi nguồn mở
@@ -32,11 +46,15 @@ Giấy phép của các thành phần bên thứ ba được liệt kê trong
 
 | Tầng                  | Thư mục         | Nội dung                                                                          |
 | --------------------- | --------------- | --------------------------------------------------------------------------------- |
-| Tầng 1 - Lõi headless | `core/`         | Cửa ngõ API, định danh, dữ liệu, lưu trữ tệp, quy trình, sổ ghi nhận (không giao diện) |
+| Tầng 1 - Lõi headless | `core/`         | Cửa ngõ API, định danh, dữ liệu, lưu trữ tệp, quy trình, sổ ghi nhận, AI (không giao diện) |
 | Tầng 2 - Ứng dụng     | `apps/commune/` | Ứng dụng xã cho cán bộ, lãnh đạo, cấp trên                                        |
 | Tầng 2 - Ứng dụng     | `apps/citizen/` | Kênh nộp hồ sơ trực tuyến cho người dân                                           |
 | Tầng 2 - Ứng dụng     | `apps/admin/`   | Bảng quản trị hệ thống: xã, thủ tục, sổ ghi nhận                                  |
 | Cấu hình              | `packs/`        | Gói thủ tục: BPMN, biểu mẫu, bảng kiểm giấy tờ, wiki                              |
+| Gói nghiệp vụ khác    | `examples/`     | Ví dụ doanh nghiệp chạy trên cùng lõi: duyệt đơn nghỉ phép                        |
+
+Ba ứng dụng trong `apps/` và phần dữ liệu người dân, thủ tục, hồ sơ trong `core/db/init/` là gói nghiệp vụ xã;
+bảng phân loại từng tệp ở [docs/LOI_DUNG_CHUNG.md](docs/LOI_DUNG_CHUNG.md#ranh-giới-trong-mã-nguồn).
 
 Lõi hoàn toàn không có giao diện: chỉ có dịch vụ và API. Bảng quản trị (`apps/admin`) và
 phần xử lý hồ sơ của màn hình cán bộ (`apps/commune`) gọi lõi qua cửa ngõ API.
@@ -52,7 +70,7 @@ Mỗi xã tự có danh sách thủ tục được mở. Cán bộ và người 
 | `identity`, `identity-setup`      | Keycloak              | Đăng nhập một lần cho cán bộ và công dân; `identity-setup` bổ sung mục mới vào realm đã có  |
 | `gateway`                         | Apache APISIX         | Cửa ngõ API: `/rest`, `/workflow`, `/files`, `/accounts`, `/ai` (kiểm tra token), `/public` (khách), `/docs` (tài liệu API) |
 | `db`, `rest`                      | PostgreSQL, PostgREST | Dữ liệu có cấu trúc, API tự sinh, cách ly xã bằng RLS                                        |
-| `workflow-engine`, `orchestrator` | Flowable, Node.js     | Quy trình xử lý hồ sơ theo sơ đồ BPMN                                                        |
+| `workflow-engine`, `orchestrator` | Flowable, Node.js     | Quy trình theo sơ đồ BPMN cho mọi gói nghiệp vụ (hồ sơ thủ tục, đơn nghỉ phép...)            |
 | `storage`                         | SeaweedFS             | Kho đối tượng chuẩn S3 cho giấy tờ (dữ liệu phi cấu trúc)                                    |
 | `files`                           | Node.js               | Dịch vụ tệp: kiểm tra, lưu, mã băm SHA-256 ([core/files](core/files/README.md))              |
 | `antivirus` (tùy chọn)            | ClamAV                | Quét mã độc tệp tải lên                                                                      |
@@ -86,6 +104,7 @@ make test                 # chạy make demo rồi 54 kiểm tra qua gateway: c�
 make test-citizen         # kiểm thử đơn vị Kênh người dân
 make test-sql             # mọi bài kiểm thử RLS, phân quyền bằng SQL (ROLLBACK)
 make e2e-citizen          # kiểm thử giao diện Kênh người dân bằng Playwright (chạy trong Docker, không cần cài trình duyệt)
+make example-enterprise   # ví dụ doanh nghiệp trên cùng lõi: Công ty A duyệt đơn nghỉ phép qua cổng API
 ```
 
 Sau mỗi lần `git pull`, chạy lại `make up`: lệnh này dừng ngay nếu `.env` thiếu biến bắt buộc mới thêm
@@ -199,6 +218,9 @@ Trang quản trị Keycloak: http://localhost:8080 (tài khoản quản trị l�
 
 - Thêm thủ tục mới: sao `packs/_template/`, sửa `pack.yaml`, nạp ở bảng quản trị → Danh mục thủ tục → Thêm thủ tục,
   rồi mở cho từng xã (Danh sách xã → bấm vào xã → tab Thủ tục). Thủ tục mới chưa mở cho xã nào.
+- Thêm nghiệp vụ mới (gói nghiệp vụ): bảng dữ liệu cách ly theo đơn vị, sơ đồ BPMN, khai báo `workflow.json`,
+  theo mẫu [examples/doanh-nghiep](examples/doanh-nghiep/README.md) và hướng dẫn trong
+  [docs/LOI_DUNG_CHUNG.md](docs/LOI_DUNG_CHUNG.md#thêm-nghiệp-vụ-mới).
 - Xây ứng dụng mới trên lõi: thêm thư mục trong `apps/`, gọi API qua cửa ngõ. Danh sách API, tham số, phản hồi mẫu
   và nút gọi thử nằm ở trang tài liệu http://localhost:9080/docs/ (cổng theo `GATEWAY_PORT`).
 

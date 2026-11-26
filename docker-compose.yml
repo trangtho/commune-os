@@ -286,8 +286,11 @@ services:
       # Việc định kỳ cho Kênh người dân (tắt mặc định): gửi nhắc việc mỗi giờ, quét dữ liệu đến hạn rà soát lưu trữ mỗi ngày.
       CITIZEN_REMINDERS_ENABLED: ${CITIZEN_REMINDERS_ENABLED:-false}
       CITIZEN_RETENTION_SCAN_ENABLED: ${CITIZEN_RETENTION_SCAN_ENABLED:-false}
+      # Gói nghiệp vụ khác ngoài gói xã: mỗi thư mục con có workflow.json và bpmn/ (ví dụ examples/doanh-nghiep).
+      MODULES_DIR: /modules
     volumes:
       - ./core/orchestrator:/app:ro
+      - ./examples:/modules:ro
     depends_on:
       workflow-engine:
         condition: service_healthy

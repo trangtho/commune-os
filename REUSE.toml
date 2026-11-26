@@ -11,6 +11,7 @@ path = [
   "**/package-lock.json",
   "**/tsconfig.json",
   "core/identity/realm/communeos-realm.json",
+  "examples/*/workflow.json",
   "**/.gitignore",
   "**/.dockerignore",
   "**/robots.txt",
