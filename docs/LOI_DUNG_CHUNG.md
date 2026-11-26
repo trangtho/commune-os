@@ -20,7 +20,7 @@ dữ liệu cách ly theo đơn vị, quy trình BPMN, lưu trữ tệp, sổ gh
 | --- | --- | --- | --- |
 | **H** (Con người) | Đăng nhập một lần (Keycloak); đơn vị, lãnh đạo, nhân viên, đổi mật khẩu tạm (dịch vụ `accounts`); vai trò trong token | Cán bộ, lãnh đạo xã, công dân; hồ sơ cán bộ, giao việc, hai cấp duyệt ([QUAN_LY_NHAN_VIEN.md](QUAN_LY_NHAN_VIEN.md)) | Giám đốc (`leader`), nhân viên (`officer`) của Công ty A, tạo qua cùng API |
 | **P** (Quy trình) | Flowable + dịch vụ điều phối: mọi loại đối tượng chạy theo sơ đồ BPMN, chặn gọi thẳng hàm đổi trạng thái ([core/orchestrator](../core/orchestrator/README.md)) | Quy trình xử lý hồ sơ `xu-ly-ho-so`; danh mục thủ tục theo xã, gói thủ tục (`packs/`) | Quy trình `duyet-nghi-phep` |
-| **D** (Dữ liệu) | PostgreSQL + PostgREST, cách ly đơn vị bằng RLS; kho tệp S3 (SeaweedFS) và dịch vụ tệp; sổ ghi nhận hash-chain theo đơn vị (`public.ledger_record`) | Hồ sơ, giấy tờ, báo cáo điều hành (`apps/commune` → Báo cáo), sổ ghi nhận (`apps/admin` → Sổ cái) | Đơn nghỉ phép (schema `nghi_phep`), ghi sổ từng bước duyệt |
+| **D** (Dữ liệu) | PostgreSQL + PostgREST, cách ly đơn vị bằng RLS; kho tệp S3 (SeaweedFS) và dịch vụ tệp; sổ ghi nhận hash-chain theo đơn vị (`public.ledger_record`) | Hồ sơ, giấy tờ, báo cáo điều hành (`apps/commune` → Báo cáo), sổ ghi nhận (`apps/admin` → Kiểm tra hồ sơ đã ký) | Đơn nghỉ phép (schema `nghi_phep`), ghi sổ từng bước duyệt |
 | **I** (Trí tuệ) | AI chạy cục bộ (Ollama), tìm kiếm lai toàn văn + ngữ nghĩa trên kho tri thức nội bộ (RAG), che dữ liệu cá nhân trước khi đưa vào mô hình ([core/ai](../core/ai/README.md)) | Trợ lý thủ tục cho người dân, trợ lý nghiệp vụ cho cán bộ | (chưa dùng) |
 
 ## Ranh giới trong mã nguồn

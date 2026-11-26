@@ -38,6 +38,25 @@ Bài kiểm thử đi đường thật Keycloak → APISIX → dịch vụ đi�
 - giám đốc duyệt qua quy trình; không đồng ý mà thiếu lý do bị chặn; đơn đã kết thúc không xử lý lại được;
 - sổ ghi nhận của lõi ghi đủ các bước, chuỗi băm riêng của Công ty A nguyên vẹn.
 
+## Xem trên giao diện
+
+Ví dụ chưa có ứng dụng riêng; dùng các giao diện sẵn có của lõi và bảng quản trị.
+
+1. **Trang tài liệu API** http://localhost:9080/docs/:
+   - **Authorize** → mục `keycloak`, đăng nhập `nhanvien.cong-ty-a`;
+   - chọn đặc tả **Dữ liệu – PostgREST (/rest)** → `POST /rpc/leave_request_create` → Try it out, gửi
+     `{"from_date":"2026-12-21","to_date":"2026-12-23","reason":"Về quê"}`, chép mã đơn trả về;
+   - `GET /leave_requests`: thấy đơn của mình;
+   - **Logout**, Authorize lại bằng `giamdoc.cong-ty-a`; chọn đặc tả **Dịch vụ lõi** →
+     `POST /workflow/{resource}/{id}/actions` với `resource` = `leave-requests`, `id` = mã đơn,
+     thân `{"action":"approved"}`. Gửi lại lần nữa thì nhận 409;
+   - đăng nhập `canbo.xa-a` rồi `GET /leave_requests`: danh sách rỗng (cách ly đơn vị).
+2. **Bảng quản trị** http://localhost:3001 (tài khoản quản trị trong `.env`):
+   - Danh sách xã: có đơn vị "Công ty A" (`cong-ty-a`), cạnh các xã;
+   - Kiểm tra hồ sơ đã ký (sổ ghi nhận): kiểm tra chuỗi, Công ty A nguyên vẹn; các dòng có mã đơn `NP-...` với bước `submitted`, `approved`.
+3. **Màn hình cán bộ** http://localhost:3002: đăng nhập `giamdoc.cong-ty-a`. Danh sách hồ sơ trống, vì Công ty A không
+   dùng gói nghiệp vụ xã; khu Nhân viên thấy `nhanvien.cong-ty-a`, vì tài khoản là phần dùng chung của lõi.
+
 ## Gọi thử bằng tay
 
 ```bash

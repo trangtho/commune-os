@@ -19,7 +19,7 @@ Mọi thay đổi đáng chú ý của dự án được ghi tại đây.
   API; CI chạy bài này.
 - Dịch vụ điều phối quy trình không còn gắn cứng với hồ sơ: mỗi loại đối tượng khai báo sơ đồ BPMN, bảng ảo, hàm đổi
   trạng thái (`workflow.json` trong thư mục gói, biến `MODULES_DIR`); API `/workflow/<loại>/<mã>/actions`. Hồ sơ thủ
-  tục (`/workflow/dossiers/...`) giữ nguyên cách gọi.
+  tục (`/workflow/dossiers/...`) giữ nguyên cách gọi. Trang tài liệu API mô tả và gọi thử được đường dẫn mới.
 - Sổ ghi nhận: hàm dùng chung `public.ledger_record` cho mọi gói nghiệp vụ; cách ghi sổ hồ sơ và công thức băm không
   đổi, chuỗi cũ vẫn hợp lệ.
 - `docs/LOI_DUNG_CHUNG.md`: ánh xạ H-P-D-I, ranh giới giữa lõi dùng chung và gói nghiệp vụ xã, các bước thêm nghiệp
