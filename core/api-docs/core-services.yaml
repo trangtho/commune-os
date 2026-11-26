@@ -99,6 +99,57 @@ paths:
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
 
+  /workflow/{resource}/{id}/actions:
+    parameters:
+      - name: resource
+        in: path
+        required: true
+        description: |
+          Loại đối tượng do gói nghiệp vụ khai báo trong `workflow.json` (thư mục `examples/`), ví dụ `leave-requests`
+          (đơn nghỉ phép của ví dụ doanh nghiệp). Loại chưa khai báo trả 404.
+        schema: { type: string, pattern: '^[a-z][a-z0-9_-]*$', example: leave-requests }
+      - name: id
+        in: path
+        required: true
+        description: Mã đối tượng, ví dụ mã đơn `NP-20261127-1A2B3C`
+        schema: { type: string, example: NP-20261127-1A2B3C }
+    get:
+      tags: [Quy trình]
+      summary: Bước hiện tại của đối tượng thuộc gói nghiệp vụ khác
+      description: Như với hồ sơ. Đối tượng của đơn vị khác trả 404 (RLS); đã kết thúc trả `actions` rỗng.
+      responses:
+        '200':
+          description: Bước hiện tại
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DossierActions' }
+              example: { id: NP-20261127-1A2B3C, status: submitted, step: Chờ giám đốc duyệt, actions: [approved, rejected] }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+    post:
+      tags: [Quy trình]
+      summary: Thực hiện một bước với đối tượng thuộc gói nghiệp vụ khác
+      description: |
+        `action` phải nằm trong `actions` của GET. Hàm đổi trạng thái của gói kiểm tra vai trò, đơn vị, lý do.
+        Với đơn nghỉ phép: chỉ giám đốc (`leader`) duyệt; không đồng ý (`rejected`) cần `note`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [action]
+              properties:
+                action: { type: string, example: approved }
+                note: { type: string, nullable: true, example: Đồng ý }
+      responses:
+        '200': { description: Đã chuyển bước, content: { application/json: { schema: { type: object } } } }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+
   # ---------------- Tệp ----------------
   /files/dossiers/{id}/documents:
     post:

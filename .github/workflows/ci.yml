@@ -44,7 +44,7 @@ jobs:
         run: |
           docker compose config -q
           for f in core/tests/tenant-isolation.sh core/tests/wait-ready.sh core/identity/check-admin-env.sh \
-                   apps/citizen/e2e/run.sh core/db/init/00-create-app-role.sh core/db/init/02-create-api-roles.sh; do
+                   examples/doanh-nghiep/test.sh apps/citizen/e2e/run.sh core/db/init/00-create-app-role.sh core/db/init/02-create-api-roles.sh; do
             sh -n "$f"
           done
           for f in core/demo/demo.mjs core/accounts/server.mjs core/orchestrator/server.mjs core/files/server.mjs core/ai/server.mjs; do
@@ -77,6 +77,9 @@ jobs:
 
       - name: Kiểm thử qua cổng API (cách ly xã, quy trình, tệp, tài khoản, công dân)
         run: make test
+
+      - name: Ví dụ doanh nghiệp trên cùng lõi (đơn vị Công ty A, quy trình duyệt nghỉ phép)
+        run: make example-enterprise
 
       - name: Kiểm thử SQL (RLS, phân quyền; ROLLBACK)
         run: make test-sql

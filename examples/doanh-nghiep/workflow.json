@@ -1,0 +1,10 @@
+{
+  "name": "leave-requests",
+  "label": "Đơn nghỉ phép",
+  "processKey": "duyet-nghi-phep",
+  "view": "leave_requests",
+  "statusRpc": "set_leave_request_status",
+  "idParam": "request_id",
+  "final": ["approved", "rejected"],
+  "variables": { "tenant": "tenant_code" }
+}

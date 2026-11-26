@@ -45,7 +45,7 @@ seed: .env ## Nạp lại danh mục thủ tục mẫu (idempotent)
 test: demo ## Kiểm thử cách ly xã qua gateway (cần docker compose up; tự chạy make demo trước)
 	sh core/tests/tenant-isolation.sh
 
-.PHONY: test-architecture test-commune portal-smoke workflow-expected-status-test
+.PHONY: test-architecture test-commune portal-smoke workflow-expected-status-test example-enterprise
 
 test-architecture: ## Kiểm thử hợp đồng kiến trúc và mã hóa cookie (Node 22)
 	docker run --rm -v "$(CURDIR)":/w -w /w node:22-alpine node --experimental-strip-types --test core/tests/architecture.test.mjs
@@ -58,6 +58,10 @@ test-commune: ## Kiểm thử đơn vị Kênh cán bộ
 
 portal-smoke: ## Kiểm thử đăng nhập demo ba kênh (Node 22 trên máy chủ, make demo trước)
 	node core/tests/portal-smoke.mjs
+
+example-enterprise: demo ## Ví dụ doanh nghiệp trên cùng lõi: nạp gói đơn nghỉ phép (examples/doanh-nghiep), kiểm thử qua cổng API
+	$(COMPOSE) exec -T db sh -c 'psql -q -v ON_ERROR_STOP=1 -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"' < examples/doanh-nghiep/db/nghi-phep.sql
+	sh examples/doanh-nghiep/test.sh
 
 test-citizen: ## Kiểm thử đơn vị Kênh người dân (chạy trong Node 22 chính thức)
 	docker run --rm -v "$(CURDIR)":/w -w /w/apps/citizen node:22-alpine npm test

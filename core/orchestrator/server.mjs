@@ -3,19 +3,24 @@
 //
 // Dịch vụ điều phối quy trình của lõi (headless, không có giao diện).
 // Đứng giữa cổng APISIX và hai thành phần:
-//   - Flowable: động cơ BPMN, quyết định hồ sơ đang ở bước nào và được đi tiếp tới đâu.
-//   - PostgREST: ghi trạng thái hồ sơ; cơ sở dữ liệu vẫn tự kiểm tra xã và vai trò theo token.
+//   - Flowable: động cơ BPMN, quyết định đối tượng đang ở bước nào và được đi tiếp tới đâu.
+//   - PostgREST: ghi trạng thái; cơ sở dữ liệu vẫn tự kiểm tra đơn vị và vai trò theo token.
+//
+// Dịch vụ không gắn với một nghiệp vụ cụ thể. Mỗi loại đối tượng có quy trình (hồ sơ thủ tục của gói
+// nghiệp vụ xã, đơn nghỉ phép của ví dụ doanh nghiệp...) khai báo: sơ đồ BPMN, bảng ảo để đọc trạng thái,
+// hàm đổi trạng thái. Loại "dossiers" có sẵn; gói nghiệp vụ khác đặt tệp workflow.json và thư mục bpmn/
+// trong MODULES_DIR (xem README).
 //
 // API (gọi qua cổng: /workflow/...):
-//   GET  /dossiers/:id/actions            → bước hiện tại và các bước được phép đi tiếp
-//   POST /dossiers/:id/actions {action, note} → thực hiện một bước
+//   GET  /<loại>/:id/actions               → bước hiện tại và các bước được phép đi tiếp
+//   POST /<loại>/:id/actions {action, note} → thực hiện một bước
 //   GET  /health   (qua cổng: /workflow/health) dịch vụ và động cơ Flowable
 // Việc định kỳ (tùy chọn): gửi nhắc việc, quét dữ liệu đến hạn rà soát lưu trữ của Kênh người dân.
 //
 // Không dùng thư viện ngoài: chỉ Node.js 22 (http, fetch, crypto, fs).
 import { createServer } from 'node:http'
 import { createHash } from 'node:crypto'
-import { readdirSync, readFileSync } from 'node:fs'
+import { existsSync, readdirSync, readFileSync } from 'node:fs'
 import { join } from 'node:path'
 
 const PORT = Number(process.env.PORT || 3000)
@@ -25,11 +30,53 @@ const REST = (process.env.REST_URL || 'http://rest:3000').replace(/\/$/, '')
 const WORKFLOW_TOKEN = process.env.WORKFLOW_TOKEN || ''
 const BPMN_DIR = process.env.BPMN_DIR || '/app/bpmn'
 const PROCESS_KEY = process.env.PROCESS_KEY || 'xu-ly-ho-so'
-const TENANT = 'communeos'           // không gian tên trong Flowable, không phải mã xã
-const FINAL = ['completed', 'rejected']
+const MODULES_DIR = process.env.MODULES_DIR || ''
+const TENANT = 'communeos'           // không gian tên trong Flowable, không phải mã đơn vị
 
 class HttpError extends Error {
   constructor(status, message) { super(message); this.status = status }
+}
+
+// ---------- Các loại đối tượng có quy trình ----------
+// name: đoạn đường dẫn (/workflow/<name>/...); processKey: id của process trong sơ đồ BPMN;
+// view: bảng ảo trong schema api có cột id, status, tenant_code; statusRpc: hàm api.<statusRpc>(<idParam>, status, note)
+// chỉ nhận lời gọi kèm WORKFLOW_TOKEN; final: các trạng thái kết thúc; variables: biến quy trình lấy từ cột của view.
+const RESOURCES = new Map()
+const BPMN_DIRS = [BPMN_DIR]
+const NAME = /^[a-z][a-z0-9_-]{0,62}$/
+
+function register(r, source) {
+  for (const k of ['name', 'processKey', 'view', 'statusRpc', 'idParam']) {
+    if (typeof r[k] !== 'string' || !NAME.test(r[k])) throw new Error(`${source}: "${k}" không hợp lệ`)
+  }
+  if (!Array.isArray(r.final) || !r.final.length || !r.final.every((x) => typeof x === 'string' && NAME.test(x))) {
+    throw new Error(`${source}: "final" phải là danh sách trạng thái kết thúc`)
+  }
+  const variables = r.variables || {}
+  for (const [k, v] of Object.entries(variables)) {
+    if (!NAME.test(k) || typeof v !== 'string' || !NAME.test(v)) throw new Error(`${source}: "variables" không hợp lệ`)
+  }
+  if (RESOURCES.has(r.name)) throw new Error(`${source}: loại "${r.name}" đã được khai báo`)
+  RESOURCES.set(r.name, { label: r.label || 'Đối tượng', ...r, variables })
+}
+
+// Gói nghiệp vụ xã (core/db/init, sơ đồ bpmn/xu-ly-ho-so).
+register({
+  name: 'dossiers', label: 'Hồ sơ', processKey: PROCESS_KEY, view: 'dossiers', statusRpc: 'set_dossier_status',
+  idParam: 'dossier_id', final: ['completed', 'rejected'], variables: { tenant: 'tenant_code', procedure: 'procedure_id' },
+}, 'dossiers')
+
+// Gói nghiệp vụ khác: <MODULES_DIR>/<gói>/workflow.json (một đối tượng hoặc danh sách) và <MODULES_DIR>/<gói>/bpmn/.
+if (MODULES_DIR && existsSync(MODULES_DIR)) {
+  for (const dir of readdirSync(MODULES_DIR, { withFileTypes: true }).filter((d) => d.isDirectory()).map((d) => d.name).sort()) {
+    const file = join(MODULES_DIR, dir, 'workflow.json')
+    if (!existsSync(file)) continue
+    const parsed = JSON.parse(readFileSync(file, 'utf8'))
+    const list = Array.isArray(parsed) ? parsed : [parsed]
+    for (const r of list) register(r, `${dir}/workflow.json`)
+    if (existsSync(join(MODULES_DIR, dir, 'bpmn'))) BPMN_DIRS.push(join(MODULES_DIR, dir, 'bpmn'))
+    console.log(`Gói nghiệp vụ ${dir}: /workflow/${list.map((r) => r.name).join(', /workflow/')}`)
+  }
 }
 
 // ---------- Gọi Flowable ----------
@@ -45,8 +92,8 @@ async function flowable(path, options = {}) {
 
 // Nạp các sơ đồ BPMN trong thư mục vào Flowable; mỗi nội dung chỉ nạp một lần (so theo mã băm).
 async function deployBpmn() {
-  for (const file of readdirSync(BPMN_DIR).filter((f) => f.endsWith('.bpmn20.xml'))) {
-    const content = readFileSync(join(BPMN_DIR, file))
+  for (const [dir, file] of BPMN_DIRS.flatMap((d) => readdirSync(d).filter((f) => f.endsWith('.bpmn20.xml')).map((f) => [d, f]))) {
+    const content = readFileSync(join(dir, file))
     const name = `${file}@${createHash('sha256').update(content).digest('hex').slice(0, 12)}`
     const found = await flowable(`/repository/deployments?name=${encodeURIComponent(name)}&tenantId=${TENANT}`)
     if (found.total > 0) { console.log(`Sơ đồ ${name} đã có`); continue }
@@ -77,8 +124,9 @@ async function allowedByTask(processDefinitionId) {
   return result
 }
 
-async function currentTask(dossierId) {
-  const tasks = await flowable(`/runtime/tasks?processInstanceBusinessKey=${encodeURIComponent(dossierId)}&tenantId=${TENANT}`)
+async function currentTask(resource, id) {
+  const tasks = await flowable(`/runtime/tasks?processInstanceBusinessKey=${encodeURIComponent(id)}` +
+    `&processDefinitionKey=${encodeURIComponent(resource.processKey)}&tenantId=${TENANT}`)
   return tasks.data[0] || null
 }
 
@@ -89,29 +137,29 @@ async function completeTask(taskId, action, actor) {
   })
 }
 
-// Bảo đảm hồ sơ có một phiên quy trình và phiên đó khớp trạng thái trong cơ sở dữ liệu.
-// Trả về { task, allowed } hoặc { task: null, allowed: [] } khi hồ sơ đã kết thúc.
-async function syncInstance(dossier, actor) {
-  if (FINAL.includes(dossier.status)) return { task: null, allowed: [] }
-  let task = await currentTask(dossier.id)
+// Bảo đảm đối tượng có một phiên quy trình và phiên đó khớp trạng thái trong cơ sở dữ liệu.
+// Trả về { task, allowed } hoặc { task: null, allowed: [] } khi đã kết thúc.
+async function syncInstance(resource, dossier, actor) {
+  if (resource.final.includes(dossier.status)) return { task: null, allowed: [] }
+  let task = await currentTask(resource, dossier.id)
   if (!task) {
     await flowable('/runtime/process-instances', {
       method: 'POST',
       body: JSON.stringify({
-        processDefinitionKey: PROCESS_KEY, tenantId: TENANT, businessKey: dossier.id,
-        variables: [{ name: 'tenant', value: dossier.tenant_code }, { name: 'procedure', value: dossier.procedure_id }],
+        processDefinitionKey: resource.processKey, tenantId: TENANT, businessKey: dossier.id,
+        variables: Object.entries(resource.variables).map(([name, col]) => ({ name, value: dossier[col] ?? null })),
       }),
     })
-    task = await currentTask(dossier.id)
+    task = await currentTask(resource, dossier.id)
   }
   let allowed = (await allowedByTask(task.processDefinitionId))[task.taskDefinitionKey] || []
-  // Hồ sơ cũ, hoặc Kênh người dân vừa bổ sung xong: đưa động cơ tới đúng bước của cơ sở dữ liệu.
+  // Dữ liệu cũ, hoặc kênh khác vừa đổi trạng thái (người dân bổ sung xong): đưa động cơ tới đúng bước của cơ sở dữ liệu.
   if (task.taskDefinitionKey !== dossier.status) {
     if (!allowed.includes(dossier.status)) {
-      throw new HttpError(409, `Quy trình (${task.taskDefinitionKey}) và trạng thái hồ sơ (${dossier.status}) không khớp`)
+      throw new HttpError(409, `Quy trình (${task.taskDefinitionKey}) và trạng thái (${dossier.status}) không khớp`)
     }
     await completeTask(task.id, dossier.status, actor)
-    task = await currentTask(dossier.id)
+    task = await currentTask(resource, dossier.id)
     allowed = (await allowedByTask(task.processDefinitionId))[task.taskDefinitionKey] || []
   }
   return { task, allowed }
@@ -128,9 +176,10 @@ async function rest(path, auth, options = {}) {
   return body
 }
 
-async function loadDossier(id, auth) {
-  const rows = await rest(`/dossiers?id=eq.${encodeURIComponent(id)}&select=id,status,tenant_code,procedure_id`, auth)
-  if (!rows[0]) throw new HttpError(404, 'Hồ sơ không tồn tại')   // xã khác cũng ra đây nhờ RLS
+async function loadItem(resource, id, auth) {
+  const cols = [...new Set(['id', 'status', 'tenant_code', ...Object.values(resource.variables)])].join(',')
+  const rows = await rest(`/${resource.view}?id=eq.${encodeURIComponent(id)}&select=${cols}`, auth)
+  if (!rows[0]) throw new HttpError(404, `${resource.label} không tồn tại`)   // đơn vị khác cũng ra đây nhờ RLS
   return rows[0]
 }
 
@@ -155,14 +204,15 @@ async function handle(req) {
     return { status: 'ok', flowable: { ok: true, ms: Date.now() - t } }
   }
 
-  const match = /^\/dossiers\/([^/]+)\/actions$/.exec(url.pathname)
-  if (!match) throw new HttpError(404, 'Không có đường dẫn này')
+  const match = /^\/([a-z][a-z0-9_-]*)\/([^/]+)\/actions$/.exec(url.pathname)
+  const resource = match && RESOURCES.get(match[1])
+  if (!resource) throw new HttpError(404, 'Không có đường dẫn này')
   const auth = req.headers.authorization
   if (!auth?.startsWith('Bearer ')) throw new HttpError(401, 'Thiếu token')
-  const id = decodeURIComponent(match[1])
+  const id = decodeURIComponent(match[2])
   const actor = actorName(auth)
-  const dossier = await loadDossier(id, auth)
-  const { task, allowed } = await syncInstance(dossier, actor)
+  const dossier = await loadItem(resource, id, auth)
+  const { task, allowed } = await syncInstance(resource, dossier, actor)
 
   if (req.method === 'GET') {
     return { id, status: dossier.status, step: task?.name || null, actions: allowed }
@@ -175,17 +225,17 @@ async function handle(req) {
   try { input = JSON.parse(body || '{}') } catch { throw new HttpError(400, 'Nội dung gửi lên không phải JSON hợp lệ') }
   const { action, note, expectedStatus } = input
   if (expectedStatus !== undefined && expectedStatus !== dossier.status) {
-    throw new HttpError(409, 'Trạng thái hồ sơ đã thay đổi; vui lòng tải lại')
+    throw new HttpError(409, `Trạng thái ${resource.label.toLowerCase()} đã thay đổi; vui lòng tải lại`)
   }
-  if (!task) throw new HttpError(409, 'Hồ sơ đã kết thúc, không xử lý tiếp được')
+  if (!task) throw new HttpError(409, `${resource.label} đã kết thúc, không xử lý tiếp được`)
   if (!allowed.includes(action)) {
     throw new HttpError(409, `Ở bước "${task.name}" không được chuyển sang "${action}". Được phép: ${allowed.join(', ')}`)
   }
   // Ghi cơ sở dữ liệu trước (nó còn kiểm tra xã, vai trò, lý do); thành công mới cho quy trình đi tiếp.
-  const result = await rest('/rpc/set_dossier_status', auth, {
+  const result = await rest(`/rpc/${resource.statusRpc}`, auth, {
     method: 'POST',
     headers: { 'X-Workflow-Token': WORKFLOW_TOKEN, 'X-Workflow-Expected-Status': dossier.status },
-    body: JSON.stringify({ dossier_id: id, status: action, note: note || null }),
+    body: JSON.stringify({ [resource.idParam]: id, status: action, note: note || null }),
   })
   await completeTask(task.id, action, actor)
   return result

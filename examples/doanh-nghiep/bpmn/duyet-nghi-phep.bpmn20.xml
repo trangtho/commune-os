@@ -1,0 +1,26 @@
+<!--
+SPDX-FileCopyrightText: 2026 CommuneOS Contributors
+SPDX-License-Identifier: Apache-2.0
+
+Ví dụ doanh nghiệp: duyệt đơn nghỉ phép của nhân viên.
+Cùng cách viết với quy trình hồ sơ của gói nghiệp vụ xã: mỗi userTask có id trùng trạng thái của đơn,
+nhánh đi tiếp chọn theo biến "action". Thêm bước (ví dụ trưởng phòng duyệt trước giám đốc) chỉ cần sửa sơ đồ này
+và hàm đổi trạng thái trong db/nghi-phep.sql, không sửa mã của lõi.
+ -->
+<definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:flowable="http://flowable.org/bpmn" targetNamespace="https://github.com/trangtho/commune-os">
+<process id="duyet-nghi-phep" name="Duyệt đơn nghỉ phép" isExecutable="true">
+<startEvent id="nop-don" name="Nhân viên nộp đơn"/>
+<sequenceFlow id="f0" sourceRef="nop-don" targetRef="submitted"/>
+<userTask id="submitted" name="Chờ giám đốc duyệt" flowable:candidateGroups="leader"/>
+<sequenceFlow id="f1" sourceRef="submitted" targetRef="ket-qua-duyet"/>
+<exclusiveGateway id="ket-qua-duyet" name="Kết quả duyệt"/>
+<sequenceFlow id="f2" sourceRef="ket-qua-duyet" targetRef="approved">
+<conditionExpression>${action == 'approved'}</conditionExpression>
+</sequenceFlow>
+<sequenceFlow id="f3" sourceRef="ket-qua-duyet" targetRef="rejected">
+<conditionExpression>${action == 'rejected'}</conditionExpression>
+</sequenceFlow>
+<endEvent id="approved" name="Đồng ý cho nghỉ"/>
+<endEvent id="rejected" name="Không đồng ý"/>
+</process>
+</definitions>
