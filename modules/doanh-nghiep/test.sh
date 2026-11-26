@@ -4,7 +4,7 @@
 #
 # Ví dụ doanh nghiệp trên cùng lõi: "Công ty A" duyệt đơn nghỉ phép.
 # Mọi bước đi đường thật Keycloak → APISIX → (orchestrator → Flowable) → PostgREST → PostgreSQL, như gói nghiệp vụ xã.
-# Cần: make up, make demo (dùng cán bộ xã A để kiểm tra cách ly), curl, python3; chạy qua make example-enterprise.
+# Cần: make up, curl, python3; chạy qua make example-enterprise. Có gói xã và make demo thì kiểm tra thêm cách ly với xã A.
 # Lần đầu tạo đơn vị cong-ty-a, giám đốc giamdoc.cong-ty-a, nhân viên nhanvien.cong-ty-a qua API của lõi
 # (mật khẩu DEMO_PASSWORD, mặc định Demo@2026!); các lần sau dùng lại.
 set -u
@@ -90,18 +90,23 @@ code=$(code_of "$(call POST "$LG" /rest/rpc/set_leave_request_status "{\"request
 [ "$code" = "403" ] && ok "Không bỏ qua được động cơ quy trình: gọi thẳng hàm đổi trạng thái bị chặn (403)" ||
   fail "Gọi thẳng set_leave_request_status phải 403, nhận $code"
 
-# 4. Cách ly giữa các đơn vị: cán bộ xã A (gói nghiệp vụ xã) không thấy đơn của Công ty A, và ngược lại.
+# 4. Cách ly giữa các đơn vị: cán bộ xã A (gói xã, cần make demo) không thấy đơn của Công ty A, và ngược lại.
+#    Bản cài không có gói xã (hoặc chưa make demo) thì bỏ qua.
 TA=$(token canbo.xa-a "$PASS")
-n=$(call GET "$TA" "/rest/leave_requests?id=eq.$ID" | cut -f2- | python3 -c 'import json,sys
+if [ -z "$TA" ]; then
+  echo "  BỎ QUA  Cách ly với xã A (không có tài khoản canbo.xa-a: chưa cài gói xã hoặc chưa make demo)"
+else
+  n=$(call GET "$TA" "/rest/leave_requests?id=eq.$ID" | cut -f2- | python3 -c 'import json,sys
 try: print(len(json.load(sys.stdin)))
 except Exception: print(-1)')
-code=$(code_of "$(call GET "$TA" "/workflow/leave-requests/$ID/actions")")
-nd=$(call GET "$LG" "/rest/dossiers?select=id" | cut -f2- | python3 -c 'import json,sys
+  code=$(code_of "$(call GET "$TA" "/workflow/leave-requests/$ID/actions")")
+  nd=$(call GET "$LG" "/rest/dossiers?select=id" | cut -f2- | python3 -c 'import json,sys
 try: print(len(json.load(sys.stdin)))
 except Exception: print(-1)')
-[ -n "$TA" ] && [ "$n" = "0" ] && [ "$code" = "404" ] && [ "$nd" = "0" ] &&
-  ok "Xã A không thấy đơn của Công ty A (rỗng, quy trình 404); Công ty A không thấy hồ sơ của xã nào" ||
-  fail "Cách ly đơn vị: xã A thấy $n đơn, quy trình trả $code; Công ty A thấy $nd hồ sơ (cần make demo)"
+  [ "$n" = "0" ] && [ "$code" = "404" ] && [ "$nd" = "0" ] &&
+    ok "Xã A không thấy đơn của Công ty A (rỗng, quy trình 404); Công ty A không thấy hồ sơ của xã nào" ||
+    fail "Cách ly đơn vị: xã A thấy $n đơn, quy trình trả $code; Công ty A thấy $nd hồ sơ"
+fi
 
 # 5. Giám đốc duyệt qua quy trình; kết thúc rồi không xử lý tiếp được.
 code=$(code_of "$(call POST "$LG" "/workflow/leave-requests/$ID/actions" '{"action":"rejected"}')")

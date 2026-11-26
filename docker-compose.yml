@@ -118,7 +118,7 @@ services:
           "CMD",
           "bash",
           "-c",
-          "exec 3<>/dev/tcp/127.0.0.1/9080 && printf 'GET /public/rpc/public_registration_tenants HTTP/1.1\\r\\nHost: localhost\\r\\nConnection: close\\r\\n\\r\\n' >&3 && head -1 <&3 | grep -q ' 200 '",
+          "exec 3<>/dev/tcp/127.0.0.1/9080 && printf 'GET /public/rpc/public_platform HTTP/1.1\\r\\nHost: localhost\\r\\nConnection: close\\r\\n\\r\\n' >&3 && head -1 <&3 | grep -q ' 200 '",
         ]
       interval: 10s
       timeout: 5s
@@ -148,9 +148,10 @@ services:
       POSTGRES_APP_PASSWORD: ${POSTGRES_APP_PASSWORD}
       POSTGRES_REST_PASSWORD: ${POSTGRES_REST_PASSWORD}
       WORKFLOW_TOKEN: ${WORKFLOW_TOKEN}
+      COMMUNEOS_MODULES: ${COMMUNEOS_MODULES:-xa,doanh-nghiep}
     volumes:
-      - ./core/db/init:/setup/init:ro
-      - ./core/db/seed:/setup/seed:ro
+      - ./core/db:/setup/core:ro
+      - ./modules:/setup/modules:ro
     entrypoint: ["/bin/sh", "-eu", "-c"]
     command:
       - |
@@ -163,53 +164,8 @@ services:
         if ! psql -v ON_ERROR_STOP=1 -d postgres -tAc "SELECT 1 FROM pg_database WHERE datname = 'flowable'" | grep -qx 1; then
           psql -v ON_ERROR_STOP=1 -d postgres -c "CREATE DATABASE flowable"
         fi
-        sh /setup/init/00-create-app-role.sh
-        psql -v ON_ERROR_STOP=1 -f /setup/init/01-schema.sql
-        sh /setup/init/02-create-api-roles.sh
-        psql -v ON_ERROR_STOP=1 -f /setup/init/03-api.sql
-        psql -v ON_ERROR_STOP=1 -f /setup/seed/seed.sql
-        psql -v ON_ERROR_STOP=1 -f /setup/init/02-ai-knowledge.sql
-        psql -v ON_ERROR_STOP=1 -f /setup/init/03-citizen-chat-history.sql
-        psql -v ON_ERROR_STOP=1 -f /setup/init/04-citizen-personalization.sql
-        psql -v ON_ERROR_STOP=1 -f /setup/init/05-citizen-representation-counter.sql
-        psql -v ON_ERROR_STOP=1 -f /setup/init/06-citizen-assistance-family-consultation.sql
-        psql -v ON_ERROR_STOP=1 -f /setup/init/07-citizen-handoff-support.sql
-        psql -v ON_ERROR_STOP=1 -f /setup/init/08-api-can-bo.sql
-        psql -v ON_ERROR_STOP=1 -f /setup/init/09-api-xu-ly-ho-so.sql
-        psql -v ON_ERROR_STOP=1 -f /setup/init/10-ledger.sql
-        psql -v ON_ERROR_STOP=1 -f /setup/init/11-citizen-guidance-batches.sql
-        psql -v ON_ERROR_STOP=1 -f /setup/init/11-workflow.sql
-        psql -v ON_ERROR_STOP=1 -f /setup/init/12-citizen-case-review-counter.sql
-        psql -v ON_ERROR_STOP=1 -f /setup/init/13-citizen-case-actions-delivery-routing.sql
-        sh /setup/init/12-workflow-secret.sh
-        psql -v ON_ERROR_STOP=1 -f /setup/init/13-thu-tuc-theo-xa.sql
-        psql -v ON_ERROR_STOP=1 -f /setup/init/14-luu-tru-tep.sql
-        psql -v ON_ERROR_STOP=1 -f /setup/init/15-citizen-vault-autofill.sql
-        psql -v ON_ERROR_STOP=1 -f /setup/init/16-citizen-procedure-privacy.sql
-        psql -v ON_ERROR_STOP=1 -f /setup/init/17-citizen-intelligent-services.sql
-        psql -v ON_ERROR_STOP=1 -f /setup/init/18-citizen-life-journeys.sql
-        psql -v ON_ERROR_STOP=1 -f /setup/init/16-nhat-ky-can-bo.sql
-        psql -v ON_ERROR_STOP=1 -f /setup/init/17-nhan-vien.sql
-        psql -v ON_ERROR_STOP=1 -f /setup/init/19-citizen-rest-api.sql
-        psql -v ON_ERROR_STOP=1 -f /setup/init/20-citizen-procedure-lock.sql
-        psql -v ON_ERROR_STOP=1 -f /setup/init/21-citizen-api-core-flow.sql
-        psql -v ON_ERROR_STOP=1 -f /setup/init/22-ai-knowledge-vectors.sql
-        psql -v ON_ERROR_STOP=1 -f /setup/init/23-staff-notifications.sql
-        psql -v ON_ERROR_STOP=1 -f /setup/init/24-staff-guide.sql
-        psql -v ON_ERROR_STOP=1 -f /setup/init/26-citizen-staff-api.sql
-        psql -v ON_ERROR_STOP=1 -f /setup/init/27-citizen-api-vault.sql
-        psql -v ON_ERROR_STOP=1 -f /setup/init/28-citizen-api-case.sql
-        psql -v ON_ERROR_STOP=1 -f /setup/init/29-citizen-api-representation.sql
-        psql -v ON_ERROR_STOP=1 -f /setup/init/30-citizen-api-appointment.sql
-        psql -v ON_ERROR_STOP=1 -f /setup/init/31-citizen-api-support.sql
-        psql -v ON_ERROR_STOP=1 -f /setup/init/32-citizen-api-personal.sql
-        psql -v ON_ERROR_STOP=1 -f /setup/init/33-citizen-api-public.sql
-        psql -v ON_ERROR_STOP=1 -f /setup/init/34-citizen-direct-access.sql
-        psql -v ON_ERROR_STOP=1 -f /setup/init/35-account-onboarding.sql
-        psql -v ON_ERROR_STOP=1 -f /setup/init/36-workflow-expected-status.sql
-        # Mô tả API chạy sau cùng (sau mọi tệp tạo hàm, bảng ảo).
-        psql -v ON_ERROR_STOP=1 -f /setup/init/25-api-comments.sql
-        psql -v ON_ERROR_STOP=1 -c "SELECT count(*) AS published_procedures FROM procedures WHERE published = true"
+        # Lõi trước, rồi từng gói nghiệp vụ trong COMMUNEOS_MODULES (modules/<gói>/module.json), xem core/db/migrate.sh.
+        sh /setup/core/migrate.sh
         echo 'PostgreSQL setup finished successfully.'
 
     # Lấy khóa công khai của Keycloak cho PostgREST (chạy 1 lần rồi dừng).
@@ -233,13 +189,13 @@ services:
       PGRST_DB_SCHEMAS: api
       PGRST_JWT_SECRET: "@/keys/jwks.json"
       PGRST_JWT_ROLE_CLAIM_KEY: ".azp"
-      # Đặt biến RLS của công dân từ token (core/db/init/19-citizen-rest-api.sql).
+      # Hàm của lõi gọi các móc của gói đầu mỗi yêu cầu (core/db/init/07-goi-nghiep-vu.sql); gói xã đặt biến RLS công dân.
       PGRST_DB_PRE_REQUEST: public.rest_pre_request
-      # Khách chưa đăng nhập: chỉ gọi được hàm cấp cho web_anon (danh mục thủ tục), qua cổng /public/rpc.
+      # Khách chưa đăng nhập: chỉ gọi được hàm cấp cho web_anon, qua cổng /public/rpc.
       PGRST_DB_ANON_ROLE: web_anon
       PGRST_SERVER_PORT: "3000"
       # Tài liệu OpenAPI tự sinh (GET /): liệt kê mọi hàm, bảng ảo của schema api (cấu trúc, không có dữ liệu),
-      # kèm mô tả trong core/db/init/25-api-comments.sql; nút "Try it out" gọi qua cổng /rest.
+      # kèm mô tả trong core/db/init/90-mo-ta-api.sql và tệp mô tả của từng gói; nút "Try it out" gọi qua cổng /rest.
       PGRST_OPENAPI_MODE: ignore-privileges
       PGRST_OPENAPI_SECURITY_ACTIVE: "true"
       PGRST_OPENAPI_SERVER_PROXY_URI: http://localhost:${GATEWAY_PORT}/rest
@@ -286,11 +242,12 @@ services:
       # Việc định kỳ cho Kênh người dân (tắt mặc định): gửi nhắc việc mỗi giờ, quét dữ liệu đến hạn rà soát lưu trữ mỗi ngày.
       CITIZEN_REMINDERS_ENABLED: ${CITIZEN_REMINDERS_ENABLED:-false}
       CITIZEN_RETENTION_SCAN_ENABLED: ${CITIZEN_RETENTION_SCAN_ENABLED:-false}
-      # Gói nghiệp vụ khác ngoài gói xã: mỗi thư mục con có workflow.json và bpmn/ (ví dụ examples/doanh-nghiep).
+      # Gói nghiệp vụ (cùng danh sách với db-setup): quy trình, sơ đồ BPMN, việc định kỳ khai báo trong module.json.
+      COMMUNEOS_MODULES: ${COMMUNEOS_MODULES:-xa,doanh-nghiep}
       MODULES_DIR: /modules
     volumes:
       - ./core/orchestrator:/app:ro
-      - ./examples:/modules:ro
+      - ./modules:/modules:ro
     depends_on:
       workflow-engine:
         condition: service_healthy

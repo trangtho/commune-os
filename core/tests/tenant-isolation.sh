@@ -202,7 +202,7 @@ nosecret=$(curl -s -X POST "$KC/realms/communeos/protocol/openid-connect/token" 
   -d username=congdan.demo --data-urlencode password="$CITIZEN_PASS" | python3 -c 'import json,sys; print(json.load(sys.stdin).get("access_token",""))')
 [ -z "$nosecret" ] && ok "Không có client secret thì không xin được token công dân" || fail "Xin được token công dân mà không cần client secret"
 
-# Khởi tạo tài khoản theo vai trò (core/db/init/35-account-onboarding.sql, dịch vụ accounts):
+# Khởi tạo tài khoản theo vai trò (modules/xa/db/35-account-onboarding.sql, dịch vụ accounts):
 # quản trị hệ thống tạo xã kèm lãnh đạo; lãnh đạo mới phải đổi mật khẩu tạm; người dân tự đăng ký.
 QT=$(token "$ADMIN_USER" "$ADMIN_PASS")
 [ -n "$QT" ] && ok "Quản trị hệ thống đăng nhập bằng tài khoản trong .env" || fail "Quản trị $ADMIN_USER không đăng nhập được bằng mật khẩu trong .env"
@@ -289,7 +289,7 @@ code=$(rpc "$CB" citizen_application_submit "{\"p_application_id\":\"$APP_A\",\"
 code=$(rpc "$TA" citizen_applications '{}')
 [ "$code" = "403" ] && ok "Token cán bộ không gọi được API của công dân (403)" || fail "Cán bộ gọi API công dân phải 403, nhận $code"
 
-# Phần việc cán bộ phát sinh từ Kênh người dân (core/db/init/26-citizen-staff-api.sql): xã, vai trò lấy từ token.
+# Phần việc cán bộ phát sinh từ Kênh người dân (modules/xa/db/26-citizen-staff-api.sql): xã, vai trò lấy từ token.
 c1=$(rpc "$TA" citizen_support_tickets '{}'); c2=$(rpc "$CA" citizen_support_tickets '{}')
 c3=$(rpc "$TA" citizen_privacy_requests '{}'); c4=$(rpc "$LA" citizen_privacy_requests '{}')
 c5=$(rpc "$LA" publish_procedure_version '{"p_data":{}}')

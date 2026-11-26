@@ -12,8 +12,8 @@ Giao diện dùng Nuxt 3 + Vue 3 + TypeScript + Tailwind CSS 3 và dựa trên m
 UI: header trắng, banner UBND nền xanh, quy trình từng bước, danh mục thủ tục
 bên trái, nội dung chính theo thẻ bo góc, khu vực hỗ trợ bên phải.
 
-Nguồn dữ liệu: PostgreSQL 17, `core/db/init/01-schema.sql`, danh mục `core/db/seed/seed.sql` và dữ liệu mẫu
-`make demo` (`core/demo`). **Toàn bộ dữ liệu mẫu là giả lập**. Không lưu số
+Nguồn dữ liệu: PostgreSQL 17, `modules/xa/db/01-schema.sql`, danh mục `modules/xa/db/seed.sql` và dữ liệu mẫu
+`make demo` (`modules/xa/demo`). **Toàn bộ dữ liệu mẫu là giả lập**. Không lưu số
 định danh hoặc ảnh giấy tờ thật trong kho mã hay môi trường demo.
 
 ## 2. Chạy trên Ubuntu
@@ -48,13 +48,13 @@ khi đã sao lưu hoặc không còn cần dữ liệu.
 Kênh người dân không đọc ghi dữ liệu trực tiếp: mọi thao tác gọi hàm `api.*` của lõi qua cổng APISIX bằng token
 công dân; PostgREST chuyển sang vai trò `citizen-app`, `rest_pre_request()` đặt `app.citizen_id`, `app.tenant_id`
 từ token để áp RLS. Role `communeos_app` (không superuser) chỉ còn dùng để nhận tín hiệu thay đổi (LISTEN) cho
-thông báo thời gian thực và đã bị thu hồi mọi quyền trên bảng, hàm (`core/db/init/34-citizen-direct-access.sql`).
+thông báo thời gian thực và đã bị thu hồi mọi quyền trên bảng, hàm (`modules/xa/db/34-citizen-direct-access.sql`).
 Đăng nhập: máy chủ Công dân gửi tên đăng nhập và mật khẩu tới Keycloak (client bí mật `citizen-app`), đọc
 hồ sơ công dân qua cổng APISIX (`/rest/my_citizen_profile`), rồi tạo cookie phiên ký HMAC. Token
 Keycloak giữ trong cookie HttpOnly mã hóa AES-256-GCM, tự gia hạn; trình duyệt không đọc được.
 Mọi chức năng gọi các hàm `api.*` của lõi qua cổng APISIX (`/rest/rpc/...`; khách chưa đăng nhập dùng
 `/public/rpc/procedure_catalog`, `procedure_detail` và các hàm `public_*` được liệt kê trong `core/gateway/apisix.yaml`);
-xem `core/db/init/21-citizen-api-core-flow.sql` và `26-*.sql` đến `34-*.sql`. Danh sách đầy đủ ở trang `/docs/`.
+xem `modules/xa/db/21-citizen-api-core-flow.sql` và `26-*.sql` đến `34-*.sql`. Danh sách đầy đủ ở trang `/docs/`.
 
 ### Sửa lỗi "Không tải được thủ tục từ PostgreSQL" (không mất dữ liệu)
 
@@ -105,7 +105,7 @@ phát triển (sao lưu trước):
 ```bash
 # Vai trò app phải tồn tại trước khi chạy schema:
 docker compose exec -T db sh -c 'psql -v ON_ERROR_STOP=1 -U "$POSTGRES_USER" -d "$POSTGRES_DB"' \
-  < core/db/init/01-schema.sql
+  < modules/xa/db/01-schema.sql
 make seed
 ```
 

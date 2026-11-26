@@ -4,7 +4,7 @@
 -- Công dân gọi API dữ liệu qua cổng APISIX (/rest) bằng token Keycloak của client "citizen-app".
 --   Keycloak → token (azp = citizen-app, vai trò citizen, citizen_id, citizen_tenant)
 --   → PostgREST chuyển sang vai trò "citizen-app"
---   → rest_pre_request() đặt app.citizen_id, app.tenant_id
+--   → rest_pre_request() của lõi gọi xa_pre_request() (móc của gói xã), đặt app.citizen_id, app.tenant_id
 --   → các chính sách RLS sẵn có của bảng công dân áp dụng như khi Kênh người dân nối trực tiếp.
 -- Chạy lại nhiều lần được.
 
@@ -22,11 +22,12 @@ END $$;
 GRANT USAGE ON SCHEMA api TO "citizen-app";
 
 -- ===== 2. Ánh xạ token công dân sang biến RLS =====
--- PostgREST gọi hàm này đầu mỗi yêu cầu (PGRST_DB_PRE_REQUEST), sau khi đã kiểm chữ ký token.
+-- Lõi gọi hàm này đầu mỗi yêu cầu PostgREST (móc ghi danh qua public.register_request_hook, xem
+-- core/db/init/07-goi-nghiep-vu.sql), sau khi đã kiểm chữ ký token.
 -- Chỉ token của client citizen-app có vai trò citizen mới được đặt biến; citizen_id phải trùng
 -- một công dân thật thuộc đúng xã ghi trong token. Sai bất kỳ điều kiện nào: không đặt gì,
 -- RLS không trả dòng nào. Token cán bộ (commune-app) đi qua mà không bị ảnh hưởng.
-CREATE OR REPLACE FUNCTION public.rest_pre_request() RETURNS void
+CREATE OR REPLACE FUNCTION public.xa_pre_request() RETURNS void
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE
   c        jsonb := public.jwt_claims();
@@ -52,7 +53,8 @@ BEGIN
           set_config('app.tenant_id', v_tenant::text, true);
 END $$;
 
-REVOKE ALL ON FUNCTION public.rest_pre_request() FROM PUBLIC;
+REVOKE ALL ON FUNCTION public.xa_pre_request() FROM PUBLIC;
+DO $$ BEGIN PERFORM public.register_request_hook('xa', 'public.xa_pre_request'); END $$;
 GRANT EXECUTE ON FUNCTION public.rest_pre_request() TO "commune-app", "citizen-app";
 
 -- ===== 3. API cho công dân =====

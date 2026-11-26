@@ -6,12 +6,12 @@ import { readFileSync } from 'node:fs'
 const root = new URL('../../../', import.meta.url)
 const read = (path) => readFileSync(new URL(path, root), 'utf8')
 // Thao tác dữ liệu của trang chi tiết hồ sơ là API của lõi (gọi qua cổng bằng token công dân).
-const caseApi=read('core/db/init/28-citizen-api-case.sql')
+const caseApi=read('modules/xa/db/28-citizen-api-case.sql')
 const fn=name=>caseApi.slice(caseApi.indexOf(`FUNCTION api.${name}(`)).split('END $$;')[0]
 test('Deadline notices are based on persisted due dates and de-duplicated', () => {
  assert.match(read('apps/citizen/server/api/applications/[id]/deadline.get.ts'),/'citizen_case_deadline'/)
  const code=fn('citizen_case_deadline')
- const sql=read('core/db/init/13-citizen-case-actions-delivery-routing.sql')
+ const sql=read('modules/xa/db/13-citizen-case-actions-delivery-routing.sql')
  assert.match(code,/due_at - CURRENT_DATE/)
  assert.match(code,/ON CONFLICT \(application_id, alert_level\) DO NOTHING/)
  assert.match(code,/citizen_case_stage_updates/)
@@ -19,7 +19,7 @@ test('Deadline notices are based on persisted due dates and de-duplicated', () =
  assert.match(sql,/UNIQUE\(application_id,alert_level\)/)
 })
 test('A citizen cannot directly approve, withdraw, transfer or modify staff-only result policies', () => {
- const sql=read('core/db/init/13-citizen-case-actions-delivery-routing.sql')
+ const sql=read('modules/xa/db/13-citizen-case-actions-delivery-routing.sql')
  assert.match(sql,/citizen_case_requests_owner_insert/)
  assert.match(sql,/GRANT INSERT\(application_id,citizen_id,tenant_id,request_kind,reason,proposed_tenant_id\)/)
  assert.match(sql,/citizen_staff_decide_case_request/)
@@ -37,14 +37,14 @@ test('Re-apply creates a new draft without copying sensitive documents', () => {
  assert.match(caseApi,/o\.status NOT IN \('rejected', 'completed', 'withdrawn'\)/)
  // Bản nháp mới tạo bằng api.citizen_application_create: kiểm tra người kê khai, quyền đại diện, ghim phiên bản thủ tục.
  assert.match(fn('citizen_application_reapply'),/api\.citizen_application_create\(/)
- assert.match(read('core/db/init/21-citizen-api-core-flow.sql'),/PERFORM public\.citizen_check_applicant\(p_representation_id, p_procedure_id, p_applicant_name\)/)
+ assert.match(read('modules/xa/db/21-citizen-api-core-flow.sql'),/PERFORM public\.citizen_check_applicant\(p_representation_id, p_procedure_id, p_applicant_name\)/)
  assert.match(code,/sanitizeProcedureForm/)
  assert.doesNotMatch(fn('citizen_application_reapply'),/INSERT INTO application_documents/)
 })
 test('Result channels are published by staff and enforced at citizen save time', () => {
  assert.match(read('apps/citizen/server/api/applications/[id]/delivery/index.post.ts'),/'citizen_case_delivery_select'/)
  const api=fn('citizen_case_delivery_select')
- const sql=read('core/db/init/13-citizen-case-actions-delivery-routing.sql')
+ const sql=read('modules/xa/db/13-citizen-case-actions-delivery-routing.sql')
  assert.match(api,/citizen_result_channels/)
  assert.match(api,/enabled AND valid_until > now\(\)/)
  assert.match(api,/v_existing <> 'selected'/)
@@ -52,7 +52,7 @@ test('Result channels are published by staff and enforced at citizen save time',
  assert.match(sql,/GRANT INSERT\(application_id,citizen_id,tenant_id,method,delivery_address,contact_phone\)/)
 })
 test('Staff routing requires a verified policy and acceptance by the receiving locality', () => {
- const sql=read('core/db/init/13-citizen-case-actions-delivery-routing.sql')
+ const sql=read('modules/xa/db/13-citizen-case-actions-delivery-routing.sql')
  assert.match(sql,/citizen_staff_start_case_transfer/)
  assert.match(sql,/citizen_staff_accept_case_transfer/)
  assert.match(sql,/t\.destination_tenant_id<>p_tenant/)
@@ -68,5 +68,5 @@ test('Existing dashboard and application detail link to new functionality', () =
  assert.match(detail,/nhan-ket-qua/)
  assert.match(detail,/chuyen-co-quan/)
  assert.match(read('apps/citizen/pages/ho-so/index.vue'),/deadlineNotice/)
- assert.match(read('docker-compose.yml'),/13-citizen-case-actions-delivery-routing\.sql/)
+ assert.match(read('modules/xa/module.json'),/13-citizen-case-actions-delivery-routing\.sql/)
 })

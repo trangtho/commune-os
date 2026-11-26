@@ -65,7 +65,7 @@ Quyền theo vai trò cán bộ trong token Keycloak; không thay thế xác min
 
 ## Cơ sở dữ liệu & nghiệm thu
 
-- Migration: `core/db/init/13-citizen-case-actions-delivery-routing.sql` được chạy trong `db-setup` (trước `12-workflow-secret.sh`). PostgreSQL lưu lựa chọn và yêu cầu riêng của công dân theo FORCE RLS.
+- Migration: `modules/xa/db/13-citizen-case-actions-delivery-routing.sql` được chạy trong `db-setup` (trước `12-workflow-secret.sh`). PostgreSQL lưu lựa chọn và yêu cầu riêng của công dân theo FORCE RLS.
 - Đã thêm trạng thái `withdrawn` vào `applications` để hiển thị đúng hồ sơ được phép rút.
 - `npm --prefix apps/citizen test` chạy kiểm thử Node.js.
 - `make COMPOSE="docker compose -f docker-compose.yml" repair-db` để chạy lại migration trên volume hiện tại (sao lưu trước khi nâng cấp).

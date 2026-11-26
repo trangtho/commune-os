@@ -1,27 +1,13 @@
 -- SPDX-FileCopyrightText: 2026 CommuneOS Contributors
 -- SPDX-License-Identifier: Apache-2.0
 --
--- Giao việc kiểm tra "bước chuyển hợp lệ" cho động cơ quy trình BPMN (Flowable).
+-- Gói nghiệp vụ xã: hồ sơ đi theo động cơ quy trình BPMN của lõi (Flowable).
 -- Từ đây hàm set_dossier_status chỉ nhận lời gọi từ dịch vụ điều phối (core/orchestrator):
 -- lời gọi phải kèm header X-Workflow-Token đúng bí mật. Gọi thẳng /rest/rpc/... bị từ chối (403).
 -- Cơ sở dữ liệu vẫn tự kiểm tra: vai trò cán bộ, đúng xã tiếp nhận, lý do bắt buộc.
 -- Chạy lại nhiều lần không lỗi.
 
--- Nơi giữ cấu hình nội bộ của lõi (chỉ lưu MÃ BĂM của bí mật). Không vai trò API nào đọc được.
-CREATE TABLE IF NOT EXISTS core_settings (
-  key   text PRIMARY KEY,
-  value text NOT NULL
-);
-REVOKE ALL ON core_settings FROM PUBLIC;
-
-CREATE OR REPLACE FUNCTION public.is_workflow_call() RETURNS boolean
-LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
-  SELECT EXISTS (
-    SELECT 1 FROM core_settings s
-     WHERE s.key = 'workflow_token_sha256'
-       AND s.value = encode(sha256(convert_to(coalesce(
-             nullif(current_setting('request.headers', true), '')::json ->> 'x-workflow-token', ''), 'UTF8')), 'hex'))
-$$;
+-- Bảng core_settings và public.is_workflow_call() thuộc lõi (core/db/init/03-quy-trinh.sql).
 
 CREATE OR REPLACE FUNCTION api.set_dossier_status(dossier_id text, status text, note text DEFAULT NULL)
 RETURNS json

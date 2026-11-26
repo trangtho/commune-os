@@ -34,7 +34,7 @@ Cố ý không lưu số CCCD, dân tộc, tôn giáo: chỉ giữ thông tin c�
 ## Thiết kế
 
 - Bảng `staff_profiles`, `staff_documents`, `staff_requests`, `staff_tasks` và hai cột
-  `applications.assigned_staff_id`, `assigned_staff_name` (tệp `core/db/init/17-nhan-vien.sql`).
+  `applications.assigned_staff_id`, `assigned_staff_name` (tệp `modules/xa/db/17-nhan-vien.sql`).
 - Không bảng nào cho đọc ghi trực tiếp. Ứng dụng đọc qua các view `api.my_*` (của người gọi) và
   `api.staff_*` (cả xã, chỉ lãnh đạo; người khác nhận danh sách rỗng). Ghi qua các hàm `SECURITY DEFINER`;
   mỗi hàm kiểm tra vai trò và xã lấy từ token Keycloak, cán bộ được nhận diện bằng `sub`.

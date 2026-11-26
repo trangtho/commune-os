@@ -26,9 +26,9 @@ ready: ## Chờ mọi dịch vụ sẵn sàng (healthcheck đạt, các bước 
 	@sh core/tests/wait-ready.sh 900
 
 demo: check-env ## Tạo 2 xã mẫu, lãnh đạo, cán bộ, công dân và hồ sơ mẫu qua API của lõi (chạy lại được; mật khẩu DEMO_PASSWORD, mặc định Demo@2026!)
-	$(COMPOSE) exec -T db sh -c 'psql -1 -q -v ON_ERROR_STOP=1 -U "$$POSTGRES_USER" -d "$$POSTGRES_DB" -f -' < core/demo/expanded-catalog.sql
-	$(COMPOSE) run --rm --no-deps -e DEMO_PASSWORD -v "$(CURDIR)/core/demo:/demo:ro" identity-setup node /demo/demo.mjs
-	$(COMPOSE) exec -T db sh -c 'psql -q -v ON_ERROR_STOP=1 -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"' < core/demo/demo-data.sql
+	$(COMPOSE) exec -T db sh -c 'psql -1 -q -v ON_ERROR_STOP=1 -U "$$POSTGRES_USER" -d "$$POSTGRES_DB" -f -' < modules/xa/demo/expanded-catalog.sql
+	$(COMPOSE) run --rm --no-deps -e DEMO_PASSWORD -v "$(CURDIR)/modules/xa/demo:/demo:ro" identity-setup node /demo/demo.mjs
+	$(COMPOSE) exec -T db sh -c 'psql -q -v ON_ERROR_STOP=1 -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"' < modules/xa/demo/demo-data.sql
 
 down: ## Dừng dịch vụ nhưng không xóa dữ liệu
 	$(COMPOSE) down
@@ -40,18 +40,18 @@ ps: ## Xem tình trạng dịch vụ
 	$(COMPOSE) ps
 
 seed: .env ## Nạp lại danh mục thủ tục mẫu (idempotent)
-	$(COMPOSE) exec -T db sh -c 'psql -v ON_ERROR_STOP=1 -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"' < core/db/seed/seed.sql
+	$(COMPOSE) exec -T db sh -c 'psql -v ON_ERROR_STOP=1 -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"' < modules/xa/db/seed.sql
 
 test: demo ## Kiểm thử cách ly xã qua gateway (cần docker compose up; tự chạy make demo trước)
 	sh core/tests/tenant-isolation.sh
 
-.PHONY: test-architecture test-commune portal-smoke workflow-expected-status-test example-enterprise
+.PHONY: test-architecture test-commune portal-smoke workflow-expected-status-test example-enterprise test-platform
 
 test-architecture: ## Kiểm thử hợp đồng kiến trúc và mã hóa cookie (Node 22)
 	docker run --rm -v "$(CURDIR)":/w -w /w node:22-alpine node --experimental-strip-types --test core/tests/architecture.test.mjs
 
 workflow-expected-status-test: demo ## Kiểm thử điều kiện trạng thái trong RPC workflow (ROLLBACK)
-	$(COMPOSE) exec -T db sh -c 'psql -v ON_ERROR_STOP=1 -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"' < core/db/tests/workflow-expected-status.sql
+	$(COMPOSE) exec -T db sh -c 'psql -v ON_ERROR_STOP=1 -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"' < modules/xa/db/tests/workflow-expected-status.sql
 
 test-commune: ## Kiểm thử đơn vị Kênh cán bộ
 	docker run --rm -v "$(CURDIR)":/w -w /w/apps/commune node:22-alpine npm test
@@ -59,9 +59,11 @@ test-commune: ## Kiểm thử đơn vị Kênh cán bộ
 portal-smoke: ## Kiểm thử đăng nhập demo ba kênh (Node 22 trên máy chủ, make demo trước)
 	node core/tests/portal-smoke.mjs
 
-example-enterprise: demo ## Ví dụ doanh nghiệp trên cùng lõi: nạp gói đơn nghỉ phép (examples/doanh-nghiep), kiểm thử qua cổng API
-	$(COMPOSE) exec -T db sh -c 'psql -q -v ON_ERROR_STOP=1 -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"' < examples/doanh-nghiep/db/nghi-phep.sql
-	sh examples/doanh-nghiep/test.sh
+example-enterprise: ## Gói doanh nghiệp (modules/doanh-nghiep) trên cùng lõi: Công ty A duyệt đơn nghỉ phép qua cổng API
+	sh modules/doanh-nghiep/test.sh
+
+test-platform: ## Kiểm thử phần lõi dùng chung, chạy được cả khi không cài gói xã (đơn vị, gói, sổ ghi nhận, quy trình)
+	sh core/tests/platform.sh
 
 test-citizen: ## Kiểm thử đơn vị Kênh người dân (chạy trong Node 22 chính thức)
 	docker run --rm -v "$(CURDIR)":/w -w /w/apps/citizen node:22-alpine npm test
@@ -78,49 +80,49 @@ reset-demo: ## XÓA TOÀN BỘ dữ liệu PostgreSQL và tệp thử nghiệm (
 	@echo 'Lệnh này có thể XÓA toàn bộ dữ liệu. Hãy chạy thủ công: docker compose down -v'
 
 rls-test: demo ## Thử RLS 2 công dân / 2 xã (cần PostgreSQL)
-	$(COMPOSE) exec -T db sh -c 'psql -v ON_ERROR_STOP=1 -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"' < core/db/tests/citizen-rls.sql
+	$(COMPOSE) exec -T db sh -c 'psql -v ON_ERROR_STOP=1 -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"' < modules/xa/db/tests/citizen-rls.sql
 
 rag-test: .env ## Kiểm thử tự động cập nhật kho AI RAG (ROLLBACK; giữ nguyên dữ liệu)
-	$(COMPOSE) exec -T db sh -c 'psql -v ON_ERROR_STOP=1 -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"' < core/db/tests/citizen-rag.sql
+	$(COMPOSE) exec -T db sh -c 'psql -v ON_ERROR_STOP=1 -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"' < modules/xa/db/tests/citizen-rag.sql
 
 chat-history-test: demo ## Kiểm thử RLS và xóa lịch sử 2 tài khoản (ROLLBACK)
-	$(COMPOSE) exec -T db sh -c 'psql -v ON_ERROR_STOP=1 -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"' < core/db/tests/citizen-chat-history.sql
+	$(COMPOSE) exec -T db sh -c 'psql -v ON_ERROR_STOP=1 -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"' < modules/xa/db/tests/citizen-chat-history.sql
 
 personalization-test: demo ## Kiểm thử phân quyền và tuyến tiếp nhận công dân (ROLLBACK)
-	$(COMPOSE) exec -T db sh -c 'psql -v ON_ERROR_STOP=1 -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"' < core/db/tests/citizen-personalization.sql
+	$(COMPOSE) exec -T db sh -c 'psql -v ON_ERROR_STOP=1 -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"' < modules/xa/db/tests/citizen-personalization.sql
 
 representation-test: demo ## Kiểm thử phân quyền đại diện và phiên tại quầy (ROLLBACK)
-	$(COMPOSE) exec -T db sh -c 'psql -v ON_ERROR_STOP=1 -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"' < core/db/tests/citizen-representation-counter.sql
+	$(COMPOSE) exec -T db sh -c 'psql -v ON_ERROR_STOP=1 -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"' < modules/xa/db/tests/citizen-representation-counter.sql
 
 citizen-experience-test: demo ## Kiểm thử quyền truy cập lịch tư vấn và đánh giá (ROLLBACK)
-	$(COMPOSE) exec -T db sh -c 'psql -v ON_ERROR_STOP=1 -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"' < core/db/tests/citizen-access-family-consultation.sql
+	$(COMPOSE) exec -T db sh -c 'psql -v ON_ERROR_STOP=1 -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"' < modules/xa/db/tests/citizen-access-family-consultation.sql
 
 handoff-support-test: demo ## Kiểm tra mã chuyển tiếp dùng một lần và bảo vệ dữ liệu hỗ trợ (ROLLBACK)
-	$(COMPOSE) exec -T db sh -c 'psql -v ON_ERROR_STOP=1 -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"' < core/db/tests/citizen-handoff-support.sql
+	$(COMPOSE) exec -T db sh -c 'psql -v ON_ERROR_STOP=1 -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"' < modules/xa/db/tests/citizen-handoff-support.sql
 
 guidance-batches-test: demo ## Kiểm tra RLS nhóm hồ sơ và quyền cấu hình quy tắc gợi ý (ROLLBACK)
-	$(COMPOSE) exec -T db sh -c 'psql -v ON_ERROR_STOP=1 -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"' < core/db/tests/citizen-guidance-batches.sql
+	$(COMPOSE) exec -T db sh -c 'psql -v ON_ERROR_STOP=1 -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"' < modules/xa/db/tests/citizen-guidance-batches.sql
 
 preflight-counter-test: demo ## Kiểm tra số thứ tự và phân quyền yêu cầu bổ sung (ROLLBACK)
-	$(COMPOSE) exec -T db sh -c 'psql -v ON_ERROR_STOP=1 -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"' < core/db/tests/citizen-preflight-counter-supplement.sql
+	$(COMPOSE) exec -T db sh -c 'psql -v ON_ERROR_STOP=1 -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"' < modules/xa/db/tests/citizen-preflight-counter-supplement.sql
 
 case-actions-test: demo ## Kiểm tra quyền xem xét, nhận kết quả và chuyển cơ quan (ROLLBACK)
-	$(COMPOSE) exec -T db sh -c 'psql -v ON_ERROR_STOP=1 -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"' < core/db/tests/citizen-case-actions-delivery-routing.sql
+	$(COMPOSE) exec -T db sh -c 'psql -v ON_ERROR_STOP=1 -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"' < modules/xa/db/tests/citizen-case-actions-delivery-routing.sql
 
 vault-autofill-test: demo ## Kiểm thử RLS kho giấy tờ và tự điền (ROLLBACK)
-	$(COMPOSE) exec -T db sh -c 'psql -v ON_ERROR_STOP=1 -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"' < core/db/tests/citizen-vault-autofill.sql
+	$(COMPOSE) exec -T db sh -c 'psql -v ON_ERROR_STOP=1 -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"' < modules/xa/db/tests/citizen-vault-autofill.sql
 
 procedure-privacy-test: demo ## Kiểm thử RLS, nhật ký và thay đổi phiên bản thủ tục (ROLLBACK)
-	$(COMPOSE) exec -T db sh -c 'psql -v ON_ERROR_STOP=1 -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"' < core/db/tests/citizen-procedure-privacy.sql
+	$(COMPOSE) exec -T db sh -c 'psql -v ON_ERROR_STOP=1 -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"' < modules/xa/db/tests/citizen-procedure-privacy.sql
 
 life-journey-test: demo ## Kiểm thử lộ trình, lịch và phân quyền (ROLLBACK)
-	$(COMPOSE) exec -T db sh -c 'psql -v ON_ERROR_STOP=1 -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"' < core/db/tests/citizen-life-journeys.sql
+	$(COMPOSE) exec -T db sh -c 'psql -v ON_ERROR_STOP=1 -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"' < modules/xa/db/tests/citizen-life-journeys.sql
 
 intelligent-services-test: demo ## Kiểm tra bảo vệ dữ liệu, mã kết quả và đồng bộ (ROLLBACK)
-	$(COMPOSE) exec -T db sh -c 'psql -v ON_ERROR_STOP=1 -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"' < core/db/tests/citizen-intelligent-services.sql
+	$(COMPOSE) exec -T db sh -c 'psql -v ON_ERROR_STOP=1 -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"' < modules/xa/db/tests/citizen-intelligent-services.sql
 
 citizen-api-test: demo ## Kiểm thử API luồng chính của công dân trong lõi: nộp hồ sơ, Poka-yoke, RLS (ROLLBACK)
-	$(COMPOSE) exec -T db sh -c 'psql -v ON_ERROR_STOP=1 -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"' < core/db/tests/citizen-core-api.sql
+	$(COMPOSE) exec -T db sh -c 'psql -v ON_ERROR_STOP=1 -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"' < modules/xa/db/tests/citizen-core-api.sql
 
 backup: .env ## Sao lưu cơ sở dữ liệu và kho tệp vào backups/<ngày-giờ>/ (có mã băm SHA-256)
 	sh core/backup/backup.sh
@@ -135,5 +137,5 @@ repair-db: .env ## Khởi tạo/sửa schema và seed trên volume hiện tại;
 
 doctor: .env ## Xem tình trạng kết nối, role, bảng và số lượng thủ tục
 	@$(COMPOSE) ps
-	@$(COMPOSE) exec -T db sh -c 'psql -v ON_ERROR_STOP=1 -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"' < core/db/tests/diagnose.sql
+	@$(COMPOSE) exec -T db sh -c 'psql -v ON_ERROR_STOP=1 -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"' < modules/xa/db/tests/diagnose.sql
 	@echo 'API health: curl -i http://localhost:3000/api/health'

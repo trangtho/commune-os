@@ -11,7 +11,7 @@ SPDX-License-Identifier: Apache-2.0
 
 ## Bảo mật và kiểm tra
 
-- Migration `core/db/init/11-citizen-guidance-batches.sql` tạo bảng quy tắc chỉ cho vai trò công dân quyền `SELECT`, không cấp quyền xác minh. `verified_at` chỉ có thể đặt khi `source_reference` khác rỗng.
+- Migration `modules/xa/db/11-citizen-guidance-batches.sql` tạo bảng quy tắc chỉ cho vai trò công dân quyền `SELECT`, không cấp quyền xác minh. `verified_at` chỉ có thể đặt khi `source_reference` khác rỗng.
 - `citizen_service_batches` và `citizen_service_batch_items` dùng `FORCE ROW LEVEL SECURITY`, gắn `app.citizen_id` và `app.tenant_id` như API hiện tại. Một hồ sơ thành phần chỉ được nối sau khi kiểm tra chủ tài khoản, địa phương và mã thủ tục tại phía server. Việc tạo nháp + nối nhóm được thực hiện trong **một transaction**. Không chấp nhận gắn một hồ sơ vào hai nhóm.
 - Không tự động nộp nhiều hồ sơ hay tự động điều phối sang cơ quan khác. Quy trình liên thông pháp lý thực tế đòi hỏi nhóm dữ liệu/đơn vị xử lý công bố bộ thủ tục, quy tắc, quyền tiếp nhận, trình tự và cơ sở pháp lý có phiên bản.
 - Thông tin dùng chung chỉ gồm những trường đã chấp thuận và không lấy dữ liệu các hồ sơ khác. Khi bỏ tích chọn thì lưu `{}`.

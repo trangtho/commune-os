@@ -83,7 +83,7 @@ Removing a document from a draft (or a case awaiting supplement) calls the core 
 core checks the case status and row ownership (RLS) inside the same transaction and
 returns the storage key so the portal can delete the object. No database grant to the
 portal is needed: the portal has no direct table access
-(`core/db/init/34-citizen-direct-access.sql`).
+(`modules/xa/db/34-citizen-direct-access.sql`).
 
 ### Optional server-side integrations (no secrets in Git)
 
@@ -264,10 +264,10 @@ when available, while still independently loading published source rows on every
 question. The index covers only `procedures`, `procedure_documents` and
 `citizen_faq`; it never ingests private citizens, applications, or uploads.
 
-`core/db/init/02-ai-knowledge.sql` is executed automatically by root
+`modules/xa/db/02-ai-knowledge.sql` is executed automatically by root
 `db-setup` after the normal seed. Its PostgreSQL triggers update indexed
 fragments within the same transaction when catalog/document/FAQ data changes,
-including deletion and unpublishing. `core/db/init/01-schema.sql` now includes
+including deletion and unpublishing. `modules/xa/db/01-schema.sql` now includes
 FAQ in existing SSE invalidation notifications.
 
 Check health at `GET /api/chat/knowledge` (index ready, fragment count,
@@ -275,7 +275,7 @@ last index update, core AI ready flag). If not ready, run `make repair-db` and r
 works before the migration. `aiConfigured` is true when the core AI service has its models
 (`GET /public/ai/ready`). Citizen identifiers
 are not forwarded to the model. For full architecture and test commands see
-`core/ai/README.md` and `core/db/tests/citizen-rag.sql`.
+`core/ai/README.md` and `modules/xa/db/tests/citizen-rag.sql`.
 
 Run `npm --prefix apps/citizen test`, `npm --prefix apps/citizen run build`
 and `make rag-test` (on a running PostgreSQL container); the new
@@ -305,7 +305,7 @@ make COMPOSE="docker compose -f docker-compose.yml" chat-history-test
 npm --prefix apps/citizen test
 ```
 
-`repair-db` chạy thêm `core/db/init/03-citizen-chat-history.sql`, không xóa dữ liệu cũ. `chat-history-test` kiểm tra phân quyền giữa hai tài khoản và cascade khi xóa; mọi thay đổi thử nghiệm đều được `ROLLBACK`. Có thể chạy kiểm thử trình duyệt `npm --prefix apps/citizen run test:e2e -- chat-history.spec.ts` khi đã có Playwright và Docker.
+`repair-db` chạy thêm `modules/xa/db/03-citizen-chat-history.sql`, không xóa dữ liệu cũ. `chat-history-test` kiểm tra phân quyền giữa hai tài khoản và cascade khi xóa; mọi thay đổi thử nghiệm đều được `ROLLBACK`. Có thể chạy kiểm thử trình duyệt `npm --prefix apps/citizen run test:e2e -- chat-history.spec.ts` khi đã có Playwright và Docker.
 
 
 ## Cá nhân hóa thủ tục và gợi ý địa phương tiếp nhận

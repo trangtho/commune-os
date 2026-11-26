@@ -7,10 +7,10 @@ import { resolve, dirname } from 'node:path'
 import { fileURLToPath } from 'node:url'
 const root = resolve(dirname(fileURLToPath(import.meta.url)), '../../..')
 const read = path => readFileSync(resolve(root, path), 'utf8')
-const core = read('core/db/init/21-citizen-api-core-flow.sql')
+const core = read('modules/xa/db/21-citizen-api-core-flow.sql')
 
 test('Database migration grants the minimum UPDATE columns needed for editing and submission', () => {
-  const sql = read('core/db/init/01-schema.sql')
+  const sql = read('modules/xa/db/01-schema.sql')
   assert.match(sql, /GRANT UPDATE \(status, updated_at, applicant_name, applicant_phone,[\s\S]*description, form_data, submitted_at, due_at\) ON applications TO communeos_app/)
   assert.doesNotMatch(sql, /GRANT UPDATE \([^)]*(?:citizen_id|tenant_id)[^)]*\) ON applications TO communeos_app/)
   assert.match(sql, /ALTER TABLE applications ALTER COLUMN submitted_at DROP NOT NULL/)

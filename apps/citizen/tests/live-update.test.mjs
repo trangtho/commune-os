@@ -9,7 +9,7 @@ const root = resolve(dirname(fileURLToPath(import.meta.url)), '../../..')
 const get = (path) => readFileSync(resolve(root, path), 'utf8')
 
 test('PostgreSQL uses transactional NOTIFY triggers on the 7 relevant tables', () => {
-  const sql = get('core/db/init/01-schema.sql')
+  const sql = get('modules/xa/db/01-schema.sql')
   assert.match(sql, /CREATE OR REPLACE FUNCTION public\.communeos_notify_citizen_change/)
   assert.match(sql, /pg_notify\('communeos_citizen_changes'/)
   for (const table of ['procedures', 'procedure_documents', 'applications', 'application_events', 'application_documents', 'citizen_notifications', 'citizens'])

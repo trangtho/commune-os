@@ -33,12 +33,12 @@ test('Model can only quote exact retrieved published text, URLs are locally buil
     assert.equal(build([item],[]),null);`)
 })
 test('RAG migrations implement public-only transactional index and least privilege',()=>{
-  const sql=read('../../core/db/init/02-ai-knowledge.sql')
+  const sql=read('../../modules/xa/db/02-ai-knowledge.sql')
   for(const text of ['citizen_knowledge_chunks','public.unaccent','AFTER INSERT OR UPDATE OR DELETE','communeos_rag_refresh_procedure','p.published=true','public.citizen_faq','GRANT SELECT','REVOKE EXECUTE','USING GIN']) assert.ok(sql.includes(text),text)
   assert.doesNotMatch(sql,/FROM public\.applications|FROM public\.citizens|GRANT (?:INSERT|UPDATE|DELETE) ON TABLE public\.citizen_knowledge_chunks/i)
-  const compose=read('../../docker-compose.yml')
+  const compose=read('../../modules/xa/module.json')
   assert.match(compose,/02-ai-knowledge\.sql/)
-  const coreSchema=read('../../core/db/init/01-schema.sql')
+  const coreSchema=read('../../modules/xa/db/01-schema.sql')
   assert.match(coreSchema,/citizen_faq'.*applications/)
 })
 test('RAG endpoint only uses canonical published source citations and privacy gate',()=>{

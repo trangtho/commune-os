@@ -6,7 +6,7 @@ SPDX-License-Identifier: Apache-2.0
 # Bàn giao phần mở rộng Kênh công dân – Kho giấy tờ và tự điền
 
 **Phiên bản nền**: `commune-os-feat-citizen-portal-integrated.zip` người dùng cung cấp ngày 16/11/2026.
-**Phạm vi**: `apps/citizen/` và một migration mới `core/db/init/15-citizen-vault-autofill.sql`; chỉnh sửa nhỏ `docker-compose.yml`, `.env.example`, `Makefile`. Không đụng `apps/commune/`, `core/admin/`, không thay thế schema cũ, không commit/push/merge.
+**Phạm vi**: `apps/citizen/` và một migration mới `modules/xa/db/15-citizen-vault-autofill.sql`; chỉnh sửa nhỏ `docker-compose.yml`, `.env.example`, `Makefile`. Không đụng `apps/commune/`, `core/admin/`, không thay thế schema cũ, không commit/push/merge.
 
 ## Những phần đã bổ sung
 

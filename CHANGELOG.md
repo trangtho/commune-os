@@ -11,6 +11,23 @@ Mọi thay đổi đáng chú ý của dự án được ghi tại đây.
 
 ## [Chưa phát hành]
 
+### Thay đổi (tách lõi khỏi gói nghiệp vụ, 2026-11-27)
+
+- Lõi không còn chứa nghiệp vụ nào: `core/db/init/` chỉ còn đơn vị, hàm đọc token, quy trình, sổ ghi nhận, nhật ký tài
+  khoản, danh sách gói. Bảng, API, dữ liệu mẫu, kiểm thử SQL, quy trình hồ sơ, gói thủ tục của xã chuyển sang
+  `modules/xa/`; ví dụ doanh nghiệp chuyển từ `examples/` sang `modules/doanh-nghiep/`.
+- Gói nghiệp vụ khai báo trong `modules/<gói>/module.json`: tệp SQL theo thứ tự chạy, loại đối tượng có quy trình
+  (thay `workflow.json`), việc định kỳ. `COMMUNEOS_MODULES` (mặc định `xa,doanh-nghiep`) chọn gói được nạp; `db-setup`
+  chạy `core/db/migrate.sh` (lõi, rồi từng gói, ghi vào `core_modules`); `GET /rest/modules`,
+  `/public/rpc/public_platform` cho biết gói đã cài.
+- Dịch vụ điều phối không còn loại "hồ sơ" và việc định kỳ của Kênh người dân viết sẵn: tất cả lấy từ gói đang bật.
+- `rest_pre_request` của lõi gọi các móc do gói ghi danh (`register_request_hook`); gói xã đặt biến RLS của công dân
+  trong móc của mình. Vai trò khách `web_anon` tạo ở lõi. Cổng API kiểm tra sức khỏe bằng `public_platform`.
+- Thông báo lỗi của hàm đơn vị, `require_staff`, `require_leader` gọi là "đơn vị" thay cho "xã".
+- `make test-platform` (`core/tests/platform.sh`): kiểm thử lõi không phụ thuộc gói. CI thêm job "Chỉ lõi, không có gói
+  xã" (`COMMUNEOS_MODULES=doanh-nghiep`); `make test-architecture` kiểm tra SQL của lõi không dùng bảng, hàm của gói xã.
+- Bỏ `core/db/init/01-tao-database-keycloak.sql` (không dùng; `db-setup` tự tạo cơ sở dữ liệu Keycloak).
+
 ### Thêm (lõi dùng chung cho nhiều gói nghiệp vụ, ví dụ doanh nghiệp, 2026-11-27)
 
 - Ví dụ doanh nghiệp chạy trên cùng lõi ([examples/doanh-nghiep](examples/doanh-nghiep/README.md)): đơn vị

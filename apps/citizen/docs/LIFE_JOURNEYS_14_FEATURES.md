@@ -26,7 +26,7 @@ Bản triển khai gia tăng từ `communeos-18-features-current-full.zip`; ưu 
 
 ## Database và bảo mật
 
-- Migration: `core/db/init/18-citizen-life-journeys.sql`, chạy sau 17; không sửa dữ liệu hồ sơ có sẵn.
+- Migration: `modules/xa/db/18-citizen-life-journeys.sql`, chạy sau 17; không sửa dữ liệu hồ sơ có sẵn.
 - Bảng `citizen_life_journeys`, `citizen_life_journey_items`, `citizen_reminder_settings`, `citizen_personal_tasks`, `citizen_draft_cursors` dùng **RLS buộc công dân + địa phương**. Người dùng chỉ thao tác qua API có `citizenTx`.
 - Bảng `citizen_reminder_deliveries` chống gửi lại cùng sự kiện/ngày và **không cho app user INSERT trực tiếp**. Các tác vụ chạy dưới PostgreSQL SECURITY DEFINER. Cần giới hạn truy cập nội bộ và không để lộ token dịch vụ.
 - Thống kê trải nghiệm không gắn tài khoản, IP, mã hồ sơ hoặc trường dữ liệu; ngưỡng 5 chỉ nhằm hạn chế tiết lộ, chưa cung cấp cơ chế riêng tư vi sai.

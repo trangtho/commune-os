@@ -5,23 +5,35 @@ SPDX-License-Identifier: Apache-2.0
 
 # core/db
 
-PostgreSQL 17. `init/` chứa schema và chính sách Row-Level Security cho
-prototype Công dân; `seed/seed.sql` nạp dữ liệu minh họa. Kênh người dân gọi
-dữ liệu qua PostgREST bằng vai trò `citizen-app`; `rest_pre_request()` thiết lập `app.citizen_id` và
-`app.tenant_id` từ token ở phạm vi transaction. Role `communeos_app` (`NOSUPERUSER`) chỉ còn dùng để nhận tín hiệu
-thay đổi (LISTEN), không có quyền dữ liệu.
+PostgreSQL 17. `init/` chỉ chứa phần **lõi dùng chung**, không có bảng nghiệp vụ nào:
 
-`make up` chạy `db-setup` ở mỗi lần khởi động, trên cả volume mới và volume đã có dữ liệu;
-`make repair-db` chạy lại riêng bước này. Xem
-[`../../docs/CITIZEN_SETUP.md`](../../docs/CITIZEN_SETUP.md).
+| Tệp | Nội dung |
+| --- | --- |
+| `00-create-app-role.sh` | Vai trò `communeos_app` (chỉ nhận tín hiệu thay đổi LISTEN, không có quyền dữ liệu) |
+| `01-create-api-roles.sh` | Vai trò của API dữ liệu: `authenticator`, `commune-app` (người của đơn vị), `web_anon` (khách) |
+| `02-don-vi.sql` | Bảng đơn vị `tenants`, hàm đọc token (`current_tenant_code`, `has_role`, `require_staff`, `require_leader`...), API đơn vị |
+| `03-quy-trinh.sql` | `core_settings`, `is_workflow_call()`: chỉ dịch vụ của lõi đổi được trạng thái |
+| `04-workflow-secret.sh` | Ghi mã băm của `WORKFLOW_TOKEN` |
+| `05-so-ghi-nhan.sql` | Sổ ghi nhận hash-chain theo đơn vị, `public.ledger_record` cho mọi gói |
+| `06-nhat-ky-tai-khoan.sql` | Nhật ký quản lý tài khoản |
+| `07-goi-nghiep-vu.sql` | Gói đã cài (`core_modules`, `api.modules`), móc đầu yêu cầu PostgREST (`rest_pre_request`, `register_request_hook`), `api.public_platform()` |
+| `90-mo-ta-api.sql` | Mô tả tiếng Việt cho schema `api` và API của lõi (chạy sau mọi gói) |
 
-Lược đồ, RLS, sổ cái và view nằm trong các tệp SQL đánh số ở `init/`; dữ liệu mẫu giả lập ở `seed/`,
-kiểm thử RLS (chạy trong transaction rồi `ROLLBACK`) ở `tests/`.
+Bảng, API, dữ liệu mẫu và kiểm thử SQL của từng nghiệp vụ nằm trong gói: [`modules/xa/db/`](../../modules/xa/db/)
+(công dân, thủ tục, hồ sơ...), [`modules/doanh-nghiep/db/`](../../modules/doanh-nghiep/db/).
 
-Thứ tự chạy do dịch vụ `db-setup` trong `docker-compose.yml` quyết định, **không** theo thứ tự
-tên tệp (ví dụ `seed.sql` chạy trước `02-ai-knowledge.sql`). Thêm tệp migration mới thì phải
-thêm một dòng vào `db-setup`; mọi tệp phải chạy lại được nhiều lần (idempotent).
+## Thứ tự chạy
 
-## Lịch sử trợ lý AI
+`make up` chạy dịch vụ `db-setup` ở mỗi lần khởi động, trên cả volume mới và volume đã có dữ liệu
+(`make repair-db` chạy lại riêng bước này). `db-setup` gọi [`migrate.sh`](migrate.sh):
 
-`init/03-citizen-chat-history.sql` mở rộng database bằng hai bảng `citizen_ai_conversations` và `citizen_ai_messages`. Bảng dữ liệu riêng có RLS bắt buộc theo công dân và xã, không được phép ghi vào chỉ mục RAG công khai. Để áp dụng với volume PostgreSQL hiện có: `make repair-db`. Để kiểm tra phân quyền chéo tài khoản và xóa liên đới mà không giữ lại dữ liệu thử: `make chat-history-test`.
+1. Các tệp `init/0*` đến `init/8*` theo thứ tự tên tệp.
+2. Từng gói trong `COMMUNEOS_MODULES` (mặc định `xa,doanh-nghiep`): các tệp trong mục `db` của
+   `modules/<gói>/module.json`, đúng thứ tự khai báo; xong thì ghi tên, phiên bản vào `core_modules`.
+3. Các tệp `init/9*`.
+
+Thêm tệp SQL cho một gói: đặt trong `modules/<gói>/db/` rồi thêm vào mục `db` của `module.json`. Thêm tệp cho lõi:
+đặt trong `init/` với số thứ tự phù hợp; tệp của lõi không được dùng bảng, hàm của gói nào (`make test-architecture`
+kiểm tra). Mọi tệp phải chạy lại được nhiều lần (idempotent).
+
+Bỏ một gói khỏi `COMMUNEOS_MODULES` chỉ ngừng nạp gói đó (xóa khỏi `core_modules`), không xóa dữ liệu của gói.

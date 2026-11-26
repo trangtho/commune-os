@@ -1,9 +1,9 @@
 -- SPDX-FileCopyrightText: 2026 CommuneOS Contributors
 -- SPDX-License-Identifier: Apache-2.0
 --
--- Nhật ký quản lý cán bộ: lãnh đạo xã tạo, sửa, khóa, mở, cấp lại mật khẩu, xóa tài khoản cán bộ xử lý
+-- Nhật ký quản lý tài khoản: lãnh đạo đơn vị tạo, sửa, khóa, mở, cấp lại mật khẩu, xóa tài khoản cán bộ xử lý
 -- (thao tác thật nằm ở Keycloak, qua dịch vụ core/accounts). Không lưu mật khẩu.
--- Chỉ thêm, không sửa, không xóa. Chạy lại nhiều lần không sao. Cần chạy sau 11-workflow.sql.
+-- Chỉ thêm, không sửa, không xóa. Chạy lại nhiều lần không sao. Cần chạy sau 03-quy-trinh.sql.
 
 CREATE TABLE IF NOT EXISTS staff_audit (
   id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,

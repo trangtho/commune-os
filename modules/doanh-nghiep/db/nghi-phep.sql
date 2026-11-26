@@ -8,7 +8,7 @@
 --   * public.is_workflow_call(): chỉ dịch vụ điều phối (/workflow) được đổi trạng thái đơn;
 --   * public.ledger_record(): ghi sổ ghi nhận không sửa được, chuỗi riêng của từng đơn vị.
 -- Dữ liệu nằm trong schema riêng "nghi_phep"; API (PostgREST) là các bảng ảo, hàm trong schema "api".
--- Nạp: make example-enterprise (chạy lại nhiều lần không lỗi).
+-- Nạp: liệt kê "doanh-nghiep" trong COMMUNEOS_MODULES (mặc định có), db-setup chạy tệp này (chạy lại nhiều lần không lỗi).
 
 SET client_min_messages = warning;
 

@@ -5,12 +5,12 @@ import assert from 'node:assert/strict'
 import {readFileSync} from 'node:fs'
 import {execFileSync} from 'node:child_process'
 const read=file=>readFileSync(new URL(file,import.meta.url),'utf8')
-const core=read('../../../core/db/init/21-citizen-api-core-flow.sql')
-const personal=read('../../../core/db/init/32-citizen-api-personal.sql')
+const core=read('../../../modules/xa/db/21-citizen-api-core-flow.sql')
+const personal=read('../../../modules/xa/db/32-citizen-api-personal.sql')
 const personalFn=name=>personal.slice(personal.indexOf(`FUNCTION api.${name}(`)).split('END $$;')[0]
-const migration=read('../../../core/db/init/16-citizen-procedure-privacy.sql')
+const migration=read('../../../modules/xa/db/16-citizen-procedure-privacy.sql')
 const readRoute=(path)=>read(`../server/api/${path}`)
-const staffApi=read('../../../core/db/init/26-citizen-staff-api.sql')
+const staffApi=read('../../../modules/xa/db/26-citizen-staff-api.sql')
 test('Official-source URL validation avoids HTTPS lookalikes, HTTP and private hosts',()=>{
  const source=`import assert from 'node:assert/strict';
  import {isOfficialProcedureSource,changedSections} from './apps/citizen/shared/procedure-versions.ts';
@@ -37,7 +37,7 @@ test('Migration preserves legacy demo source status, append-only audit and RLS',
  assert.match(migration,/citizen_publish_procedure_version/)
  assert.match(migration,/citizen_staff_scan_retention/)
  assert.doesNotMatch(migration,/GRANT DELETE ON citizen_data_access_events/)
- assert.match(read('../../../docker-compose.yml'),/16-citizen-procedure-privacy\.sql/)
+ assert.match(read('../../../modules/xa/module.json'),/16-citizen-procedure-privacy\.sql/)
 })
 test('Procedure publication is sys_admin only, validates official source and alerts drafts',()=>{
  assert.match(staffApi,/FUNCTION api\.publish_procedure_version[\s\S]*public\.require_sys_admin\(\)/)
@@ -64,7 +64,7 @@ test('Consent is citizen-controlled, other bases cannot be toggled and vault reu
  assert.match(consent,/legal_basis = 'consent'/)
  assert.match(consent,/pg_advisory_xact_lock/)
  assert.match(consent,/consent_withdrawn/)
- const vaultApi=read('../../../core/db/init/27-citizen-api-vault.sql')
+ const vaultApi=read('../../../modules/xa/db/27-citizen-api-vault.sql')
  // Quyền tái sử dụng kiểm tra cả trước khi đọc tệp nguồn và trong giao dịch gắn vào hồ sơ (có khóa tư vấn).
  assert.equal((vaultApi.match(/public\.citizen_active_consent\('vault_case_reuse'\)/g)||[]).length,2)
  assert.match(vaultApi,/pg_advisory_xact_lock\(hashtext\(v_citizen::text \|\| ':vault_case_reuse'\)\)/)
@@ -76,8 +76,8 @@ test('Retention is staff-review first, access log does not expose sensitive valu
  assert.match(migration,/ON CONFLICT DO NOTHING RETURNING citizen_id/)
  assert.match(migration,/citizen_staff_review_privacy_request/)
  assert.match(migration,/citizen_staff_review_retention/)
- assert.match(read('../../../core/orchestrator/server.mjs'),/CITIZEN_RETENTION_SCAN_ENABLED === 'true'/)
- assert.match(read('../../../core/db/init/34-citizen-direct-access.sql'),/FUNCTION api\.system_scan_citizen_retention[\s\S]*is_workflow_call\(\)/)
+ assert.match(read('../../../modules/xa/module.json'),/"rpc": "system_scan_citizen_retention", "everyMinutes": 1440, "enabledBy": "CITIZEN_RETENTION_SCAN_ENABLED"/)
+ assert.match(read('../../../modules/xa/db/34-citizen-direct-access.sql'),/FUNCTION api\.system_scan_citizen_retention[\s\S]*is_workflow_call\(\)/)
  assert.match(readRoute('citizen/data-access/index.get.ts'),/'citizen_data_access'/)
  assert.match(personalFn('citizen_data_access'),/citizen_data_event_digest/)
  assert.match(readRoute('citizen/retention/requests/index.post.ts'),/'citizen_privacy_request_create'/)

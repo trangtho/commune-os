@@ -1,13 +1,9 @@
 -- SPDX-FileCopyrightText: 2026 CommuneOS Contributors
 -- SPDX-License-Identifier: Apache-2.0
--- PostgreSQL 17: schema for citizen-channel demonstration data only.
+-- Gói nghiệp vụ xã: công dân, thủ tục, hồ sơ, giấy tờ, thông báo, góp ý (PostgreSQL 17).
 CREATE EXTENSION IF NOT EXISTS pgcrypto;
 
-CREATE TABLE IF NOT EXISTS tenants (
-  id uuid PRIMARY KEY,
-  code text NOT NULL UNIQUE,
-  name text NOT NULL
-);
+-- Bảng đơn vị (tenants) thuộc lõi: core/db/init/02-don-vi.sql.
 CREATE TABLE IF NOT EXISTS citizens (
   id uuid PRIMARY KEY,
   tenant_id uuid NOT NULL REFERENCES tenants(id),

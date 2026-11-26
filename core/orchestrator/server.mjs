@@ -6,16 +6,16 @@
 //   - Flowable: động cơ BPMN, quyết định đối tượng đang ở bước nào và được đi tiếp tới đâu.
 //   - PostgREST: ghi trạng thái; cơ sở dữ liệu vẫn tự kiểm tra đơn vị và vai trò theo token.
 //
-// Dịch vụ không gắn với một nghiệp vụ cụ thể. Mỗi loại đối tượng có quy trình (hồ sơ thủ tục của gói
-// nghiệp vụ xã, đơn nghỉ phép của ví dụ doanh nghiệp...) khai báo: sơ đồ BPMN, bảng ảo để đọc trạng thái,
-// hàm đổi trạng thái. Loại "dossiers" có sẵn; gói nghiệp vụ khác đặt tệp workflow.json và thư mục bpmn/
-// trong MODULES_DIR (xem README).
+// Dịch vụ không gắn với một nghiệp vụ cụ thể. Mỗi gói nghiệp vụ trong COMMUNEOS_MODULES khai báo trong
+// <MODULES_DIR>/<gói>/module.json các loại đối tượng có quy trình (hồ sơ thủ tục của gói xã, đơn nghỉ phép của
+// gói doanh nghiệp...): sơ đồ BPMN (thư mục bpmn/ của gói), bảng ảo để đọc trạng thái, hàm đổi trạng thái;
+// và các việc định kỳ (gọi một hàm hệ thống của gói). Xem README.
 //
 // API (gọi qua cổng: /workflow/...):
 //   GET  /<loại>/:id/actions               → bước hiện tại và các bước được phép đi tiếp
 //   POST /<loại>/:id/actions {action, note} → thực hiện một bước
 //   GET  /health   (qua cổng: /workflow/health) dịch vụ và động cơ Flowable
-// Việc định kỳ (tùy chọn): gửi nhắc việc, quét dữ liệu đến hạn rà soát lưu trữ của Kênh người dân.
+// Việc định kỳ của gói (mục "jobs"), mỗi việc bật bằng biến môi trường riêng (enabledBy=true).
 //
 // Không dùng thư viện ngoài: chỉ Node.js 22 (http, fetch, crypto, fs).
 import { createServer } from 'node:http'
@@ -28,9 +28,8 @@ const FLOWABLE = (process.env.FLOWABLE_URL || 'http://workflow-engine:8080/flowa
 const FLOWABLE_AUTH = 'Basic ' + Buffer.from(`${process.env.FLOWABLE_USER || 'rest-admin'}:${process.env.FLOWABLE_PASSWORD || ''}`).toString('base64')
 const REST = (process.env.REST_URL || 'http://rest:3000').replace(/\/$/, '')
 const WORKFLOW_TOKEN = process.env.WORKFLOW_TOKEN || ''
-const BPMN_DIR = process.env.BPMN_DIR || '/app/bpmn'
-const PROCESS_KEY = process.env.PROCESS_KEY || 'xu-ly-ho-so'
-const MODULES_DIR = process.env.MODULES_DIR || ''
+const MODULES_DIR = process.env.MODULES_DIR || '/modules'
+const MODULES = (process.env.COMMUNEOS_MODULES || 'xa').split(/[\s,]+/).filter(Boolean)
 const TENANT = 'communeos'           // không gian tên trong Flowable, không phải mã đơn vị
 
 class HttpError extends Error {
@@ -42,7 +41,8 @@ class HttpError extends Error {
 // view: bảng ảo trong schema api có cột id, status, tenant_code; statusRpc: hàm api.<statusRpc>(<idParam>, status, note)
 // chỉ nhận lời gọi kèm WORKFLOW_TOKEN; final: các trạng thái kết thúc; variables: biến quy trình lấy từ cột của view.
 const RESOURCES = new Map()
-const BPMN_DIRS = [BPMN_DIR]
+const BPMN_DIRS = []
+const JOBS = []
 const NAME = /^[a-z][a-z0-9_-]{0,62}$/
 
 function register(r, source) {
@@ -60,23 +60,23 @@ function register(r, source) {
   RESOURCES.set(r.name, { label: r.label || 'Đối tượng', ...r, variables })
 }
 
-// Gói nghiệp vụ xã (core/db/init, sơ đồ bpmn/xu-ly-ho-so).
-register({
-  name: 'dossiers', label: 'Hồ sơ', processKey: PROCESS_KEY, view: 'dossiers', statusRpc: 'set_dossier_status',
-  idParam: 'dossier_id', final: ['completed', 'rejected'], variables: { tenant: 'tenant_code', procedure: 'procedure_id' },
-}, 'dossiers')
-
-// Gói nghiệp vụ khác: <MODULES_DIR>/<gói>/workflow.json (một đối tượng hoặc danh sách) và <MODULES_DIR>/<gói>/bpmn/.
-if (MODULES_DIR && existsSync(MODULES_DIR)) {
-  for (const dir of readdirSync(MODULES_DIR, { withFileTypes: true }).filter((d) => d.isDirectory()).map((d) => d.name).sort()) {
-    const file = join(MODULES_DIR, dir, 'workflow.json')
-    if (!existsSync(file)) continue
-    const parsed = JSON.parse(readFileSync(file, 'utf8'))
-    const list = Array.isArray(parsed) ? parsed : [parsed]
-    for (const r of list) register(r, `${dir}/workflow.json`)
-    if (existsSync(join(MODULES_DIR, dir, 'bpmn'))) BPMN_DIRS.push(join(MODULES_DIR, dir, 'bpmn'))
-    console.log(`Gói nghiệp vụ ${dir}: /workflow/${list.map((r) => r.name).join(', /workflow/')}`)
+// Nạp các gói trong COMMUNEOS_MODULES (cùng danh sách với db-setup). Gói thiếu hoặc khai báo sai thì dừng hẳn,
+// để không chạy với một nửa cấu hình.
+for (const m of MODULES) {
+  if (!NAME.test(m)) throw new Error(`Tên gói không hợp lệ: ${m}`)
+  const file = join(MODULES_DIR, m, 'module.json')
+  if (!existsSync(file)) throw new Error(`Không có gói ${m} (${file})`)
+  const manifest = JSON.parse(readFileSync(file, 'utf8'))
+  for (const r of manifest.workflows || []) register(r, `${m}/module.json`)
+  for (const j of manifest.jobs || []) {
+    if (!j.name || !NAME.test(j.rpc || '') || !(j.everyMinutes > 0) || !/^[A-Z][A-Z0-9_]*$/.test(j.enabledBy || '')) {
+      throw new Error(`${m}/module.json: việc định kỳ "${j.name}" khai báo sai`)
+    }
+    JOBS.push({ ...j, module: m })
   }
+  if (existsSync(join(MODULES_DIR, m, 'bpmn'))) BPMN_DIRS.push(join(MODULES_DIR, m, 'bpmn'))
+  const names = (manifest.workflows || []).map((r) => `/workflow/${r.name}`)
+  console.log(`Gói ${m}: ${names.join(', ') || 'không có quy trình'}${(manifest.jobs || []).length ? `, ${manifest.jobs.length} việc định kỳ` : ''}`)
 }
 
 // ---------- Gọi Flowable ----------
@@ -264,9 +264,9 @@ for (let i = 1; ; i++) {
 }
 server.listen(PORT, () => console.log(`Dịch vụ điều phối chạy ở cổng ${PORT}`))
 
-// ---------- Việc định kỳ cho Kênh người dân (tắt mặc định) ----------
-// Gọi hàm hệ thống của lõi bằng khóa nội bộ (api.system_*, kiểm tra public.is_workflow_call()), không qua cổng.
-// Nhiều bản chạy cùng lúc vẫn an toàn: hàm quét dùng ON CONFLICT DO NOTHING, nhắc việc có kiểm tra trùng.
+// ---------- Việc định kỳ của các gói (tắt mặc định) ----------
+// Gọi hàm hệ thống của gói bằng khóa nội bộ (api.<rpc>, kiểm tra public.is_workflow_call()), không qua cổng.
+// Nhiều bản chạy cùng lúc vẫn an toàn nếu hàm của gói tự chống trùng (gói xã: ON CONFLICT DO NOTHING, kiểm tra trùng).
 async function systemJob(name, fn) {
   try {
     const res = await fetch(`${REST}/rpc/${fn}`, {
@@ -280,13 +280,11 @@ async function systemJob(name, fn) {
     console.error(`[${name}] thất bại: ${e.message}`)
   }
 }
-function every(ms, firstDelay, job) {
-  setTimeout(job, firstDelay).unref()
+for (const j of JOBS) {
+  if (process.env[j.enabledBy] !== 'true') continue
+  const ms = j.everyMinutes * 60 * 1000
+  const job = () => systemJob(`${j.module}: ${j.name}`, j.rpc)
+  setTimeout(job, Math.min(ms, 30000)).unref()
   setInterval(job, ms).unref()
-}
-if (process.env.CITIZEN_REMINDERS_ENABLED === 'true') {
-  every(60 * 60 * 1000, 30000, () => systemJob('nhắc việc', 'system_dispatch_citizen_reminders'))
-}
-if (process.env.CITIZEN_RETENTION_SCAN_ENABLED === 'true') {
-  every(24 * 60 * 60 * 1000, 60000, () => systemJob('rà soát lưu trữ', 'system_scan_citizen_retention'))
+  console.log(`Việc định kỳ ${j.module}: ${j.name} mỗi ${j.everyMinutes} phút`)
 }

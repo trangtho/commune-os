@@ -4,16 +4,16 @@ import assert from 'node:assert/strict'
 import {readFileSync} from 'node:fs'
 import {test} from 'node:test'
 const read=(path)=>readFileSync(new URL(path,import.meta.url),'utf8')
-const sql=read('../../../core/demo/expanded-catalog.sql')
-const compose=read('../../../docker-compose.yml')
+const sql=read('../../../modules/xa/demo/expanded-catalog.sql')
+const compose=read('../../../modules/xa/module.json')
 const makefile=read('../../../Makefile')
-const demo=read('../../../core/demo/demo.mjs')
+const demo=read('../../../modules/xa/demo/demo.mjs')
 const list=read('../pages/thu-tuc/index.vue')
 const card=read('../components/ProcedureCard.vue')
 const detail=read('../pages/thu-tuc/[slug].vue')
-const coreSubmit=read('../../../core/db/init/21-citizen-api-core-flow.sql')
+const coreSubmit=read('../../../modules/xa/db/21-citizen-api-core-flow.sql')
 const recommended=read('../server/api/procedures/recommended.get.ts')
-const publicApi=read('../../../core/db/init/33-citizen-api-public.sql')
+const publicApi=read('../../../modules/xa/db/33-citizen-api-public.sql')
 const identity=read('../server/utils/identity.ts')
 
 test('36 additional demo procedures use distinct IDs and preserve existing rows',()=>{
@@ -28,8 +28,8 @@ test('36 additional demo procedures use distinct IDs and preserve existing rows'
 test('explicit demo loads expanded catalogue before creating demo tenants via core API',()=>{
   assert.doesNotMatch(compose,/expanded-catalog\.sql/)
   const recipe=makefile.split('\ndemo:')[1].split('\n\n')[0]
-  assert.ok(recipe.includes('core/demo/expanded-catalog.sql'))
-  assert.ok(recipe.indexOf('core/demo/expanded-catalog.sql') < recipe.indexOf('/demo/demo.mjs'))
+  assert.ok(recipe.includes('modules/xa/demo/expanded-catalog.sql'))
+  assert.ok(recipe.indexOf('modules/xa/demo/expanded-catalog.sql') < recipe.indexOf('/demo/demo.mjs'))
   assert.match(demo,/set_tenant_procedures/)
   assert.match(demo,/code: 'xa-a'/)
   assert.match(demo,/code: 'xa-b'/)

@@ -15,7 +15,7 @@ CommuneOS không gọi bất kỳ API AI bên ngoài nào, vì hồ sơ hành ch
 | `ai-models` | Ollama 0.12.6 (`pull-models.sh`) | mạng chung | Chạy một lần mỗi khi `make up`: tải mô hình vào volume `ai-models` nếu chưa có. Dịch vụ AI duy nhất cần Internet, và chỉ ở lần đầu |
 | `ai` | Ollama 0.12.6 | chỉ `ai-internal` (`internal: true`) | Chạy mô hình; không mở cổng, không ra được Internet |
 | `ai-gateway` | Node.js 22, `server.mjs`, không thư viện ngoài | mạng chung và `ai-internal` | Cầu nối duy nhất tới mô hình, sau APISIX |
-| `db` | PostgreSQL 17 + pgvector 0.8.1 | mạng chung | Vector của chỉ mục tri thức (`core/db/init/22-ai-knowledge-vectors.sql`) |
+| `db` | PostgreSQL 17 + pgvector 0.8.1 | mạng chung | Vector của chỉ mục tri thức (`modules/xa/db/22-ai-knowledge-vectors.sql`) |
 
 Mô hình mặc định (đặt khác được trong `.env`):
 
@@ -66,7 +66,7 @@ Câu hỏi tra cứu thông tin của một người cụ thể ("số điện t
 mã hồ sơ (`HS-...`) bị từ chối trước khi tìm kiếm (`mode: refused`). Trợ lý không có quyền đọc hồ sơ, giấy tờ,
 thông báo hay bất kỳ dữ liệu cá nhân nào; việc tra cứu hồ sơ làm trên màn hình nghiệp vụ theo phân quyền.
 
-Hướng dẫn nghiệp vụ cho cán bộ nằm trong bảng `staff_guide` (`core/db/init/24-staff-guide.sql`), tự đưa vào
+Hướng dẫn nghiệp vụ cho cán bộ nằm trong bảng `staff_guide` (`modules/xa/db/24-staff-guide.sql`), tự đưa vào
 chỉ mục tri thức khi thêm, sửa, xóa.
 
 Trợ lý nổi ở góc màn hình có trên mọi trang của Kênh người dân (`AssistantWidget.vue`, gọi `/api/chat`) và

@@ -5,9 +5,9 @@ import assert from 'node:assert/strict'
 import { readFileSync } from 'node:fs'
 import { execFileSync } from 'node:child_process'
 const read=file=>readFileSync(new URL(file,import.meta.url),'utf8')
-const migration=read('../../../core/db/init/15-citizen-vault-autofill.sql')
+const migration=read('../../../modules/xa/db/15-citizen-vault-autofill.sql')
 // Thao tác dữ liệu của kho giấy tờ là API của lõi, gọi qua cổng bằng token công dân.
-const coreApi=read('../../../core/db/init/27-citizen-api-vault.sql')
+const coreApi=read('../../../modules/xa/db/27-citizen-api-vault.sql')
 const fn=name=>coreApi.slice(coreApi.indexOf(`FUNCTION api.${name}(`)).split('END $$;')[0]
 
 test('Magic bytes, 5MB bounds, archive and expiry are enforced in shared vault logic',()=>{
@@ -54,7 +54,7 @@ test('Vault tables have RLS, owner tenant boundaries and no staff/global access 
  assert.match(migration,/GRANT UPDATE\(birth_date,citizen_identifier,updated_at\) ON citizen_self_facts/)
  assert.doesNotMatch(migration,/GRANT DELETE ON citizen_vault_shares/)
  assert.doesNotMatch(migration,/GRANT .* ON citizen_vault_\w+ TO "commune-app"/)
- assert.match(read('../../../docker-compose.yml'),/15-citizen-vault-autofill\.sql/)
+ assert.match(read('../../../modules/xa/module.json'),/15-citizen-vault-autofill\.sql/)
 })
 
 test('Upload validates file content, stores key+hash, and rejects attempts to overwrite other citizens',()=>{
@@ -109,7 +109,7 @@ test('Autofill GET is provenance-aware, self edits cannot forge verified status;
  assert.match(oidc,/CITIZEN_OIDC_PERSONAL_DATA_APPROVED/)
  assert.match(callback,/flow\.usePersonalData && c\.verifiedFacts/)
  assert.match(callback,/p_facts: flow\.usePersonalData && c\.verifiedFacts/)
- assert.match(read('../../../core/db/init/34-citizen-direct-access.sql'),/INSERT INTO citizen_verified_facts/)
+ assert.match(read('../../../modules/xa/db/34-citizen-direct-access.sql'),/INSERT INTO citizen_verified_facts/)
  assert.match(wizard,/autofillReviewed/)
  assert.match(wizard,/Tôi đã kiểm tra lại từng giá trị/)
  assert.match(wizard,/actingFor==='self'/)
