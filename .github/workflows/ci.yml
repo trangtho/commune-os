@@ -33,6 +33,8 @@ jobs:
       - name: Tạo .env từ mẫu
         run: |
           cp .env.example .env
+          # CI runs browser tests over loopback HTTP only.
+          sed -i "s/^PORTAL_ALLOW_LOCAL_HTTP=.*/PORTAL_ALLOW_LOCAL_HTTP=true/" .env
           sed -i "s/^SESSION_SECRET=.*/SESSION_SECRET=$(openssl rand -hex 32)/" .env
           # Mật khẩu quản trị hệ thống: make check-env từ chối mật khẩu mẫu.
           sed -i "s/^COMMUNEOS_ADMIN_PASSWORD=.*/COMMUNEOS_ADMIN_PASSWORD=Ci$(openssl rand -hex 12)/" .env

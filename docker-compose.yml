@@ -498,6 +498,7 @@ services:
       NUXT_DB_PASSWORD: ${POSTGRES_APP_PASSWORD}
       NUXT_SESSION_SECRET: ${SESSION_SECRET}
       PORTAL_ALLOW_LOCAL_HTTP: ${PORTAL_ALLOW_LOCAL_HTTP:-false}
+      PORTAL_PUBLIC_ORIGIN: ${CITIZEN_PORTAL_PUBLIC_ORIGIN:-}
       # Đăng nhập công dân bằng Keycloak (client citizen-app), gọi lõi qua cổng APISIX.
       NUXT_KEYCLOAK_URL: http://identity:8080
       NUXT_GATEWAY_URL: http://gateway:9080
@@ -551,7 +552,7 @@ services:
       retries: 30
       start_period: 30s
     ports:
-      - "127.0.0.1:${CITIZEN_PORT:-3000}:3000"
+      - "${PORTAL_BIND_ADDRESS:-127.0.0.1}:${CITIZEN_PORT:-3000}:3000"
 
   # Màn hình cán bộ xã (Tầng 2). Đăng nhập qua Keycloak, đọc/ghi qua cổng APISIX.
   commune:
@@ -579,10 +580,11 @@ services:
       # Biến NUXT_* ghi đè runtimeConfig lúc chạy container.
       NUXT_SESSION_SECRET: ${SESSION_SECRET}
       PORTAL_ALLOW_LOCAL_HTTP: ${PORTAL_ALLOW_LOCAL_HTTP:-false}
+      PORTAL_PUBLIC_ORIGIN: ${COMMUNE_PORTAL_PUBLIC_ORIGIN:-}
       NUXT_KEYCLOAK_URL: http://identity:8080
       NUXT_GATEWAY_URL: http://gateway:9080
     ports:
-      - "127.0.0.1:${COMMUNE_PORT:-3002}:3000"
+      - "${PORTAL_BIND_ADDRESS:-127.0.0.1}:${COMMUNE_PORT:-3002}:3000"
 
   # Bảng quản trị hệ thống (Tầng 2, gọi lõi qua cổng API). Chỉ tài khoản có vai trò sys_admin đăng nhập được.
   admin:
@@ -609,8 +611,9 @@ services:
       NUXT_GATEWAY_URL: http://gateway:9080
       NUXT_SESSION_SECRET: ${SESSION_SECRET}
       PORTAL_ALLOW_LOCAL_HTTP: ${PORTAL_ALLOW_LOCAL_HTTP:-false}
+      PORTAL_PUBLIC_ORIGIN: ${ADMIN_PORTAL_PUBLIC_ORIGIN:-}
     ports:
-      - "127.0.0.1:${ADMIN_PORT:-3001}:3000"
+      - "${PORTAL_BIND_ADDRESS:-127.0.0.1}:${ADMIN_PORT:-3001}:3000"
 
 networks:
   # Mạng riêng của AI, không có đường ra Internet.

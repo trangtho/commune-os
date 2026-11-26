@@ -32,7 +32,7 @@ export function portalSession(scope: string, permitted: (info: PortalClaims) => 
       if (!Number.isFinite(age) || age <= 0) return
       const sealed = sealToken(secret, `${scope}:${name}`, {t: value, e: Date.now() + age * 1000})
       if (sealed.length > 3800) throw createError({statusCode: 503, statusMessage: 'Token định danh vượt quá giới hạn cookie'})
-      setCookie(event, name, sealed, {httpOnly: true, sameSite: 'lax', secure: securePortalCookie(getRequestURL(event)), path: '/', maxAge: age})
+      setCookie(event, name, sealed, {httpOnly: true, sameSite: 'lax', secure: securePortalCookie(getRequestURL(event, {xForwardedHost: false, xForwardedProto: false})), path: '/', maxAge: age})
     }
     put(accessName, tokens.access_token, tokens.expires_in)
     if (tokens.refresh_token) put(refreshName, tokens.refresh_token, tokens.refresh_expires_in || tokens.expires_in)

@@ -12,7 +12,7 @@ export function counterCookieCode(event:H3Event) {
   return /^[A-F0-9]{20}$/.test(code) ? code : ''
 }
 export function setCounterCookie(event:H3Event,code:string) {
-  setCookie(event,counterCookie,code,{httpOnly:true,sameSite:'strict',secure:securePortalCookie(getRequestURL(event)),path:'/api/counter/sessions',maxAge:counterTTLSeconds})
+  setCookie(event,counterCookie,code,{httpOnly:true,sameSite:'strict',secure:securePortalCookie(getRequestURL(event, {xForwardedHost: false, xForwardedProto: false})),path:'/api/counter/sessions',maxAge:counterTTLSeconds})
 }
 export function clearCounterCookie(event:H3Event) {
   deleteCookie(event,counterCookie,{path:'/api/counter/sessions'})

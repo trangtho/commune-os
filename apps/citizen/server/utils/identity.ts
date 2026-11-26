@@ -38,7 +38,7 @@ function open(sealed: string | undefined) {
 }
 
 const cookieOptions = (event: H3Event, maxAge: number) =>
-  ({ httpOnly: true, sameSite: 'lax' as const, secure: securePortalCookie(getRequestURL(event)), path: '/', maxAge })
+  ({ httpOnly: true, sameSite: 'lax' as const, secure: securePortalCookie(getRequestURL(event, {xForwardedHost: false, xForwardedProto: false})), path: '/', maxAge })
 
 /** Đọc claim của token vừa nhận trực tiếp từ Keycloak (kênh nội bộ, không qua trình duyệt). */
 export function tokenClaims(token: string): Record<string, any> {

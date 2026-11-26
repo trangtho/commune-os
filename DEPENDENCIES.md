@@ -44,11 +44,11 @@ thuộc danh sách OSI (https://opensource.org/licenses).
 | `lucide-vue-next`     | ^1.0.0    | ISC        | `apps/admin`, bộ biểu tượng                    |
 | `lucide-vue-next`     | ^0.468.0  | ISC        | `apps/citizen`, `apps/commune`, bộ biểu tượng  |
 | `@fontsource/be-vietnam-pro` | 5.3.0 | OFL-1.1 | `apps/admin`, `apps/citizen`, `apps/commune`, phông chữ đóng gói cùng ứng dụng |
-| `pg`                  | ^8.16.0   | MIT        | `apps/citizen`, `apps/commune`                 |
+| `pg`                  | ^8.16.0   | MIT        | `apps/citizen` (LISTEN thời gian thực)        |
 | `zod`                 | ^3.25.0   | MIT        | `apps/citizen`, `apps/commune`                 |
 | TypeScript            | ^5.8.0    | Apache-2.0 | `apps/citizen`, `apps/commune`                 |
 | `vue-tsc`             | ^2.2.12   | MIT        | `apps/commune`, kiểm tra kiểu                  |
-| `@types/pg`           | ^8.15.0   | MIT        | `apps/citizen`, `apps/commune`                 |
+| `@types/pg`           | ^8.15.0   | MIT        | `apps/citizen` (LISTEN thời gian thực)        |
 | `@types/node`         | ^22.15.0  | MIT        | `apps/citizen`, `apps/commune`                 |
 | `@playwright/test`    | ^1.56.1   | Apache-2.0 | `apps/citizen`, kiểm thử giao diện             |
 
