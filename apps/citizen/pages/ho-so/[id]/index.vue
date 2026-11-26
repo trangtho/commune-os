@@ -32,7 +32,7 @@ async function sendMessage() {
 }
 </script>
 <template>
-  <div class="space-y-4">
+  <div class="citizen-subpage citizen-case-detail-page space-y-4">
     <NuxtLink to="/ho-so" class="inline-flex items-center gap-1 text-sm font-semibold text-brand-700"><ArrowLeft :size="16" />Danh sách hồ sơ</NuxtLink>
     <div v-if="error" class="panel space-y-3 p-6 text-rose-600" role="alert"><p>Không tìm thấy hồ sơ hoặc không có quyền truy cập.</p><button class="btn-outline" @click="refresh()">Thử lại</button></div>
     <template v-else-if="c">

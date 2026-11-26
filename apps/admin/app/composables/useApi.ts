@@ -9,18 +9,17 @@ type Options = { method?: "GET" | "POST" | "PATCH"; body?: Record<string, unknow
 export class ApiError extends Error {}
 
 export function useApi() {
-  const { token, logout } = useAuth();
+  const { logout } = useAuth();
 
   async function api<T>(path: string, options: Options = {}): Promise<T> {
     try {
-      return await $fetch<T>(path.startsWith("/accounts/") ? path : `/rest${path}`, {
+      return await $fetch<T>(`/api/core${path.startsWith("/accounts/") ? path : `/rest${path}`}`, {
         method: options.method ?? "GET",
         body: options.body,
-        headers: { Authorization: `Bearer ${token.value}` },
       });
     } catch (e: any) {
       const status = e?.response?.status;
-      const message: string | undefined = e?.data?.message;
+      const message: string | undefined = e?.data?.data?.message ?? e?.data?.message;
       if (status === 401) {
         await logout();
         throw new ApiError("Phiên đăng nhập đã hết, vui lòng đăng nhập lại.");

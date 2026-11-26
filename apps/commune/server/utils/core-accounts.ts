@@ -11,7 +11,7 @@ export async function coreAccounts<T>(
   path: string,
   init: { method?: 'GET' | 'POST' | 'PATCH' | 'DELETE'; body?: Record<string, unknown> } = {},
 ): Promise<T> {
-  const actor = requireStaff(event)
+  const actor = await requireStaff(event)
   const { gatewayUrl } = useRuntimeConfig(event)
   try {
     return await $fetch<T>(`${gatewayUrl}/accounts${path}`, {

@@ -121,6 +121,47 @@ mà chỉ máy chủ Kênh người dân giữ. Giá trị trong `.env.example` 
 Bật quét mã độc: `docker compose --profile antivirus up -d antivirus`
 rồi đặt `CLAMAV_HOST=antivirus`.
 
+### Cookie đăng nhập, demo LAN và reverse proxy HTTPS
+
+Mặc định cookie đăng nhập có `Secure`, `HttpOnly`; các cổng portal chỉ bind `127.0.0.1`.
+Để demo trên máy cá nhân bằng HTTP, đặt `PORTAL_ALLOW_LOCAL_HTTP=true` trong `.env`.
+Nếu giám khảo truy cập từ máy khác trong cùng LAN, ví dụ máy chủ có IP `192.168.1.20`:
+
+```dotenv
+PORTAL_ALLOW_LOCAL_HTTP=true
+PORTAL_BIND_ADDRESS=192.168.1.20
+```
+
+Đổi IP ví dụ thành IP LAN thực tế của máy chạy Docker. Chỉ cho phép HTTP với dữ liệu mẫu,
+trên mạng tin cậy; giới hạn firewall tới máy/mạng giám khảo. Không mở HTTP ra Internet.
+Cookie chỉ được nới cho localhost, IPv4 loopback, IPv6 loopback và IP IPv4 riêng RFC1918
+(`10/8`, `172.16/12`, `192.168/16`); không áp dụng cho tên miền hoặc IP công cộng.
+Mở `http://192.168.1.20:3000` (người dân), `:3001` (quản trị), `:3002` (cán bộ).
+Các biến `*_PORTAL_PUBLIC_ORIGIN` có thể để trống khi truy cập trực tiếp. Không đổi `PUBLIC_URL`
+hoặc `KEYCLOAK_PUBLIC_URL` chỉ để sửa cookie; cấu hình issuer, OIDC và các URL công khai của lõi
+riêng nếu triển khai các dịch vụ đó từ xa. `CITIZEN_PUBLIC_ORIGIN` vẫn dành riêng cho QR kết quả.
+
+Khi dùng nginx hoặc reverse proxy HTTPS, giữ `PORTAL_ALLOW_LOCAL_HTTP=false`,
+`PORTAL_BIND_ADDRESS=127.0.0.1` nếu proxy chạy trên cùng máy chủ, và cấu hình từng origin:
+
+```dotenv
+CITIZEN_PORTAL_PUBLIC_ORIGIN=https://congdan.example.org
+COMMUNE_PORTAL_PUBLIC_ORIGIN=https://canbo.example.org
+ADMIN_PORTAL_PUBLIC_ORIGIN=https://quantri.example.org
+```
+
+Thay tên miền ví dụ bằng tên miền thật; mỗi origin chỉ gồm scheme, host và port (nếu không mặc định).
+Proxy cần giữ `Host` công khai, chuyển tiếp tới cổng portal tương ứng và ghi đè các header chuyển tiếp
+(`X-Forwarded-Host`, `X-Forwarded-Proto`) thay vì nhận từ client. Portal sử dụng origin cấu hình để kiểm tra
+`Origin` và chính sách cookie, không tin các header chuyển tiếp đó để quyết định quyền ghi.
+Không cho truy cập trực tiếp backend từ Internet; chuyển HTTP công khai sang HTTPS tại proxy.
+Nếu proxy chạy trong Docker, dùng mạng Docker riêng với backend thay vì mở backend công khai.
+Không dùng chung origin cho nhiều portal. Khi đã cấu hình origin HTTPS, truy cập từ origin khác
+(kể cả localhost) sẽ không được phép ghi; dùng đúng URL công khai.
+
+Áp dụng cấu hình bằng `docker compose up -d --build --no-deps citizen commune admin` và đăng nhập lại.
+Kiểm tra reload, logout và thao tác ghi trên từng origin; yêu cầu từ origin khác vẫn phải bị từ chối (403).
+
 ## Tài khoản thử
 
 Cài mới không có tài khoản người dùng nào ngoài **quản trị hệ thống**, do người cài đặt trong `.env`

@@ -269,7 +269,7 @@ async function submit() {
 </script>
 
 <template>
-  <div class="space-y-4">
+  <div class="citizen-subpage citizen-filing-page space-y-4">
     <CitizenFilingCompanion v-if="procedure&&!isInvalidDraft" :procedure-id="slug" :application-id="draftId" :current-step="step" :acting-for="actingFor" @apply="applyPacket" />
     <p v-if="draftSyncMessage" class="rounded-lg bg-blue-50 p-2 text-xs text-brand-900" role="status">{{draftSyncMessage}}</p>
     <NuxtLink v-if="batchId" :to="`/lien-thong/${batchId}`" class="inline-flex items-center gap-2 rounded-lg bg-blue-50 px-3 py-2 text-sm font-bold text-brand-700">← Trở về nhóm hồ sơ</NuxtLink>

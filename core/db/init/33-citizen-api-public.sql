@@ -123,7 +123,8 @@ LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
     SELECT p.id, p.title, p.category, p.summary, p.icon, p.sla_days, p.fee_note, p.instructions,
       coalesce(m.audience_groups, '{}'::text[]) AS audience_groups, coalesce(m.available_tenant_ids, '{}'::uuid[]) AS available_tenant_ids,
       (m.verified_at IS NOT NULL AND length(btrim(coalesce(m.source_reference, ''))) > 0) AS metadata_verified
-    FROM procedures p LEFT JOIN procedure_recommendation_metadata m ON m.procedure_id = p.id WHERE p.published = true) x
+    FROM procedures p LEFT JOIN procedure_recommendation_metadata m ON m.procedure_id = p.id
+    WHERE p.published = true AND (public.request_citizen_tenant() IS NULL OR public.procedure_enabled_for(public.request_citizen_tenant(), p.id))) x
 $$;
 
 -- Danh mục cho lộ trình sự kiện cuộc sống; công dân chỉ thấy thủ tục xã mình mở.

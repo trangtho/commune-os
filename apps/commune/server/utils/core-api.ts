@@ -7,7 +7,7 @@ import type { H3Event } from 'h3'
 import { requireStaff, signOut } from './session'
 
 export async function coreGet<T>(event: H3Event, path: string): Promise<T> {
-  const actor = requireStaff(event)
+  const actor = await requireStaff(event)
   const { gatewayUrl } = useRuntimeConfig(event)
   try {
     return await $fetch<T>(`${gatewayUrl}/rest${path}`, {
@@ -26,7 +26,7 @@ export async function coreGet<T>(event: H3Event, path: string): Promise<T> {
 // Gọi một hàm ghi của lõi: POST /rest/rpc/<tên hàm>.
 // Lỗi nghiệp vụ của lõi (400, 403, 404, 409) được giữ nguyên mã và lời nhắn để hiện cho cán bộ.
 export async function coreRpc<T>(event: H3Event, fn: string, body: Record<string, unknown>): Promise<T> {
-  const actor = requireStaff(event)
+  const actor = await requireStaff(event)
   const { gatewayUrl } = useRuntimeConfig(event)
   try {
     return await $fetch<T>(`${gatewayUrl}/rest/rpc/${fn}`, {
@@ -50,13 +50,13 @@ export async function coreRpc<T>(event: H3Event, fn: string, body: Record<string
 
 // Thực hiện một bước xử lý hồ sơ qua động cơ quy trình của lõi: POST /workflow/dossiers/<mã>/actions.
 // Lõi (Flowable + cơ sở dữ liệu) quyết định bước nào hợp lệ; lời nhắn lỗi được giữ nguyên.
-export async function coreWorkflow<T>(event: H3Event, dossierId: string, action: string, note: string | null): Promise<T> {
-  const actor = requireStaff(event)
+export async function coreWorkflow<T>(event: H3Event, dossierId: string, action: string, note: string | null, expectedStatus?: string): Promise<T> {
+  const actor = await requireStaff(event)
   const { gatewayUrl } = useRuntimeConfig(event)
   try {
     return await $fetch<T>(`${gatewayUrl}/workflow/dossiers/${encodeURIComponent(dossierId)}/actions`, {
       method: 'POST',
-      body: { action, note },
+      body: { action, note, expectedStatus },
       headers: { Authorization: `Bearer ${actor.token}` },
     })
   } catch (e: any) {

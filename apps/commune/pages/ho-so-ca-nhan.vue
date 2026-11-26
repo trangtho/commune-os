@@ -147,7 +147,7 @@ function describe(r: StaffRequest) {
       </section>
 
       <!-- Giấy tờ -->
-      <div v-if="tab === 'docs'" class="grid gap-4 lg:grid-cols-3">
+      <div v-if="tab === 'docs'" class="staff-split-grid grid gap-4">
         <section class="panel p-5 lg:col-span-2">
           <h3 class="section-label"><FileText :size="20" class="text-brand-600" />Giấy tờ của tôi</h3>
           <p v-if="!data.documents.length" class="text-sm text-muted">Chưa có giấy tờ nào.</p>
@@ -193,7 +193,7 @@ function describe(r: StaffRequest) {
       </div>
 
       <!-- Yêu cầu của tôi -->
-      <div v-if="tab === 'requests'" class="grid gap-4 lg:grid-cols-3">
+      <div v-if="tab === 'requests'" class="staff-split-grid grid gap-4">
         <section class="panel p-5 lg:col-span-2">
           <h3 class="section-label"><Send :size="20" class="text-brand-600" />Yêu cầu đã gửi</h3>
           <p v-if="!data.requests.length" class="text-sm text-muted">Chưa gửi yêu cầu nào.</p>

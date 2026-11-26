@@ -19,7 +19,7 @@ const isActive = (to: string) => (to === "/" ? route.path === "/" : route.path =
 </script>
 
 <template>
-  <div class="min-h-screen md:flex md:gap-5 md:p-4">
+  <div class="admin-app-shell min-h-screen md:flex md:gap-5 md:p-4">
     <aside class="border-b border-slate-200 bg-white md:sticky md:top-4 md:flex md:h-[calc(100vh-2rem)] md:w-60 md:shrink-0 md:flex-col md:rounded-2xl md:border">
       <div class="flex items-center gap-3 px-5 py-4">
         <img src="/images/logo-communeos.svg" alt="" width="40" height="40" class="h-10 w-10 shrink-0" />
@@ -52,7 +52,7 @@ const isActive = (to: string) => (to === "/" ? route.path === "/" : route.path =
       </div>
     </aside>
 
-    <main class="min-w-0 flex-1 p-3 md:p-0">
+    <main class="admin-content min-w-0 flex-1 p-3 md:p-0">
       <div class="admin-sheet"><slot /></div>
       <button type="button" class="mt-3 inline-flex items-center gap-2 rounded-lg bg-white px-3 py-2 text-sm font-semibold text-slate-700 md:hidden" @click="logout">
         <LogOut class="h-4 w-4" aria-hidden="true" />

@@ -13,7 +13,7 @@ export default defineNuxtConfig({
   },
   modules: ['@nuxtjs/tailwindcss'],
   // Phông Be Vietnam Pro (OFL-1.1) đóng gói cùng ứng dụng, không tải từ máy chủ ngoài lúc chạy.
-  css: ['@fontsource/be-vietnam-pro/400.css', '@fontsource/be-vietnam-pro/500.css', '@fontsource/be-vietnam-pro/600.css', '@fontsource/be-vietnam-pro/700.css'],
+  css: ['@fontsource/be-vietnam-pro/400.css', '@fontsource/be-vietnam-pro/500.css', '@fontsource/be-vietnam-pro/600.css', '@fontsource/be-vietnam-pro/700.css', '~/assets/css/shared-tokens.css'],
   tailwindcss: { cssPath: '~/assets/css/main.css' },
   app: {
     head: {

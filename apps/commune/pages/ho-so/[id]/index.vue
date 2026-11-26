@@ -133,7 +133,7 @@ async function sendMessage() {
           </div>
           <StatusPill :status="c.status" />
         </div>
-        <div class="mt-4 grid gap-3 border-t pt-4 text-sm sm:grid-cols-4">
+        <div class="mt-4 staff-metric-grid grid gap-3 border-t pt-4 text-sm">
           <div>
             <span class="text-xs text-muted">Ngày tiếp nhận</span>
             <p class="font-bold">
@@ -179,7 +179,7 @@ async function sendMessage() {
         :dossier-id="c.id"
         :status="c.status"
         @changed="refresh" />
-      <div class="grid min-w-0 gap-4 lg:grid-cols-2">
+      <div class="staff-pair-grid grid min-w-0 gap-4">
         <section class="panel p-4">
           <h3 class="section-label">
             <FileText :size="20" class="text-blue-600" />Giấy tờ đã nộp ({{
@@ -284,7 +284,7 @@ async function sendMessage() {
           </div>
         </section>
       </div>
-      <div class="grid min-w-0 gap-4 lg:grid-cols-2">
+      <div class="staff-pair-grid grid min-w-0 gap-4">
         <section class="panel p-4">
           <h3 class="section-label">
             <MessageCircle :size="20" class="text-brand-600" />Gửi thông báo cho

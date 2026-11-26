@@ -1,7 +1,8 @@
 // SPDX-FileCopyrightText: 2026 CommuneOS Contributors
 // SPDX-License-Identifier: Apache-2.0
+import { securePortalCookie } from './cookie-policy'
 import { createHmac, timingSafeEqual } from 'node:crypto'
-import { getCookie, setCookie, deleteCookie, createError, type H3Event } from 'h3'
+import { getRequestURL, getCookie, setCookie, deleteCookie, createError, type H3Event } from 'h3'
 type Identity={ id:string; tenantId:string; name:string; role:'citizen'; exp:number; authMethod?:'demo'|'oidc'|'keycloak' }
 const cookieName = 'communeos_citizen_demo'
 function secret(){
@@ -12,7 +13,7 @@ function secret(){
 function signature(body:string){return createHmac('sha256',secret()).update(body).digest('base64url')}
 export function signSession(event:H3Event, citizen:{id:string;tenantId:string;name:string;authMethod?:'demo'|'oidc'|'keycloak'}) {
   const body=Buffer.from(JSON.stringify({...citizen,role:'citizen',exp:Date.now()+12*60*60*1000})).toString('base64url')
-  setCookie(event,cookieName,`${body}.${signature(body)}`,{httpOnly:true,sameSite:'lax',secure:process.env.NODE_ENV==='production',path:'/',maxAge:12*60*60})
+  setCookie(event,cookieName,`${body}.${signature(body)}`,{httpOnly:true,sameSite:'lax',secure:securePortalCookie(getRequestURL(event, {xForwardedHost: false, xForwardedProto: false})),path:'/',maxAge:12*60*60})
 }
 export function readSession(event:H3Event):Identity|null {
   const token=getCookie(event,cookieName)

@@ -11,7 +11,7 @@ export async function coreFiles(
   path: string,
   init: { method?: string; body?: Uint8Array; contentType?: string } = {},
 ): Promise<Response> {
-  const actor = requireStaff(event)
+  const actor = await requireStaff(event)
   const { gatewayUrl } = useRuntimeConfig(event)
   const headers: Record<string, string> = { Authorization: `Bearer ${actor.token}` }
   if (init.contentType) headers['content-type'] = init.contentType

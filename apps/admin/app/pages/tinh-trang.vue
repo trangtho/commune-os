@@ -40,7 +40,7 @@ interface AiStatus {
   externalApis: boolean;
 }
 
-const { token, logout } = useAuth();
+const { logout } = useAuth();
 
 const checks = ref<Check[]>([
   { key: "identity", name: "Định danh", parts: "Keycloak", icon: KeyRound },
@@ -74,7 +74,7 @@ function set(key: string, value: Partial<Check>) {
 async function probe<T>(path: string, method: "GET" | "POST" = "GET", body?: object) {
   const started = performance.now();
   try {
-    const data = await $fetch<T>(path, { method, body, headers: { Authorization: `Bearer ${token.value}` }, timeout: 15000 });
+    const data = await $fetch<T>(`/api/core${path}`, { method, body, timeout: 15000 });
     return { ok: true, status: 200, data, ms: Math.round(performance.now() - started) };
   } catch (e: any) {
     const status = e?.response?.status ?? 0;

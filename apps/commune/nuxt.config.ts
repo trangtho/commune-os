@@ -7,7 +7,7 @@ export default defineNuxtConfig({
   experimental: { appManifest: false },
   modules: ['@nuxtjs/tailwindcss'],
   // Phông Be Vietnam Pro (OFL-1.1) đóng gói cùng ứng dụng, không tải từ máy chủ ngoài lúc chạy.
-  css: ['@fontsource/be-vietnam-pro/400.css', '@fontsource/be-vietnam-pro/500.css', '@fontsource/be-vietnam-pro/600.css', '@fontsource/be-vietnam-pro/700.css'],
+  css: ['@fontsource/be-vietnam-pro/400.css', '@fontsource/be-vietnam-pro/500.css', '@fontsource/be-vietnam-pro/600.css', '@fontsource/be-vietnam-pro/700.css', '~/assets/css/shared-tokens.css'],
   tailwindcss: { cssPath: '~/assets/css/main.css' },
   app: {
     head: {
@@ -27,11 +27,6 @@ export default defineNuxtConfig({
     // Đăng nhập qua Keycloak, đọc dữ liệu qua cổng APISIX (API lõi /rest).
     keycloakUrl: process.env.KEYCLOAK_URL || 'http://localhost:8080',
     gatewayUrl: process.env.GATEWAY_URL || 'http://localhost:9080',
-    dbHost: process.env.PGHOST || '127.0.0.1',
-    dbPort: process.env.PGPORT || '5432',
-    dbName: process.env.PGDATABASE || 'communeos',
-    dbUser: process.env.PGUSER || 'communeos_app',
-    dbPassword: process.env.PGPASSWORD || '',
     public: { demoMode: process.env.DEMO_MODE !== 'false', systemName: 'CommuneOS' }
   }
 })

@@ -6,7 +6,7 @@ import type { Procedure } from '~/types/models'
 const route=useRoute()
 const {data:p,error}=await useFetch<Procedure>(`/api/procedures/${route.params.slug}`, {key:`citizen-procedure:${String(route.params.slug)}`})
 </script>
-<template><div class="space-y-5">
+<template><div class="citizen-subpage citizen-procedure-detail-page space-y-5">
  <NuxtLink to="/thu-tuc" class="inline-flex items-center gap-1 text-sm font-semibold text-brand-700 hover:underline"><ArrowLeft :size="16"/> Danh mục thủ tục</NuxtLink>
  <div v-if="error" class="panel p-6 text-rose-700">Không tìm thấy thủ tục.</div>
  <template v-else-if="p">
@@ -17,7 +17,7 @@ const {data:p,error}=await useFetch<Procedure>(`/api/procedures/${route.params.s
    <dl class="mt-5 grid gap-3 sm:grid-cols-3">
     <div class="rounded-xl bg-slate-50 p-4"><dt class="flex items-center gap-2 text-sm text-slate-600"><FileText :size="17"/>Giấy tờ cần có</dt><dd class="mt-1 text-lg font-semibold text-ink">{{p.documents?.length||0}} loại<span v-if="p.documents?.some(d=>d.is_required)" class="text-sm font-normal text-slate-600">, {{p.documents.filter(d=>d.is_required).length}} bắt buộc</span></dd></div>
     <div class="rounded-xl bg-slate-50 p-4"><dt class="flex items-center gap-2 text-sm text-slate-600"><Wallet :size="17"/>Lệ phí (mẫu)</dt><dd class="mt-1 text-lg font-semibold text-ink">{{p.fee_note}}</dd></div>
-    <div class="rounded-xl bg-slate-50 p-4"><dt class="flex items-center gap-2 text-sm text-slate-600"><Clock3 :size="17"/>Thời hạn (mẫu)</dt><dd class="mt-1 text-lg font-semibold text-ink">{{p.sla_days}} ngày làm việc</dd></div>
+    <div class="rounded-xl bg-slate-50 p-4"><dt class="flex items-center gap-2 text-sm text-slate-600"><Clock3 :size="17"/>Thời hạn (mẫu)</dt><dd class="mt-1 text-lg font-semibold text-ink">{{p.sla_days>0?`${p.sla_days} ngày làm việc`:"Chưa xác minh"}}</dd></div>
    </dl>
    <p v-if="p.available_in_my_commune===false" class="mt-5 rounded-lg bg-amber-50 p-3 font-medium text-amber-900">Xã của bạn chưa mở thủ tục này trên cổng trực tuyến. Vui lòng liên hệ UBND xã.</p>
    <div v-else class="citizen-detail-actions mt-5 flex flex-wrap gap-2 max-sm:sticky max-sm:bottom-0 max-sm:-mx-5 max-sm:border-t max-sm:border-slate-200 max-sm:bg-white max-sm:p-3">

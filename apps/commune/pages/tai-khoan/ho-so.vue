@@ -36,7 +36,7 @@ async function save() {
 const DOC_STATUS = { pending: 'Chờ duyệt', active: 'Đã duyệt', rejected: 'Không duyệt' } as const
 </script>
 <template>
-  <div class="grid gap-4 lg:grid-cols-3">
+  <div class="staff-split-grid grid gap-4">
     <section class="panel p-5">
       <h3 class="section-label"><IdCard :size="20" class="text-brand-600" />Cán bộ</h3>
       <ul class="space-y-1">

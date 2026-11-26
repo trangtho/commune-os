@@ -88,6 +88,7 @@ services:
       KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN}
       KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD}
       CITIZEN_KEYCLOAK_SECRET: ${CITIZEN_KEYCLOAK_SECRET}
+      KEYCLOAK_ACCOUNTS_SECRET: ${KEYCLOAK_ACCOUNTS_SECRET}
       # Tài khoản quản trị hệ thống duy nhất (make check-env kiểm tra độ mạnh mật khẩu).
       COMMUNEOS_ADMIN_USERNAME: ${COMMUNEOS_ADMIN_USERNAME}
       COMMUNEOS_ADMIN_PASSWORD: ${COMMUNEOS_ADMIN_PASSWORD}
@@ -205,6 +206,7 @@ services:
         psql -v ON_ERROR_STOP=1 -f /setup/init/33-citizen-api-public.sql
         psql -v ON_ERROR_STOP=1 -f /setup/init/34-citizen-direct-access.sql
         psql -v ON_ERROR_STOP=1 -f /setup/init/35-account-onboarding.sql
+        psql -v ON_ERROR_STOP=1 -f /setup/init/36-workflow-expected-status.sql
         # Mô tả API chạy sau cùng (sau mọi tệp tạo hàm, bảng ảo).
         psql -v ON_ERROR_STOP=1 -f /setup/init/25-api-comments.sql
         psql -v ON_ERROR_STOP=1 -c "SELECT count(*) AS published_procedures FROM procedures WHERE published = true"
@@ -282,6 +284,7 @@ services:
       REST_URL: http://rest:3000
       WORKFLOW_TOKEN: ${WORKFLOW_TOKEN}
       # Việc định kỳ cho Kênh người dân (tắt mặc định): gửi nhắc việc mỗi giờ, quét dữ liệu đến hạn rà soát lưu trữ mỗi ngày.
+      CITIZEN_REMINDERS_ENABLED: ${CITIZEN_REMINDERS_ENABLED:-false}
       CITIZEN_RETENTION_SCAN_ENABLED: ${CITIZEN_RETENTION_SCAN_ENABLED:-false}
     volumes:
       - ./core/orchestrator:/app:ro
@@ -494,6 +497,8 @@ services:
       NUXT_DB_USER: communeos_app
       NUXT_DB_PASSWORD: ${POSTGRES_APP_PASSWORD}
       NUXT_SESSION_SECRET: ${SESSION_SECRET}
+      PORTAL_ALLOW_LOCAL_HTTP: ${PORTAL_ALLOW_LOCAL_HTTP:-false}
+      PORTAL_PUBLIC_ORIGIN: ${CITIZEN_PORTAL_PUBLIC_ORIGIN:-}
       # Đăng nhập công dân bằng Keycloak (client citizen-app), gọi lõi qua cổng APISIX.
       NUXT_KEYCLOAK_URL: http://identity:8080
       NUXT_GATEWAY_URL: http://gateway:9080
@@ -510,7 +515,6 @@ services:
       NUXT_RESULT_ENDPOINT: ${CITIZEN_RESULTS_ENDPOINT:-}
       NUXT_RESULT_TOKEN: ${CITIZEN_RESULTS_TOKEN:-}
       CITIZEN_OCR_ENDPOINT: ${CITIZEN_OCR_ENDPOINT:-}
-      CITIZEN_REMINDERS_ENABLED: ${CITIZEN_REMINDERS_ENABLED:-false}
       CITIZEN_OCR_TOKEN: ${CITIZEN_OCR_TOKEN:-}
       # Disabled by default: only for authorized OIDC attribute contracts + explicit opt-in.
       CITIZEN_OIDC_PERSONAL_DATA_APPROVED: ${CITIZEN_OIDC_PERSONAL_DATA_APPROVED:-false}
@@ -548,7 +552,7 @@ services:
       retries: 30
       start_period: 30s
     ports:
-      - "127.0.0.1:${CITIZEN_PORT:-3000}:3000"
+      - "${PORTAL_BIND_ADDRESS:-127.0.0.1}:${CITIZEN_PORT:-3000}:3000"
 
   # Màn hình cán bộ xã (Tầng 2). Đăng nhập qua Keycloak, đọc/ghi qua cổng APISIX.
   commune:
@@ -575,16 +579,12 @@ services:
       PORT: 3000
       # Biến NUXT_* ghi đè runtimeConfig lúc chạy container.
       NUXT_SESSION_SECRET: ${SESSION_SECRET}
-      # Thông báo và xác nhận bổ sung hồ sơ còn đọc PostgreSQL trực tiếp (vai trò có RLS).
-      NUXT_DB_HOST: db
-      NUXT_DB_PORT: "5432"
-      NUXT_DB_NAME: ${POSTGRES_DB}
-      NUXT_DB_USER: communeos_app
-      NUXT_DB_PASSWORD: ${POSTGRES_APP_PASSWORD}
+      PORTAL_ALLOW_LOCAL_HTTP: ${PORTAL_ALLOW_LOCAL_HTTP:-false}
+      PORTAL_PUBLIC_ORIGIN: ${COMMUNE_PORTAL_PUBLIC_ORIGIN:-}
       NUXT_KEYCLOAK_URL: http://identity:8080
       NUXT_GATEWAY_URL: http://gateway:9080
     ports:
-      - "127.0.0.1:${COMMUNE_PORT:-3002}:3000"
+      - "${PORTAL_BIND_ADDRESS:-127.0.0.1}:${COMMUNE_PORT:-3002}:3000"
 
   # Bảng quản trị hệ thống (Tầng 2, gọi lõi qua cổng API). Chỉ tài khoản có vai trò sys_admin đăng nhập được.
   admin:
@@ -608,8 +608,12 @@ services:
       HOST: 0.0.0.0
       PORT: 3000
       NUXT_KEYCLOAK_URL: http://identity:8080
+      NUXT_GATEWAY_URL: http://gateway:9080
+      NUXT_SESSION_SECRET: ${SESSION_SECRET}
+      PORTAL_ALLOW_LOCAL_HTTP: ${PORTAL_ALLOW_LOCAL_HTTP:-false}
+      PORTAL_PUBLIC_ORIGIN: ${ADMIN_PORTAL_PUBLIC_ORIGIN:-}
     ports:
-      - "127.0.0.1:${ADMIN_PORT:-3001}:3000"
+      - "${PORTAL_BIND_ADDRESS:-127.0.0.1}:${ADMIN_PORT:-3001}:3000"
 
 networks:
   # Mạng riêng của AI, không có đường ra Internet.

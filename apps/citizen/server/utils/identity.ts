@@ -5,8 +5,9 @@
 // Chỉ máy chủ Kênh người dân giữ client secret, nên công dân không tự xin token để gọi thẳng API lõi.
 // Token Keycloak giữ trong cookie HttpOnly, mã hóa AES-256-GCM bằng khóa suy ra từ SESSION_SECRET;
 // trình duyệt không đọc được token. Token truy cập hết hạn thì tự gia hạn bằng refresh token.
-import { createCipheriv, createDecipheriv, createHash, randomBytes } from 'node:crypto'
-import { getCookie, setCookie, deleteCookie, createError, type H3Event } from 'h3'
+import { securePortalCookie } from './cookie-policy'
+import { sealToken, openToken } from './token-seal'
+import { getRequestURL, getCookie, setCookie, deleteCookie, createError, type H3Event } from 'h3'
 import { readSession, signOut } from './session'
 
 const REALM = 'communeos'
@@ -28,31 +29,16 @@ function settings() {
 }
 const tokenUrl = () => `${settings().keycloak}/realms/${REALM}/protocol/openid-connect/token`
 
-function key() {
-  const secret = settings().secret
-  if (secret.length < 32) throw createError({ statusCode: 503, statusMessage: 'SESSION_SECRET phải có ít nhất 32 ký tự' })
-  return createHash('sha256').update(`citizen-token|${secret}`).digest()
-}
 function seal(value: Stored) {
-  const iv = randomBytes(12)
-  const cipher = createCipheriv('aes-256-gcm', key(), iv)
-  const data = Buffer.concat([cipher.update(JSON.stringify(value), 'utf8'), cipher.final()])
-  return Buffer.concat([iv, cipher.getAuthTag(), data]).toString('base64url')
+  if (settings().secret.length < 32) throw createError({ statusCode: 503, statusMessage: 'SESSION_SECRET phải có ít nhất 32 ký tự' })
+  return sealToken(settings().secret, 'citizen-token', value)
 }
-function open(sealed: string | undefined): Stored | null {
-  if (!sealed) return null
-  try {
-    const raw = Buffer.from(sealed, 'base64url')
-    const decipher = createDecipheriv('aes-256-gcm', key(), raw.subarray(0, 12))
-    decipher.setAuthTag(raw.subarray(12, 28))
-    const text = Buffer.concat([decipher.update(raw.subarray(28)), decipher.final()]).toString('utf8')
-    const value = JSON.parse(text) as Stored
-    return typeof value.t === 'string' && typeof value.e === 'number' ? value : null
-  } catch { return null }
+function open(sealed: string | undefined) {
+  return openToken(settings().secret, 'citizen-token', sealed)
 }
 
-const cookieOptions = (maxAge: number) =>
-  ({ httpOnly: true, sameSite: 'lax' as const, secure: process.env.NODE_ENV === 'production', path: '/', maxAge })
+const cookieOptions = (event: H3Event, maxAge: number) =>
+  ({ httpOnly: true, sameSite: 'lax' as const, secure: securePortalCookie(getRequestURL(event, {xForwardedHost: false, xForwardedProto: false})), path: '/', maxAge })
 
 /** Đọc claim của token vừa nhận trực tiếp từ Keycloak (kênh nội bộ, không qua trình duyệt). */
 export function tokenClaims(token: string): Record<string, any> {
@@ -89,10 +75,10 @@ export async function passwordLogin(username: string, password: string): Promise
 }
 
 export function saveTokens(event: H3Event, tokens: TokenResponse) {
-  setCookie(event, ACCESS_COOKIE, seal({ t: tokens.access_token, e: Date.now() + tokens.expires_in * 1000 }), cookieOptions(tokens.expires_in))
+  setCookie(event, ACCESS_COOKIE, seal({ t: tokens.access_token, e: Date.now() + tokens.expires_in * 1000 }), cookieOptions(event, tokens.expires_in))
   if (tokens.refresh_token) {
     const life = tokens.refresh_expires_in || tokens.expires_in
-    setCookie(event, REFRESH_COOKIE, seal({ t: tokens.refresh_token, e: Date.now() + life * 1000 }), cookieOptions(life))
+    setCookie(event, REFRESH_COOKIE, seal({ t: tokens.refresh_token, e: Date.now() + life * 1000 }), cookieOptions(event, life))
   }
 }
 

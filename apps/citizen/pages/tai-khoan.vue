@@ -40,11 +40,11 @@ const groups = [
 </script>
 
 <template>
-  <div class="space-y-8">
+  <div class="citizen-subpage citizen-account-page space-y-6">
     <section v-for="g in groups" :key="g.title" :aria-labelledby="`nhom-${g.title}`">
-      <h2 :id="`nhom-${g.title}`" class="mb-3 text-lg font-semibold text-ink">{{ g.title }}</h2>
+      <h2 :id="`nhom-${g.title}`" class="citizen-section-heading mb-3 text-lg font-bold text-ink">{{ g.title }}</h2>
       <div class="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
-        <NuxtLink v-for="item in g.items" :key="item.to" :to="item.to" class="panel flex items-start gap-3 p-4 transition hover:border-brand-300 hover:bg-brand-50/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-300">
+        <NuxtLink v-for="item in g.items" :key="item.to" :to="item.to" class="panel citizen-account-card flex items-start gap-3 p-4 transition hover:border-brand-300 hover:bg-brand-50/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand-300">
           <span class="grid h-10 w-10 shrink-0 place-items-center rounded-lg bg-brand-50 text-brand-700"><component :is="item.icon" :size="20" /></span>
           <span class="min-w-0"><span class="block font-semibold text-ink">{{ item.name }}</span><span class="mt-0.5 block text-sm text-slate-600">{{ item.desc }}</span></span>
         </NuxtLink>

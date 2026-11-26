@@ -4,9 +4,8 @@
 # Giai đoạn 1: cài đủ gói (kể cả gói chỉ dùng lúc build) rồi build.
 FROM node:22-alpine AS builder
 WORKDIR /app
-COPY package.json ./
-RUN npm install --no-audit --no-fund
 COPY . .
+RUN npm ci --no-audit --no-fund
 RUN npm run build
 
 # Giai đoạn 2: ảnh chạy, chỉ mang theo kết quả build.

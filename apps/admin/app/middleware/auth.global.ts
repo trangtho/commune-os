@@ -2,8 +2,9 @@
 // SPDX-License-Identifier: Apache-2.0
 
 // Chưa đăng nhập (hoặc token hết hạn) → chuyển về trang đăng nhập.
-export default defineNuxtRouteMiddleware((to) => {
+export default defineNuxtRouteMiddleware(async (to) => {
   if (to.path === "/dang-nhap") return;
-  const { isLoggedIn, isSysAdmin } = useAuth();
+  const { isLoggedIn, isSysAdmin, check } = useAuth();
+  await check();
   if (!isLoggedIn.value || !isSysAdmin.value) return navigateTo("/dang-nhap");
 });

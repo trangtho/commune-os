@@ -11,6 +11,15 @@ Mọi thay đổi đáng chú ý của dự án được ghi tại đây.
 
 ## [Chưa phát hành]
 
+### Thay đổi (chuẩn hóa kiến trúc portal, 2026-11-26)
+
+- Màn hình cán bộ gọi API lõi/Workflow qua APISIX thay cho truy vấn PostgreSQL trực tiếp; gỡ `pg` và `@types/pg` khỏi ứng dụng cán bộ.
+- Bảng quản trị và màn hình cán bộ dùng cookie HttpOnly mã hóa, làm mới phiên qua Keycloak; API quản trị đi qua BFF. Sửa lỗi mất phiên và HTTP 503 khi tải lại màn hình cán bộ.
+- Đồng bộ background, biến CSS dùng chung; cải thiện responsive của màn hình cán bộ. Chuẩn hóa healthcheck, Docker build bằng `npm ci` và kiểm thử kiến trúc.
+- Đồng bộ secret của client `accounts-service` khi khởi tạo Keycloak; bổ sung migration kiểm tra trạng thái hồ sơ khi chuyển Workflow.
+- Demo HTTP chỉ nới cookie khi bật `PORTAL_ALLOW_LOCAL_HTTP` cho loopback/IP nội bộ RFC1918; giữ `Secure` trên HTTPS và địa chỉ công cộng. Mặc định cổng portal chỉ bind loopback, có thể chọn IP LAN bằng `PORTAL_BIND_ADDRESS`.
+- Hỗ trợ reverse proxy HTTPS bằng Origin công khai riêng của từng portal; kiểm tra chống yêu cầu ghi khác nguồn không tin header chuyển tiếp từ client.
+
 ### Thay đổi (dựng ổn định từ mã nguồn, CI kiểm thử toàn bộ, 2026-11-24)
 
 - Healthcheck cho Keycloak (`/health/ready`), cổng API (gọi một API công khai tới PostgREST, PostgreSQL), Flowable,

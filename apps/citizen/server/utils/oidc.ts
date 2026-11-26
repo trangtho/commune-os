@@ -1,9 +1,10 @@
 // SPDX-FileCopyrightText: 2026 CommuneOS Contributors
 // SPDX-License-Identifier: Apache-2.0
+import { securePortalCookie } from './cookie-policy'
 import { createHash, createHmac, createPublicKey, randomBytes, timingSafeEqual, verify } from 'node:crypto'
 import type { H3Event } from 'h3'
 import { safeVerifiedClaim, type FactKey } from '../../shared/citizen-autofill'
-import { getCookie, setCookie, deleteCookie } from 'h3'
+import { getRequestURL, getCookie, setCookie, deleteCookie } from 'h3'
 const cookie = 'citizen_oidc_flow'
 type Flow = { state:string; verifier:string; nonce:string; next:string; expires:number; useResidence?:boolean; usePersonalData?:boolean }
 const digest = (text:string) => createHash('sha256').update(text).digest('base64url')
@@ -35,7 +36,7 @@ export function startOidc(event:H3Event,next:string,useResidence=false,usePerson
   if(!c.configured)throw createError({statusCode:503,statusMessage:'Chưa cấu hình máy chủ Identity OIDC'})
   const flow:Flow={ state:randomBytes(24).toString('base64url'), verifier:randomBytes(48).toString('base64url'), nonce:randomBytes(24).toString('base64url'),next:next.startsWith('/')&&!next.startsWith('//')?next:'/',expires:Date.now()+10*60*1000,useResidence:useResidence&&c.vneid,usePersonalData:usePersonalData&&c.verifiedFacts }
   const body=Buffer.from(JSON.stringify(flow)).toString('base64url')
-  setCookie(event,cookie,`${body}.${sign(body)}`,{httpOnly:true,sameSite:'lax',secure:process.env.NODE_ENV==='production',maxAge:600,path:'/'})
+  setCookie(event,cookie,`${body}.${sign(body)}`,{httpOnly:true,sameSite:'lax',secure:securePortalCookie(getRequestURL(event, {xForwardedHost: false, xForwardedProto: false})),maxAge:600,path:'/'})
   const url=new URL(c.authorizeUrl)
   url.searchParams.set('response_type','code');url.searchParams.set('client_id',c.clientId)
   const localityScope = flow.useResidence ? String(process.env.CITIZEN_OIDC_LOCALITY_SCOPE||'').trim() : ''

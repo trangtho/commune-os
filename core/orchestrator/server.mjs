@@ -173,7 +173,10 @@ async function handle(req) {
   for await (const chunk of req) body += chunk
   let input
   try { input = JSON.parse(body || '{}') } catch { throw new HttpError(400, 'Nội dung gửi lên không phải JSON hợp lệ') }
-  const { action, note } = input
+  const { action, note, expectedStatus } = input
+  if (expectedStatus !== undefined && expectedStatus !== dossier.status) {
+    throw new HttpError(409, 'Trạng thái hồ sơ đã thay đổi; vui lòng tải lại')
+  }
   if (!task) throw new HttpError(409, 'Hồ sơ đã kết thúc, không xử lý tiếp được')
   if (!allowed.includes(action)) {
     throw new HttpError(409, `Ở bước "${task.name}" không được chuyển sang "${action}". Được phép: ${allowed.join(', ')}`)
@@ -181,7 +184,7 @@ async function handle(req) {
   // Ghi cơ sở dữ liệu trước (nó còn kiểm tra xã, vai trò, lý do); thành công mới cho quy trình đi tiếp.
   const result = await rest('/rpc/set_dossier_status', auth, {
     method: 'POST',
-    headers: { 'X-Workflow-Token': WORKFLOW_TOKEN },
+    headers: { 'X-Workflow-Token': WORKFLOW_TOKEN, 'X-Workflow-Expected-Status': dossier.status },
     body: JSON.stringify({ dossier_id: id, status: action, note: note || null }),
   })
   await completeTask(task.id, action, actor)

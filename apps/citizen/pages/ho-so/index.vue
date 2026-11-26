@@ -36,8 +36,8 @@ function search() { page.value = 1; searchQuery.value = searchInput.value.trim()
 watch(status, () => { page.value = 1 })
 </script>
 <template>
-  <div class="space-y-4">
-    <div class="flex flex-wrap items-center justify-between gap-2">
+  <div class="citizen-subpage citizen-cases-page space-y-4">
+    <div class="citizen-page-heading flex flex-wrap items-center justify-between gap-3">
       <div><h2 class="text-xl font-black">Hồ sơ của tôi</h2><p class="text-sm text-muted">Tìm kiếm và theo dõi toàn bộ hồ sơ thuộc tài khoản của bạn.</p></div>
       <div class="flex flex-wrap gap-2"><NuxtLink to="/so-giao-dich" class="btn-outline">Sổ giao dịch / Xuất CSV</NuxtLink><NuxtLink to="/thu-tuc" class="btn-primary"><FilePlus2 :size="16" />Nộp hồ sơ mới</NuxtLink></div>
     </div>
@@ -47,7 +47,7 @@ watch(status, () => { page.value = 1 })
       <MetricCard label="Cần bổ sung" :value="count('supplement')" tone="orange" icon="alert" />
       <MetricCard label="Hoàn thành" :value="count('completed')" tone="green" icon="check" />
     </div>
-    <form class="panel flex flex-wrap items-center gap-2 p-3" role="search" @submit.prevent="search">
+    <form class="panel citizen-search-toolbar flex flex-wrap items-center gap-2 p-3 sm:p-4" role="search" @submit.prevent="search">
       <Search :size="19" class="ml-1 shrink-0 text-brand-600" />
       <label for="case-search" class="sr-only">Tìm theo mã hồ sơ hoặc thủ tục</label>
       <input id="case-search" v-model="searchInput" class="min-w-0 flex-[1_1_160px] bg-transparent p-2 text-sm outline-none" placeholder="Mã hồ sơ hoặc tên thủ tục..." maxlength="100" />
