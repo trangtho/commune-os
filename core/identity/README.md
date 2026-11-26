@@ -8,7 +8,11 @@ SPDX-License-Identifier: Apache-2.0
 Dịch vụ định danh của lõi, dùng Keycloak. Realm xuất ra JSON để nạp tự động.
 
 - Realm `communeos` nằm trong `realm/communeos-realm.json` và được nạp tự động
-  khi khởi động (`start-dev --import-realm`).
+  khi khởi động (`start-dev --import-realm`). Tệp realm không có tài khoản người dùng, chỉ có tài khoản dịch vụ;
+  chính sách mật khẩu: tối thiểu 8 ký tự, có chữ và số.
+- Tài khoản quản trị hệ thống duy nhất do `identity-setup` tạo từ `COMMUNEOS_ADMIN_USERNAME`,
+  `COMMUNEOS_ADMIN_PASSWORD` trong `.env` (mỗi lần `make up` đặt lại mật khẩu theo `.env`). Lãnh đạo xã, cán bộ và
+  công dân được tạo qua dịch vụ `core/accounts`; tài khoản mẫu do `make demo` tạo.
 - Vai trò: `sys_admin` (quản trị hệ thống), `leader` (lãnh đạo xã), `officer` (cán bộ xử lý), `supervisor` (cấp trên), `citizen` (công dân). Mỗi xã chỉ dùng `leader` và `officer`; `receptionist` còn trong realm để tương thích, không gán cho ai.
 - Client `commune-app`: cán bộ và quản trị đăng nhập. Mapper đưa thuộc tính `tenant_id` (mã xã) vào access token.
 - Client `citizen-app` (client bí mật, secret lấy từ biến `CITIZEN_KEYCLOAK_SECRET`): máy chủ Kênh người
@@ -25,9 +29,10 @@ Dịch vụ định danh của lõi, dùng Keycloak. Realm xuất ra JSON để 
 
 Keycloak chỉ nạp tệp realm khi realm chưa tồn tại. Dịch vụ `identity-setup` (`setup.mjs`, chạy một lần
 mỗi khi `make up`) đọc tệp realm và bổ sung những mục còn thiếu qua Admin API, không ghi đè mục đã có:
-thuộc tính user profile, và các vai trò, client, người dùng liệt kê trong biến `IMPORT` của `setup.mjs`.
+thuộc tính user profile, chính sách mật khẩu, các vai trò và client liệt kê trong biến `IMPORT` của `setup.mjs`,
+và tài khoản quản trị hệ thống từ `.env`.
 Client trong biến `CONFIDENTIAL` luôn được đặt là client bí mật với secret lấy từ biến môi trường.
-Khi thêm vai trò, client hoặc tài khoản mẫu vào tệp realm, thêm tên vào `IMPORT`.
+Khi thêm vai trò hoặc client vào tệp realm, thêm tên vào `IMPORT`.
 
 ```bash
 docker compose logs identity-setup   # xem đã bổ sung những gì
@@ -40,7 +45,7 @@ Sau khi sửa cấu hình trên trang quản trị, xuất lại ra tệp rồi 
 ```bash
 docker compose stop identity
 docker compose run --rm -v "$(pwd)/core/identity/realm:/export" identity \
-  export --dir /export --realm communeos --users realm_file
+  export --dir /export --realm communeos --users skip
 docker compose up -d identity
 ```
 

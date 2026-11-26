@@ -52,6 +52,8 @@ services:
       KC_DB_PASSWORD: ${POSTGRES_PASSWORD}
       KC_HOSTNAME: ${KEYCLOAK_PUBLIC_URL}
       KC_HOSTNAME_BACKCHANNEL_DYNAMIC: "true"
+      # Cổng quản lý 9000 (chỉ trong mạng Docker): /health/ready cho healthcheck bên dưới.
+      KC_HEALTH_ENABLED: "true"
       KEYCLOAK_ACCOUNTS_SECRET: ${KEYCLOAK_ACCOUNTS_SECRET}
       CITIZEN_KEYCLOAK_SECRET: ${CITIZEN_KEYCLOAK_SECRET}
     volumes:
@@ -59,6 +61,19 @@ services:
     depends_on:
       db-setup:
         condition: service_completed_successfully
+    # Ảnh Keycloak không có curl, wget: dùng /dev/tcp của bash. Sẵn sàng khi /health/ready trả "UP".
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "bash",
+          "-c",
+          "exec 3<>/dev/tcp/127.0.0.1/9000 && printf 'GET /health/ready HTTP/1.1\\r\\nHost: localhost\\r\\nConnection: close\\r\\n\\r\\n' >&3 && grep -q UP <&3",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 120s
     ports:
       - "8080:8080"
 
@@ -73,10 +88,14 @@ services:
       KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN}
       KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD}
       CITIZEN_KEYCLOAK_SECRET: ${CITIZEN_KEYCLOAK_SECRET}
+      # Tài khoản quản trị hệ thống duy nhất (make check-env kiểm tra độ mạnh mật khẩu).
+      COMMUNEOS_ADMIN_USERNAME: ${COMMUNEOS_ADMIN_USERNAME}
+      COMMUNEOS_ADMIN_PASSWORD: ${COMMUNEOS_ADMIN_PASSWORD}
     volumes:
       - ./core/identity:/app:ro
     depends_on:
-      - identity
+      identity:
+        condition: service_healthy
 
   gateway:
     image: apache/apisix:3.20.0-debian
@@ -90,6 +109,20 @@ services:
       - identity
       - rest
       - api-docs
+    # Sẵn sàng khi gọi được một API công khai qua cổng tới PostgREST và PostgreSQL (ảnh PostgREST không có shell
+    # để tự kiểm tra, nên kiểm tra cả chuỗi ở đây).
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "bash",
+          "-c",
+          "exec 3<>/dev/tcp/127.0.0.1/9080 && printf 'GET /public/rpc/public_registration_tenants HTTP/1.1\\r\\nHost: localhost\\r\\nConnection: close\\r\\n\\r\\n' >&3 && head -1 <&3 | grep -q ' 200 '",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 30s
     ports:
       - "${GATEWAY_PORT}:9080"
 
@@ -154,7 +187,6 @@ services:
         psql -v ON_ERROR_STOP=1 -f /setup/init/16-citizen-procedure-privacy.sql
         psql -v ON_ERROR_STOP=1 -f /setup/init/17-citizen-intelligent-services.sql
         psql -v ON_ERROR_STOP=1 -f /setup/init/18-citizen-life-journeys.sql
-        psql -v ON_ERROR_STOP=1 -f /setup/init/19-citizen-expanded-catalog.sql
         psql -v ON_ERROR_STOP=1 -f /setup/init/16-nhat-ky-can-bo.sql
         psql -v ON_ERROR_STOP=1 -f /setup/init/17-nhan-vien.sql
         psql -v ON_ERROR_STOP=1 -f /setup/init/19-citizen-rest-api.sql
@@ -172,6 +204,7 @@ services:
         psql -v ON_ERROR_STOP=1 -f /setup/init/32-citizen-api-personal.sql
         psql -v ON_ERROR_STOP=1 -f /setup/init/33-citizen-api-public.sql
         psql -v ON_ERROR_STOP=1 -f /setup/init/34-citizen-direct-access.sql
+        psql -v ON_ERROR_STOP=1 -f /setup/init/35-account-onboarding.sql
         # Mô tả API chạy sau cùng (sau mọi tệp tạo hàm, bảng ảo).
         psql -v ON_ERROR_STOP=1 -f /setup/init/25-api-comments.sql
         psql -v ON_ERROR_STOP=1 -c "SELECT count(*) AS published_procedures FROM procedures WHERE published = true"
@@ -186,7 +219,8 @@ services:
       - ./core/rest:/script:ro
       - rest-keys:/keys
     depends_on:
-      - identity
+      identity:
+        condition: service_healthy
 
   # API dữ liệu. Không mở cổng ra ngoài: chỉ đi qua gateway /rest/.
   rest:
@@ -228,6 +262,13 @@ services:
     depends_on:
       db-setup:
         condition: service_completed_successfully
+    # Đã chạy khi máy chủ trả lời (kể cả 401 vì chưa gửi mật khẩu); chưa chạy thì không kết nối được.
+    healthcheck:
+      test: ["CMD-SHELL", "wget -S -q -O /dev/null http://127.0.0.1:8080/flowable-rest/actuator/health 2>&1 | grep -q 'HTTP/1.1 [24]0'"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 60s
 
   # Dịch vụ điều phối quy trình của lõi: nạp sơ đồ BPMN, kiểm tra bước hợp lệ, ghi trạng thái hồ sơ.
   orchestrator:
@@ -246,8 +287,16 @@ services:
     volumes:
       - ./core/orchestrator:/app:ro
     depends_on:
-      - workflow-engine
-      - rest
+      workflow-engine:
+        condition: service_healthy
+      rest:
+        condition: service_started
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:3000/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 30s
 
   # Dịch vụ tài khoản cán bộ: lãnh đạo xã quản lý cán bộ xử lý của xã mình qua Keycloak Admin API.
   accounts:
@@ -264,8 +313,16 @@ services:
     volumes:
       - ./core/accounts:/app:ro
     depends_on:
-      - identity
-      - rest
+      identity:
+        condition: service_healthy
+      rest:
+        condition: service_started
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:3000/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 30s
 
   # Kho đối tượng chuẩn S3 cho dữ liệu phi cấu trúc (SeaweedFS, Apache-2.0). Không mở cổng ra ngoài.
   storage:
@@ -277,6 +334,12 @@ services:
       AWS_SECRET_ACCESS_KEY: ${S3_SECRET_KEY}
     volumes:
       - storage-data:/data
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS -o /dev/null http://127.0.0.1:8333/healthz || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 20s
 
   # Dịch vụ tệp của lõi: kiểm tra, quét mã độc (tùy chọn), lưu vào kho, ghi mã băm.
   files:
@@ -296,8 +359,16 @@ services:
     volumes:
       - ./core/files:/app:ro
     depends_on:
-      - storage
-      - rest
+      storage:
+        condition: service_healthy
+      rest:
+        condition: service_started
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:3000/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 30s
 
   # Quét mã độc (tùy chọn, cần khoảng 1,5 GB RAM):
   #   docker compose --profile antivirus up -d antivirus   rồi đặt CLAMAV_HOST=antivirus
@@ -330,6 +401,18 @@ services:
       - ai-models:/root/.ollama
     networks:
       - ai-internal
+    healthcheck:
+      test:
+        [
+          "CMD",
+          "bash",
+          "-c",
+          "exec 3<>/dev/tcp/127.0.0.1/11434 && printf 'GET /api/version HTTP/1.1\\r\\nHost: localhost\\r\\nConnection: close\\r\\n\\r\\n' >&3 && head -1 <&3 | grep -q ' 200 '",
+        ]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 20s
     depends_on:
       ai-models:
         condition: service_completed_successfully
@@ -346,6 +429,12 @@ services:
     volumes:
       - ./core/api-docs:/communeos:ro
       - ./core/api-docs/50-communeos.sh:/docker-entrypoint.d/50-communeos.sh:ro
+    healthcheck:
+      test: ["CMD-SHELL", "curl -fsS -o /dev/null http://127.0.0.1:8080/docs/ || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 10s
 
   ai-gateway:
     image: node:22-alpine
@@ -367,6 +456,12 @@ services:
     depends_on:
       - ai
       - rest
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:3000/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 30s
 
   citizen:
     build:
@@ -377,9 +472,9 @@ services:
       db-setup:
         condition: service_completed_successfully
       identity:
-        condition: service_started
+        condition: service_healthy
       gateway:
-        condition: service_started
+        condition: service_healthy
     environment:
       NODE_ENV: production
       HOST: 0.0.0.0
@@ -446,6 +541,12 @@ services:
       # Trợ lý AI dùng cổng AI của lõi (/ai/ask qua APISIX); không cấu hình API AI bên ngoài.
     volumes:
       - citizen-uploads:/app/storage
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:3000/api/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 30s
     ports:
       - "127.0.0.1:${CITIZEN_PORT:-3000}:3000"
 
@@ -459,9 +560,15 @@ services:
       db-setup:
         condition: service_completed_successfully
       gateway:
-        condition: service_started
+        condition: service_healthy
       identity:
-        condition: service_started
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:3000/api/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 30s
     environment:
       NODE_ENV: production
       HOST: 0.0.0.0
@@ -486,8 +593,16 @@ services:
       dockerfile: Dockerfile
     restart: unless-stopped
     depends_on:
-      - gateway
-      - identity
+      gateway:
+        condition: service_healthy
+      identity:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:3000/api/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 30s
     environment:
       NODE_ENV: production
       HOST: 0.0.0.0

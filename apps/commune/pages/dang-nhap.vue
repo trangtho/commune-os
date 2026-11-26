@@ -4,6 +4,7 @@
 import { LogIn, LockKeyhole, ShieldCheck, House } from "lucide-vue-next";
 definePageMeta({ layout: "blank" });
 const route = useRoute();
+const demoMode = useRuntimeConfig().public.demoMode;
 const username = ref("");
 const password = ref("");
 const loading = ref(false);
@@ -88,13 +89,14 @@ async function login() {
           </p>
         </div>
         <div
+          v-if="demoMode"
           class="rounded-lg border border-brand-200 bg-brand-50 p-3 text-sm text-brand-800"
         >
-          <b>Thông tin đăng nhập demo</b>
+          <b>Tài khoản demo (sau khi chạy <code>make demo</code>)</b>
           <p>Cán bộ xử lý: <code>canbo.xa-a / canbo.xa-b</code></p>
           <p>Lãnh đạo xã: <code>lanhdao.xa-a / lanhdao.xa-b</code></p>
-          <p>Mật khẩu: <code>12345</code></p>
-          <p class="mt-1 text-xs">Không sử dụng dữ liệu cá nhân thật.</p>
+          <p>Mật khẩu: <code>Demo@2026!</code></p>
+          <p class="mt-1 text-xs">Không sử dụng dữ liệu cá nhân thật. Tài khoản thật do quản trị hệ thống và lãnh đạo xã cấp.</p>
         </div>
         <div>
           <label class="field-label">Tên đăng nhập</label

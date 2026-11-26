@@ -13,10 +13,20 @@
 //   PATCH /accounts/staff/:id                      sửa họ tên, email
 //   DELETE /accounts/staff/:id                     xóa hẳn (phải khóa trước)
 //
+// Quản trị hệ thống (vai trò sys_admin):
+//   POST  /accounts/tenants                        tạo xã kèm lãnh đạo   { code, name, leaderUsername, leaderFullName, leaderEmail? }
+//                                                  → { tenant, leader: { id, username, temporaryPassword } }
+//   GET   /accounts/tenants/:code/leaders          lãnh đạo của xã
+//   POST  /accounts/tenants/:code/leaders          thêm lãnh đạo         { username, fullName, email? }
+//   POST  /accounts/tenants/:code/leaders/:id/reset-password   cấp mật khẩu tạm mới
+//   PATCH /accounts/tenants/:code/leaders/:id/status           khóa / mở { enabled }
+//
 //   POST  /accounts/me/password                    người đăng nhập tự đổi mật khẩu (công dân hoặc cán bộ)
 //                                                  { currentPassword, newPassword }
 //
 // Không cần token (cổng APISIX có route riêng, không kiểm tra token):
+//   POST  /accounts/register                       người dân tự đăng ký (qua /public/accounts/register)
+//                                                  { fullName, username, email?, phone?, tenantCode, password, consent }
 //   POST  /accounts/first-password                 cán bộ đổi mật khẩu tạm lần đầu
 //                                                  { username, currentPassword, newPassword }
 //   GET   /health, /accounts/health (qua cổng)  dịch vụ và quyền vào Keycloak Admin API
@@ -142,9 +152,15 @@ async function manageable(me, userId) {
   return user
 }
 
+// Luôn có cả chữ và số (chính sách mật khẩu của realm), bỏ các ký tự dễ nhầm (0/O, 1/l/I).
 function temporaryPassword() {
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789'
-  return Array.from({ length: 12 }, () => chars[randomInt(chars.length)]).join('')
+  const letters = 'ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz'
+  const digits = '23456789'
+  const chars = letters + digits
+  for (;;) {
+    const p = Array.from({ length: 12 }, () => chars[randomInt(chars.length)]).join('')
+    if (/[A-Za-z]/.test(p) && /[0-9]/.test(p)) return p
+  }
 }
 
 // ---------- Nhật ký (API dữ liệu, kèm khóa nội bộ của lõi) ----------
@@ -264,6 +280,188 @@ async function mePassword(req, res) {
   return json(res, 200, { changed: true })
 }
 
+// ---------- Quản trị hệ thống: tạo xã kèm tài khoản lãnh đạo, quản lý lãnh đạo xã ----------
+// Tài khoản quản trị duy nhất đặt trong .env (core/identity/setup.mjs). Mỗi xã có ít nhất một lãnh đạo; lãnh đạo
+// tự tạo cán bộ xử lý (/accounts/staff). Mật khẩu tạm chỉ trả một lần, phải đổi khi đăng nhập lần đầu.
+async function sysAdmin(req) {
+  const { claims, token } = await verifiedClaims(req, [TOKEN_AZP])
+  if (!(claims.realm_access?.roles || []).includes('sys_admin')) throw new HttpError(403, 'Chỉ quản trị hệ thống được quản lý xã')
+  return { id: claims.sub, name: claims.name || claims.preferred_username, token }
+}
+
+// Gọi hàm của lõi qua PostgREST (mạng nội bộ): bằng token của người gọi, hoặc bằng khóa nội bộ khi không có người
+// đăng nhập (đăng ký công dân). Lỗi nghiệp vụ của lõi giữ nguyên mã HTTP và lời nhắn.
+async function coreRpc(fn, body, { token, workflow } = {}) {
+  const r = await fetch(`${REST_URL}/rpc/${fn}`, {
+    method: 'POST',
+    headers: { 'content-type': 'application/json', ...(token ? { authorization: `Bearer ${token}` } : {}),
+      ...(workflow ? { 'x-workflow-token': WORKFLOW_TOKEN } : {}) },
+    body: JSON.stringify(body),
+  })
+  const text = await r.text()
+  const data = text ? JSON.parse(text) : null
+  if (!r.ok) {
+    const status = [400, 401, 403, 404, 409, 422].includes(r.status) ? r.status : 502
+    const message = data?.code === '23505' ? 'Mã đã tồn tại' : data?.message
+    throw new HttpError(status, message || 'API dữ liệu từ chối yêu cầu')
+  }
+  return data
+}
+
+const USERNAME_RE = /^[a-z0-9][a-z0-9._-]{2,49}$/
+const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+// "Nguyễn Văn An" → họ "Nguyễn Văn", tên "An" (Keycloak lưu họ, tên riêng).
+// Keycloak (person-name-prohibited-characters) không nhận các ký tự như ( ) < > & ; nên bỏ khỏi họ, tên lưu ở Keycloak;
+// họ tên đầy đủ vẫn lưu nguyên ở hồ sơ công dân.
+function splitName(fullName) {
+  const parts = String(fullName || '').replace(/[<>&"$%!#?§;*~/\\|^=[\]{}()]/g, ' ').trim().split(/\s+/).filter(Boolean)
+  if (!parts.length || parts.join(' ').length > 100) throw new HttpError(400, 'Nhập họ và tên (tối đa 100 ký tự)')
+  return { firstName: parts.length > 1 ? parts.pop() : parts[0], lastName: parts.length ? parts.join(' ') : parts[0] }
+}
+function checkPassword(password, label = 'Mật khẩu') {
+  if (password.length < 8 || password.length > 64) throw new HttpError(400, `${label} phải từ 8 đến 64 ký tự`)
+  if (!/[A-Za-z]/.test(password) || !/[0-9]/.test(password)) throw new HttpError(400, `${label} phải có cả chữ và số`)
+}
+
+// Tạo tài khoản Keycloak và gán một vai trò; gán vai trò lỗi thì xóa tài khoản vừa tạo. Trả mã tài khoản.
+async function createAccount({ username, firstName, lastName, email, attributes, role, password, temporary }) {
+  let created
+  try {
+    created = await kc('POST', '/users', {
+      username, firstName, lastName, ...(email ? { email } : {}), enabled: true, attributes,
+      credentials: [{ type: 'password', value: password, temporary }],
+    })
+  } catch (e) {
+    if (e.status === 400) throw new HttpError(400, 'Mật khẩu chưa đạt yêu cầu (tối thiểu 8 ký tự, có chữ và số) hoặc thông tin không hợp lệ')
+    throw e
+  }
+  const id = String(created.headers.get('location') || '').split('/').pop()
+  try {
+    await kc('POST', `/users/${id}/role-mappings/realm`, [await kcJson('GET', `/roles/${role}`)])
+  } catch (e) {
+    await kc('DELETE', `/users/${id}`).catch(() => {})
+    throw e
+  }
+  return id
+}
+
+async function leadersOf(code) {
+  const users = await kcJson('GET', `/users?q=${encodeURIComponent(`tenant_id:${code}`)}&briefRepresentation=false&max=200`)
+  const list = []
+  for (const u of users.filter((u) => tenantOf(u) === code)) {
+    if (!(await realmRoles(u.id)).includes('leader')) continue
+    list.push({ id: u.id, username: u.username, firstName: u.firstName || '', lastName: u.lastName || '', email: u.email || null,
+      enabled: u.enabled, createdAt: new Date(u.createdTimestamp).toISOString(),
+      mustChangePassword: (u.requiredActions || []).includes('UPDATE_PASSWORD') })
+  }
+  return list.sort((a, b) => a.username.localeCompare(b.username))
+}
+
+async function tenantLeader(code, userId) {
+  if (!/^[0-9a-f-]{36}$/.test(userId)) throw new HttpError(404, 'Không tìm thấy lãnh đạo xã')
+  const user = await kcJson('GET', `/users/${userId}`)
+  if (tenantOf(user) !== code || !(await realmRoles(user.id)).includes('leader')) throw new HttpError(404, 'Không tìm thấy lãnh đạo xã')
+  return user
+}
+
+function leaderInput(b) {
+  const username = String(b.leaderUsername ?? b.username ?? '').trim().toLowerCase()
+  const email = String(b.leaderEmail ?? b.email ?? '').trim().toLowerCase()
+  if (!USERNAME_RE.test(username)) throw new HttpError(400, 'Tên đăng nhập lãnh đạo 3–50 ký tự: chữ thường không dấu, số, dấu chấm, gạch')
+  if (email && !EMAIL_RE.test(email)) throw new HttpError(400, 'Email không hợp lệ')
+  return { username, email, ...splitName(b.leaderFullName ?? b.fullName) }
+}
+
+async function tenantsRoute(req, res, parts) {
+  const admin = await sysAdmin(req)
+  // POST /accounts/tenants — tạo xã, tạo lãnh đạo, trả mật khẩu tạm; tạo tài khoản lỗi thì hủy xã vừa tạo.
+  if (req.method === 'POST' && parts.length === 2) {
+    const b = await readJson(req)
+    const leader = leaderInput(b)
+    const code = String(b.code || '').trim()
+    if ((await kcJson('GET', `/users?username=${encodeURIComponent(leader.username)}&exact=true`)).length) {
+      throw new HttpError(409, 'Tên đăng nhập lãnh đạo đã được dùng')
+    }
+    const tenant = await coreRpc('add_tenant', { code, name: String(b.name || '') }, { token: admin.token })
+    const password = temporaryPassword()
+    try {
+      const id = await createAccount({ ...leader, attributes: { tenant_id: [tenant.code] }, role: 'leader', password, temporary: true })
+      console.log(`Tạo xã ${tenant.code} kèm lãnh đạo ${leader.username}`)
+      return json(res, 201, { tenant, leader: { id, username: leader.username, temporaryPassword: password } })
+    } catch (e) {
+      await coreRpc('remove_new_tenant', { p_code: tenant.code }, { token: admin.token })
+        .catch((x) => console.error(`Không hủy được xã ${tenant.code}: ${x.message}`))
+      throw e
+    }
+  }
+  const code = decodeURIComponent(parts[2] || '')
+  if (!/^[a-z0-9]+(-[a-z0-9]+)*$/.test(code) || parts[3] !== 'leaders') throw new HttpError(404, 'Không có đường dẫn này')
+  // GET /accounts/tenants/:code/leaders
+  if (req.method === 'GET' && parts.length === 4) return json(res, 200, await leadersOf(code))
+  // POST /accounts/tenants/:code/leaders — thêm lãnh đạo cho xã đã có
+  if (req.method === 'POST' && parts.length === 4) {
+    const r = await fetch(`${REST_URL}/tenants?code=eq.${encodeURIComponent(code)}&select=code`, { headers: { authorization: `Bearer ${admin.token}` } })
+    if (!r.ok || !(await r.json()).length) throw new HttpError(404, 'Không tìm thấy xã')
+    const leader = leaderInput(await readJson(req))
+    const password = temporaryPassword()
+    const id = await createAccount({ ...leader, attributes: { tenant_id: [code] }, role: 'leader', password, temporary: true })
+    return json(res, 201, { id, username: leader.username, temporaryPassword: password })
+  }
+  // POST /accounts/tenants/:code/leaders/:id/reset-password
+  if (req.method === 'POST' && parts.length === 6 && parts[5] === 'reset-password') {
+    const user = await tenantLeader(code, parts[4])
+    const password = temporaryPassword()
+    await kc('PUT', `/users/${user.id}/reset-password`, { type: 'password', value: password, temporary: true })
+    return json(res, 200, { id: user.id, username: user.username, temporaryPassword: password })
+  }
+  // PATCH /accounts/tenants/:code/leaders/:id/status { enabled }
+  if (req.method === 'PATCH' && parts.length === 6 && parts[5] === 'status') {
+    const b = await readJson(req)
+    if (typeof b.enabled !== 'boolean') throw new HttpError(400, 'Thiếu trạng thái enabled (true/false)')
+    const user = await tenantLeader(code, parts[4])
+    await kc('PUT', `/users/${user.id}`, { ...user, enabled: b.enabled })
+    return json(res, 200, { id: user.id, username: user.username, enabled: b.enabled })
+  }
+  throw new HttpError(404, 'Không có đường dẫn này')
+}
+
+// ---------- Người dân tự đăng ký (công khai: /public/accounts/register, cổng giới hạn số lần gọi) ----------
+// Lõi tạo hồ sơ công dân (api.system_register_citizen, khóa nội bộ), rồi tạo tài khoản Keycloak vai trò citizen gắn
+// citizen_id, citizen_tenant; tạo tài khoản lỗi thì hủy hồ sơ vừa tạo. Không lưu mật khẩu ở đâu ngoài Keycloak.
+async function registerCitizen(req, res) {
+  const ip = String(req.headers['x-forwarded-for'] || req.socket.remoteAddress || '').split(',')[0].trim()
+  if (limited(`reg:${ip}`, 30)) throw new HttpError(429, 'Đăng ký quá nhiều lần, vui lòng thử lại sau 15 phút')
+  const b = await readJson(req)
+  if (b.consent !== true) throw new HttpError(400, 'Cần đồng ý cho phép xử lý dữ liệu cá nhân (Nghị định 13/2023/NĐ-CP) để đăng ký')
+  const username = String(b.username || '').trim().toLowerCase()
+  const email = String(b.email || '').trim().toLowerCase()
+  const phone = String(b.phone || '').replace(/[\s.-]/g, '')
+  const tenantCode = String(b.tenantCode || '').trim()
+  const password = String(b.password || '')
+  const fullName = String(b.fullName || '').trim().replace(/\s+/g, ' ')
+  if (!USERNAME_RE.test(username)) throw new HttpError(400, 'Tên đăng nhập 3–50 ký tự: chữ thường không dấu, số, dấu chấm, gạch')
+  if (!email && !phone) throw new HttpError(400, 'Nhập email hoặc số điện thoại')
+  if (email && !EMAIL_RE.test(email)) throw new HttpError(400, 'Email không hợp lệ')
+  if (phone && !/^(\+84|0)[0-9]{9,10}$/.test(phone)) throw new HttpError(400, 'Số điện thoại không hợp lệ')
+  checkPassword(password)
+  if (password.toLowerCase().includes(username)) throw new HttpError(400, 'Mật khẩu không được chứa tên đăng nhập')
+  const name = splitName(fullName)
+  const existing = await kcJson('GET', `/users?username=${encodeURIComponent(username)}&exact=true`)
+  if (existing.length) throw new HttpError(409, 'Tên đăng nhập đã được dùng')
+  const citizen = await coreRpc('system_register_citizen', { p_tenant_code: tenantCode, p_login_name: username,
+    p_display_name: fullName, p_email: email || null, p_phone: phone || null }, { workflow: true })
+  try {
+    await createAccount({ username, ...name, email, role: 'citizen', password, temporary: false,
+      attributes: { citizen_id: [citizen.citizen_id], citizen_tenant: [citizen.tenant_code] } })
+  } catch (e) {
+    await coreRpc('system_unregister_citizen', { p_citizen_id: citizen.citizen_id }, { workflow: true }).catch(() => {})
+    throw e
+  }
+  console.log(`Công dân tự đăng ký: xã ${citizen.tenant_code}`)
+  return json(res, 201, { username, tenantCode: citizen.tenant_code,
+    notice: 'Đã tạo tài khoản. Bạn có thể đăng nhập Kênh người dân bằng tên đăng nhập và mật khẩu vừa đặt.' })
+}
+
 // ---------- HTTP ----------
 async function readJson(req) {
   let raw = ''
@@ -290,6 +488,8 @@ async function handle(req, res) {
   }
   if (req.method === 'POST' && url.pathname === '/accounts/first-password') return firstPassword(req, res)
   if (req.method === 'POST' && url.pathname === '/accounts/me/password') return mePassword(req, res)
+  if (req.method === 'POST' && url.pathname === '/accounts/register') return registerCitizen(req, res)
+  if (parts[0] === 'accounts' && parts[1] === 'tenants') return tenantsRoute(req, res, parts)
   if (parts[0] !== 'accounts' || parts[1] !== 'staff') throw new HttpError(404, 'Không có đường dẫn này')
   const me = await caller(req)
 

@@ -4,8 +4,10 @@ import assert from 'node:assert/strict'
 import {readFileSync} from 'node:fs'
 import {test} from 'node:test'
 const read=(path)=>readFileSync(new URL(path,import.meta.url),'utf8')
-const sql=read('../../../core/db/init/19-citizen-expanded-catalog.sql')
+const sql=read('../../../core/demo/expanded-catalog.sql')
 const compose=read('../../../docker-compose.yml')
+const makefile=read('../../../Makefile')
+const demo=read('../../../core/demo/demo.mjs')
 const list=read('../pages/thu-tuc/index.vue')
 const card=read('../components/ProcedureCard.vue')
 const detail=read('../pages/thu-tuc/[slug].vue')
@@ -23,13 +25,18 @@ test('36 additional demo procedures use distinct IDs and preserve existing rows'
   assert.match(sql,/ON CONFLICT \(id\) DO NOTHING/)
   assert.match(sql,/ON CONFLICT \(procedure_id,document_code\) DO NOTHING/)
 })
-test('setup loads demo catalogue after version and tenant gates, creates provenance',()=>{
-  assert.ok(compose.indexOf('/setup/init/13-thu-tuc-theo-xa.sql') < compose.indexOf('/setup/init/19-citizen-expanded-catalog.sql'))
-  assert.ok(compose.indexOf('/setup/init/18-citizen-life-journeys.sql') < compose.indexOf('/setup/init/19-citizen-expanded-catalog.sql'))
+test('explicit demo loads expanded catalogue before creating demo tenants via core API',()=>{
+  assert.doesNotMatch(compose,/expanded-catalog\.sql/)
+  const recipe=makefile.split('\ndemo:')[1].split('\n\n')[0]
+  assert.ok(recipe.includes('core/demo/expanded-catalog.sql'))
+  assert.ok(recipe.indexOf('core/demo/expanded-catalog.sql') < recipe.indexOf('/demo/demo.mjs'))
+  assert.match(demo,/set_tenant_procedures/)
+  assert.match(demo,/code: 'xa-a'/)
+  assert.match(demo,/code: 'xa-b'/)
   assert.match(sql,/INSERT INTO citizen_procedure_versions/)
   assert.match(sql,/'unverified_demo'/)
   assert.match(sql,/WHERE NOT EXISTS \(/)
-  assert.match(sql,/t\.code IN \('xa-a','xa-b'\)/)
+  assert.doesNotMatch(sql,/INSERT INTO tenant_procedures/)
 })
 test('citizen UI paginates results and preserves filtering/search',()=>{
   assert.match(list,/const pageSize=ref\(12\)/)

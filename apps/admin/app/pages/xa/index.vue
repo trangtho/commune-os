@@ -4,7 +4,7 @@ SPDX-License-Identifier: Apache-2.0
 -->
 <script setup lang="ts">
 import { ChevronRight, Lock, Plus, Search, Unlock, X } from "lucide-vue-next";
-import type { Tenant } from "~/types";
+import type { IssuedPassword, Tenant } from "~/types";
 
 const { tenants, loading, loadError, load, addTenant, toggleLock } =
   useTenants();
@@ -27,21 +27,30 @@ const visible = computed(() => {
   );
 });
 
+// Thêm xã kèm tài khoản lãnh đạo xã: một lần gọi lõi, mật khẩu tạm chỉ hiện một lần.
 const showForm = ref(false);
-const code = ref("");
-const name = ref("");
+const emptyForm = () => ({ code: "", name: "", leaderUsername: "", leaderFullName: "", leaderEmail: "" });
+const form = reactive(emptyForm());
 const error = ref<string | null>(null);
+const saving = ref(false);
+const issued = ref<IssuedPassword | null>(null);
 
 function openForm() {
-  code.value = "";
-  name.value = "";
+  Object.assign(form, emptyForm());
   error.value = null;
+  issued.value = null;
   showForm.value = true;
 }
 
 async function submit() {
-  error.value = await addTenant(code.value, name.value);
-  if (!error.value) showForm.value = false;
+  saving.value = true;
+  const r = await addTenant(form);
+  saving.value = false;
+  error.value = r.error;
+  if (!r.error) {
+    showForm.value = false;
+    issued.value = r.leader ?? null;
+  }
 }
 
 async function confirmToggle(tenant: Tenant) {
@@ -101,7 +110,7 @@ async function confirmToggle(tenant: Tenant) {
           >
           <input
             id="tenant-code"
-            v-model.trim="code"
+            v-model.trim="form.code"
             type="text"
             autocomplete="off"
             class="mt-1 h-11 w-full rounded-md border border-slate-300 px-3"
@@ -117,13 +126,58 @@ async function confirmToggle(tenant: Tenant) {
           >
           <input
             id="tenant-name"
-            v-model="name"
+            v-model="form.name"
             type="text"
             autocomplete="off"
             class="mt-1 h-11 w-full rounded-md border border-slate-300 px-3"
           />
         </div>
       </div>
+
+      <fieldset class="mt-5 border-t border-slate-200 pt-4">
+        <legend class="pr-2 text-base font-semibold">Tài khoản lãnh đạo xã</legend>
+        <p class="text-sm text-slate-500">
+          Hệ thống tạo tài khoản lãnh đạo cùng lúc với xã và cấp mật khẩu tạm. Lãnh đạo tự tạo tài khoản cán bộ của xã.
+        </p>
+        <div class="mt-3 grid gap-4 md:grid-cols-3">
+          <div>
+            <label for="leader-username" class="block text-sm font-medium">Tên đăng nhập</label>
+            <input
+              id="leader-username"
+              v-model.trim="form.leaderUsername"
+              type="text"
+              autocomplete="off"
+              autocapitalize="none"
+              spellcheck="false"
+              class="mt-1 h-11 w-full rounded-md border border-slate-300 px-3"
+              aria-describedby="leader-username-hint"
+            />
+            <p id="leader-username-hint" class="mt-1 text-sm text-slate-500">Ví dụ: lanhdao.xa-c</p>
+          </div>
+          <div>
+            <label for="leader-name" class="block text-sm font-medium">Họ và tên</label>
+            <input
+              id="leader-name"
+              v-model="form.leaderFullName"
+              type="text"
+              autocomplete="off"
+              class="mt-1 h-11 w-full rounded-md border border-slate-300 px-3"
+            />
+          </div>
+          <div>
+            <label for="leader-email" class="block text-sm font-medium">
+              Email <span class="font-normal text-slate-500">(không bắt buộc)</span>
+            </label>
+            <input
+              id="leader-email"
+              v-model.trim="form.leaderEmail"
+              type="email"
+              autocomplete="off"
+              class="mt-1 h-11 w-full rounded-md border border-slate-300 px-3"
+            />
+          </div>
+        </div>
+      </fieldset>
 
       <p
         v-if="error"
@@ -136,9 +190,10 @@ async function confirmToggle(tenant: Tenant) {
       <div class="mt-5 flex gap-3">
         <button
           type="submit"
-          class="h-11 rounded-md bg-brand-700 px-5 font-semibold text-white hover:bg-brand-800"
+          :disabled="saving"
+          class="h-11 rounded-md bg-brand-700 px-5 font-semibold text-white hover:bg-brand-800 disabled:opacity-60"
         >
-          Tạo xã
+          {{ saving ? "Đang tạo..." : "Tạo xã và tài khoản lãnh đạo" }}
         </button>
         <button
           type="button"
@@ -149,6 +204,8 @@ async function confirmToggle(tenant: Tenant) {
         </button>
       </div>
     </form>
+
+    <IssuedPasswordNotice v-if="issued" class="mt-6" :issued="issued" @close="issued = null" />
 
     <div class="mt-6 flex flex-wrap items-center gap-3">
       <label class="relative block w-full max-w-sm">

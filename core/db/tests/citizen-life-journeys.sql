@@ -1,6 +1,17 @@
 -- SPDX-FileCopyrightText: 2026 CommuneOS Contributors
 -- SPDX-License-Identifier: Apache-2.0
 -- Kênh người dân gọi lõi bằng vai trò citizen-app (token công dân qua PostgREST); communeos_app không còn quyền dữ liệu.
+-- Xã và công dân mẫu do make demo tạo (mã ngẫu nhiên theo từng bản cài): xa-a, xa-b, congdan.demo, congdan.khac.
+DO $demo$ BEGIN
+  IF (SELECT count(*) FROM tenants WHERE code IN ('xa-a','xa-b')) < 2
+     OR (SELECT count(*) FROM citizens WHERE login_name IN ('congdan.demo','congdan.khac')) < 2 THEN
+    RAISE EXCEPTION 'Chưa có dữ liệu mẫu: chạy make demo trước khi kiểm thử';
+  END IF;
+  PERFORM set_config('demo.tenant_a', (SELECT id::text FROM tenants WHERE code = 'xa-a'), false),
+          set_config('demo.tenant_b', (SELECT id::text FROM tenants WHERE code = 'xa-b'), false),
+          set_config('demo.citizen_a', (SELECT id::text FROM citizens WHERE login_name = 'congdan.demo'), false),
+          set_config('demo.citizen_b', (SELECT id::text FROM citizens WHERE login_name = 'congdan.khac'), false);
+END $demo$;
 \set ON_ERROR_STOP on
 BEGIN;
 DO $$ BEGIN
@@ -12,27 +23,27 @@ DO $$ BEGIN
  THEN RAISE EXCEPTION 'Reminder dispatcher missing'; END IF;
 END $$;
 SET LOCAL ROLE "citizen-app";
-SELECT set_config('app.citizen_id','20000000-0000-4000-8000-000000000001',true);
-SELECT set_config('app.tenant_id','10000000-0000-4000-8000-000000000001',true);
+SELECT set_config('app.citizen_id',current_setting('demo.citizen_a'),true);
+SELECT set_config('app.tenant_id',current_setting('demo.tenant_a'),true);
 INSERT INTO citizen_life_journeys(citizen_id,tenant_id,title,event_code,situation)
-VALUES('20000000-0000-4000-8000-000000000001','10000000-0000-4000-8000-000000000001',
+VALUES(current_setting('demo.citizen_a')::uuid,current_setting('demo.tenant_a')::uuid,
  'Thử lộ trình địa phương','birth','Tôi vừa sinh con');
 INSERT INTO citizen_life_journey_items(journey_id,citizen_id,tenant_id,procedure_id,position)
-SELECT id,'20000000-0000-4000-8000-000000000001','10000000-0000-4000-8000-000000000001','khai-sinh',1
+SELECT id,current_setting('demo.citizen_a')::uuid,current_setting('demo.tenant_a')::uuid,'khai-sinh',1
  FROM citizen_life_journeys WHERE title='Thử lộ trình địa phương';
 INSERT INTO citizen_personal_tasks(citizen_id,tenant_id,title,due_on)
-VALUES('20000000-0000-4000-8000-000000000001','10000000-0000-4000-8000-000000000001',
+VALUES(current_setting('demo.citizen_a')::uuid,current_setting('demo.tenant_a')::uuid,
  'Chuẩn bị giấy tờ thử nghiệm',CURRENT_DATE+1);
 INSERT INTO citizen_reminder_settings(citizen_id,tenant_id,enabled,days_before)
-VALUES('20000000-0000-4000-8000-000000000001','10000000-0000-4000-8000-000000000001',true,2)
+VALUES(current_setting('demo.citizen_a')::uuid,current_setting('demo.tenant_a')::uuid,true,2)
 ON CONFLICT(citizen_id) DO UPDATE SET enabled=true,days_before=2;
 DO $$ BEGIN
  IF (SELECT count(*) FROM citizen_life_journeys WHERE title='Thử lộ trình địa phương')<>1
  OR (SELECT count(*) FROM citizen_life_journey_items i JOIN citizen_life_journeys j ON j.id=i.journey_id WHERE j.title='Thử lộ trình địa phương')<>1
  THEN RAISE EXCEPTION 'Cannot see own plan'; END IF;
 END $$;
-SELECT set_config('app.citizen_id','20000000-0000-4000-8000-000000000002',true);
-SELECT set_config('app.tenant_id','10000000-0000-4000-8000-000000000002',true);
+SELECT set_config('app.citizen_id',current_setting('demo.citizen_b'),true);
+SELECT set_config('app.tenant_id',current_setting('demo.tenant_b'),true);
 DO $$ BEGIN
  IF EXISTS(SELECT 1 FROM citizen_life_journeys WHERE title='Thử lộ trình địa phương')
  OR EXISTS(SELECT 1 FROM citizen_personal_tasks WHERE title='Chuẩn bị giấy tờ thử nghiệm')

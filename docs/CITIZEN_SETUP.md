@@ -12,8 +12,8 @@ Giao diện dùng Nuxt 3 + Vue 3 + TypeScript + Tailwind CSS 3 và dựa trên m
 UI: header trắng, banner UBND nền xanh, quy trình từng bước, danh mục thủ tục
 bên trái, nội dung chính theo thẻ bo góc, khu vực hỗ trợ bên phải.
 
-Nguồn dữ liệu: PostgreSQL 17, `core/db/init/01-schema.sql` và
-`core/db/seed/seed.sql`. **Toàn bộ dữ liệu seed là giả lập**. Không lưu số
+Nguồn dữ liệu: PostgreSQL 17, `core/db/init/01-schema.sql`, danh mục `core/db/seed/seed.sql` và dữ liệu mẫu
+`make demo` (`core/demo`). **Toàn bộ dữ liệu mẫu là giả lập**. Không lưu số
 định danh hoặc ảnh giấy tờ thật trong kho mã hay môi trường demo.
 
 ## 2. Chạy trên Ubuntu
@@ -27,12 +27,14 @@ cp .env.example .env
 # Sửa các biến POSTGRES_PASSWORD và POSTGRES_APP_PASSWORD thành hai mật khẩu riêng.
 # Sinh bí mật cookie ít nhất 32 ký tự: openssl rand -hex 32
 # Gán SESSION_SECRET=<kết quả> vào .env
+# Đặt COMMUNEOS_ADMIN_PASSWORD (tài khoản quản trị hệ thống, tối thiểu 10 ký tự, có chữ và số).
 make up
+make demo
 docker compose ps
 curl http://localhost:3000/api/health
 ```
 
-Mở **http://localhost:3000**. Trang đăng nhập demo:
+Mở **http://localhost:3000**. Người dân tự tạo tài khoản ở `/dang-ky`; tài khoản demo do `make demo` tạo:
 
 - Tên đăng nhập: `congdan.demo`
 - Mật khẩu: `Demo@2026!`
@@ -183,7 +185,7 @@ toàn bộ API nằm trong `apps/citizen/server/api/`.
 
 ### Kiểm tra RLS thủ công (cần quyền quản trị DB)
 
-Bản seed cung cấp **hai công dân giả lập ở hai xã**: `congdan.demo` và
+`make demo` tạo **hai công dân giả lập ở hai xã**: `congdan.demo` và
 `congdan.khac` (cùng mật khẩu mẫu `Demo@2026!`). Chạy `make rls-test` sau
 khi PostgreSQL khởi động để kiểm tra từng role chỉ đọc được hồ sơ của mình.
 Có thể đăng nhập bằng công dân thứ hai và kiểm tra trực tiếp hồ sơ xã kia
@@ -194,9 +196,11 @@ Các lệnh kiểm thử liên quan:
 - `make test-citizen`: kiểm thử đơn vị và cấu trúc của `apps/citizen` (Node 22 trong Docker).
 - `make rls-test`, `make chat-history-test`, `make vault-autofill-test`, ...: kiểm thử RLS trên
   PostgreSQL thật, chạy trong transaction rồi `ROLLBACK` (`make help` để xem đủ).
-- `make test`: 46 kiểm tra của lõi qua gateway (cách ly xã, quy trình, tệp, tài khoản cán bộ, công dân, AI).
+- `make test-sql`: chạy tất cả các bài trên.
+- `make test`: 54 kiểm tra của lõi qua gateway (cách ly xã, quy trình, tệp, tài khoản, công dân, AI).
 - `make citizen-api-test`: tạo, nộp hồ sơ qua API của lõi, Poka-yoke thiếu giấy tờ, chống sửa hồ sơ đã nộp (ROLLBACK).
-- `npm --prefix apps/citizen run test:e2e`: kiểm thử giao diện end-to-end bằng Playwright (cần ứng dụng đang chạy).
+- `make e2e-citizen`: kiểm thử giao diện end-to-end bằng Playwright, chạy trong ảnh Playwright chính thức (cần
+  `make up`; tự chạy `make demo`). Ảnh chụp, trace khi lỗi nằm ở `apps/citizen/test-results/`.
 
 ## 6. Giới hạn và yêu cầu trước production
 

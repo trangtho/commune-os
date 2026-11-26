@@ -3,6 +3,24 @@
 
 export type TenantStatus = "active" | "locked";
 
+/** Tài khoản lãnh đạo xã (dịch vụ tài khoản của lõi, /accounts/tenants/:code/leaders). */
+export interface Leader {
+  id: string;
+  username: string;
+  firstName: string;
+  lastName: string;
+  email: string | null;
+  enabled: boolean;
+  createdAt: string;
+  mustChangePassword: boolean;
+}
+
+/** Mật khẩu tạm chỉ trả về một lần, lãnh đạo phải đổi khi đăng nhập lần đầu. */
+export interface IssuedPassword {
+  username: string;
+  temporaryPassword: string;
+}
+
 export interface Tenant {
   id: string;
   code: string;

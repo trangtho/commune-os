@@ -11,7 +11,7 @@ Closes #
 
 ## Kiểm thử
 
-<!-- Dán kết quả: DEMO_PASSWORD=12345 make test -->
+<!-- Dán kết quả: make test -->
 
 ## Danh sách kiểm tra
 

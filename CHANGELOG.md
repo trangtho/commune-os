@@ -11,6 +11,53 @@ Mọi thay đổi đáng chú ý của dự án được ghi tại đây.
 
 ## [Chưa phát hành]
 
+### Thay đổi (dựng ổn định từ mã nguồn, CI kiểm thử toàn bộ, 2026-11-24)
+
+- Healthcheck cho Keycloak (`/health/ready`), cổng API (gọi một API công khai tới PostgREST, PostgreSQL), Flowable,
+  SeaweedFS, các dịch vụ Node của lõi, Ollama, trang tài liệu API và ba ứng dụng. Dịch vụ phụ thuộc chờ phía trước
+  sẵn sàng (`condition: service_healthy`), không còn cảnh ứng dụng chạy trước khi Keycloak hay cổng sẵn sàng.
+- `make up` chờ tới khi mọi dịch vụ sẵn sàng và báo dịch vụ nào lỗi (`core/tests/wait-ready.sh`); thêm `make ready`.
+- CI dựng toàn bộ từ mã nguồn như `make up` (trừ mô hình AI), gồm build ba ứng dụng Nuxt, rồi chạy `make demo`,
+  `make test`, `make test-sql` (mọi bài SQL), `make test-citizen` và `make e2e-citizen` (Playwright); lưu ảnh chụp,
+  trace khi lỗi.
+- `make e2e-citizen`: chạy kiểm thử giao diện trong ảnh Playwright chính thức, không cần cài trình duyệt.
+  Sửa các bài e2e đã lỗi thời theo giao diện hiện tại; bài trợ lý AI tự bỏ qua khi chưa có mô hình.
+
+### Sửa lỗi (2026-11-24)
+
+- Cổng API trả 502 sau khi một dịch vụ khởi động lại (Docker cấp IP mới, APISIX giữ IP cũ theo TTL của DNS): chỉ giữ
+  kết quả phân giải 5 giây (`dns_resolver_valid`).
+- Kênh người dân: trang chi tiết nhóm hồ sơ (`/lien-thong/{id}`) và chi tiết yêu cầu hỗ trợ (`/yeu-cau-ho-tro/{id}`)
+  không bao giờ hiện, luôn hiện trang danh sách (trang danh sách là route cha không có `<NuxtPage>`); chuyển trang danh
+  sách thành `index.vue`.
+- Kênh người dân: trang Hồ sơ cá nhân lỗi 500 với công dân chưa có số điện thoại hoặc địa chỉ (như công dân tự đăng
+  ký bằng email).
+- Kênh người dân: trang "Tìm thủ tục qua câu hỏi" (`/goi-y-thu-tuc`) chỉ dùng dữ liệu công khai nhưng bắt đăng nhập.
+- Kênh người dân, màn hình cán bộ: đường dẫn `/api/...` không có trả về trang đăng nhập (200) thay vì 404.
+
+### Thay đổi (khởi tạo tài khoản theo vai trò, tách dữ liệu mẫu, 2026-11-24)
+
+- Cài mới không còn tài khoản mẫu: tệp realm chỉ còn tài khoản dịch vụ. Người cài đặt tài khoản quản trị hệ thống
+  trong `.env` (`COMMUNEOS_ADMIN_USERNAME`, `COMMUNEOS_ADMIN_PASSWORD`); `make check-env` từ chối mật khẩu trống, mật
+  khẩu mẫu hoặc dưới 10 ký tự (`core/identity/check-admin-env.sh`); `identity-setup` tạo tài khoản này và đồng bộ mật
+  khẩu theo `.env` mỗi lần `make up`. Chính sách mật khẩu của realm: tối thiểu 8 ký tự, có chữ và số.
+- Quản trị hệ thống tạo xã kèm tài khoản lãnh đạo xã trong một lần (`POST /accounts/tenants`, form "Thêm xã" của bảng
+  quản trị), mật khẩu tạm hiện một lần; tạo tài khoản lỗi thì xã vừa tạo bị hủy (`api.remove_new_tenant`). Trang chi
+  tiết xã có tab "Tài khoản quản lý": cấp lại mật khẩu tạm, khóa / mở, thêm lãnh đạo
+  (`/accounts/tenants/{code}/leaders`). Lãnh đạo mới phải đổi mật khẩu tạm khi đăng nhập lần đầu, như cán bộ.
+- Người dân tự đăng ký ở Kênh người dân (`/dang-ky`): họ tên, tên đăng nhập, email hoặc số điện thoại, xã cư trú đang
+  hoạt động, mật khẩu, đồng ý xử lý dữ liệu cá nhân theo Nghị định 13/2023/NĐ-CP. Lõi tạo hồ sơ công dân
+  (`api.system_register_citizen`, ghi `citizens.privacy_consent_at` và nhật ký sử dụng dữ liệu) và tài khoản Keycloak
+  vai trò `citizen` gắn `citizen_id`; route công khai `/public/accounts/register` có giới hạn số lần gọi
+  (`core/db/init/35-account-onboarding.sql`).
+- Tách dữ liệu mẫu: `core/db/seed/seed.sql` chỉ còn danh mục thủ tục; `make demo` (`core/demo`) tạo 2 xã mẫu, lãnh
+  đạo, cán bộ, công dân qua chính các API trên rồi nạp hồ sơ mẫu; chạy lại được, mật khẩu chung `DEMO_PASSWORD`
+  (mặc định `Demo@2026!`). Bản cài cũ còn tài khoản mẫu mật khẩu `12345` được đặt lại về `DEMO_PASSWORD`.
+- `make test` và các bài `make *-test` chạy `make demo` trước; bài kiểm thử SQL đọc mã xã, công dân mẫu theo mã xã và
+  tên đăng nhập thay cho mã cố định. `make test` thêm kiểm tra tạo xã kèm lãnh đạo, hủy xã khi tạo tài khoản lỗi,
+  quản lý lãnh đạo không vượt xã và đăng ký công dân. CI đặt mật khẩu quản trị ngẫu nhiên và chạy `make demo`.
+- Mật khẩu tạm do dịch vụ tài khoản cấp luôn có cả chữ và số (trước đây có thể chỉ có chữ).
+
 ### Sửa lỗi (giao diện, 2026-11-24)
 
 - Trang nộp hồ sơ (bước giấy tờ) và các trang có ô chọn tệp: sau khi chọn tệp, cả khung ứng dụng trượt lên làm lộ ảnh

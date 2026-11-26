@@ -11,11 +11,19 @@ html, body, #__nuxt {
   height: 100%;
   min-height: 0;
   overflow: hidden;
+  /* clip: trình duyệt cũng không tự cuộn được (khi focus ô ẩn, scrollIntoView), tránh trượt cả khung lộ ảnh nền. */
+  overflow: clip;
   overscroll-behavior: none;
 }
 body { margin: 0; max-width: 100%; }
 #__nuxt { min-width: 0; max-width: 100%; }
 .citizen-app-shell { height: 100vh; height: 100dvh; min-height: 0; }
+/* Khung ngoài cố định: chỉ vùng #citizen-main được cuộn; clip chặn mọi kiểu cuộn tự động của khung ngoài.
+   Màn hình hẹp, màn hình thấp dùng cách cuộn cả trang (các @media bên dưới ghi đè). */
+.citizen-app-shell, .citizen-workspace { overflow: clip; }
+/* Vùng cuộn là mốc vị trí của mọi phần tử absolute bên trong (ô chọn tệp sr-only, menu...): nếu không, chúng tính
+   theo cả trang, kéo dài chiều cao trang và trình duyệt cuộn cả trang khi focus, làm lộ ảnh nền. */
+#citizen-main { position: relative; }
 /* Wheel, keyboard, trackpad and touch continue to scroll these regions. */
 .citizen-inner-scroll { min-height: 0; -webkit-overflow-scrolling: touch; overscroll-behavior: contain; scrollbar-width: none; -ms-overflow-style: none; }
 .scrollbar-hide { scrollbar-width: none; -ms-overflow-style: none; }

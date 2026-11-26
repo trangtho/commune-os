@@ -10,7 +10,7 @@ async function login(page:Page){
 }
 test('Guest counter ticket cannot access private records or submit applications',async({page})=>{
   await page.goto('/tai-quay')
-  await expect(page.getByRole('heading',{name:'Hỗ trợ thủ tục tại quầy'})).toBeVisible()
+  await expect(page.getByRole('main').getByRole('heading',{name:'Hỗ trợ thủ tục tại quầy'})).toBeVisible()
   const privateResponse=await page.request.get('/api/representations')
   expect(privateResponse.status()).toBe(401)
   await page.locator('#counter-procedure').selectOption('khai-sinh')
@@ -32,7 +32,7 @@ test('Guest counter ticket cannot access private records or submit applications'
 test('Representation stays pending; user cannot self-approve through registration',async({page})=>{
   await login(page)
   await page.goto('/dai-dien')
-  await expect(page.getByRole('heading',{name:'Đại diện thực hiện thủ tục cho người thân'})).toBeVisible()
+  await expect(page.getByRole('main').getByRole('heading',{name:'Đại diện thực hiện thủ tục cho người thân'})).toBeVisible()
   await page.locator('#rep-name').fill('Người thân kiểm thử')
   await page.locator('#rep-procedure').selectOption('khai-sinh')
   const expiry=new Date(Date.now()+7*86400_000).toISOString().slice(0,10)
@@ -43,7 +43,9 @@ test('Representation stays pending; user cannot self-approve through registratio
   const list=await (await page.request.get('/api/representations')).json()
   const created=list.items.find((r:{represented_name:string})=>r.represented_name==='Người thân kiểm thử')
   expect(created.status).toBe('pending')
-  const fake=await page.request.post('/api/applications',{data:{procedureId:'khai-sinh',applicantName:'Người thân kiểm thử',phone:'',representationId:created.id,formData:{}}})
+  // Biểu mẫu hợp lệ, để yêu cầu đi tới bước lõi kiểm tra quyền đại diện (chưa xác minh → 403).
+  const formData={childName:'Nguyễn Văn Minh',birthDate:'2025-01-01',gender:'Nam',birthPlace:'Bệnh viện thực hành',birthProvince:'Bắc Ninh',motherName:'Nguyễn Thị Demo',registrationRelation:'Mẹ'}
+  const fake=await page.request.post('/api/applications',{data:{procedureId:'khai-sinh',applicantName:'Người thân kiểm thử',phone:'',representationId:created.id,formData}})
   expect(fake.status()).toBe(403)
   await page.request.post(`/api/representations/${created.id}/revoke`)
 })

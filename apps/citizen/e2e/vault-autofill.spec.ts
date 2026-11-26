@@ -14,7 +14,7 @@ const png=Buffer.from('iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42
 test('Kho giấy tờ số: tải, tìm kiếm, quản lý phiên bản, lưu trữ và khôi phục',async({page})=>{
  await signIn(page)
  await page.goto('/kho-giay-to')
- await expect(page.getByRole('heading',{name:'Kho giấy tờ số cá nhân'})).toBeVisible()
+ await expect(page.getByRole('main').getByRole('heading',{name:'Kho giấy tờ số cá nhân'})).toBeVisible()
  await page.getByRole('button',{name:'Thêm giấy tờ'}).first().click()
  const name=`Giấy tờ thử nghiệm ${Date.now()}`
  await page.locator('#vault-title').fill(name)

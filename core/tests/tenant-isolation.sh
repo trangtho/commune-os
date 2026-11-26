@@ -3,27 +3,34 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 # Kiểm thử cách ly dữ liệu giữa 2 xã qua đường thật: Keycloak → APISIX → PostgREST → PostgreSQL (RLS).
-# Cần: docker compose up đang chạy, curl, python3.
-# Dùng các tài khoản mẫu cán bộ (mật khẩu DEMO_PASSWORD, mặc định 12345) và công dân
-# congdan.demo / congdan.khac (mật khẩu CITIZEN_DEMO_PASSWORD, mặc định Demo@2026!).
+# Cần: docker compose up đang chạy và đã chạy make demo, curl, python3.
+# Dùng các tài khoản do make demo tạo (cán bộ, lãnh đạo, công dân congdan.demo / congdan.khac; mật khẩu DEMO_PASSWORD,
+# mặc định Demo@2026!) và tài khoản quản trị hệ thống trong .env (COMMUNEOS_ADMIN_USERNAME / COMMUNEOS_ADMIN_PASSWORD).
 set -u
 
 KC="${KEYCLOAK_URL:-http://localhost:8080}"
 GW="${GATEWAY_URL:-http://localhost:${GATEWAY_PORT:-9080}}"
-PASS="${DEMO_PASSWORD:-12345}"
-CITIZEN_PASS="${CITIZEN_DEMO_PASSWORD:-Demo@2026!}"
-# Bí mật của client citizen-app: lấy từ biến môi trường, không có thì đọc tệp .env.
-CITIZEN_SECRET="${CITIZEN_KEYCLOAK_SECRET:-$(sed -n 's/^CITIZEN_KEYCLOAK_SECRET=//p' .env 2>/dev/null | tail -1)}"
+PASS="${DEMO_PASSWORD:-Demo@2026!}"
+CITIZEN_PASS="${CITIZEN_DEMO_PASSWORD:-$PASS}"
+# Biến lấy từ môi trường, không có thì đọc tệp .env.
+from_env() { sed -n "s/^$1=//p" .env 2>/dev/null | tail -1; }
+CITIZEN_SECRET="${CITIZEN_KEYCLOAK_SECRET:-$(from_env CITIZEN_KEYCLOAK_SECRET)}"
+ADMIN_USER="${COMMUNEOS_ADMIN_USERNAME:-$(from_env COMMUNEOS_ADMIN_USERNAME)}"
+ADMIN_PASS="${COMMUNEOS_ADMIN_PASSWORD:-$(from_env COMMUNEOS_ADMIN_PASSWORD)}"
 FAIL=0
 
 ok()   { echo "  ĐẠT  $1"; }
 fail() { echo "  LỖI  $1"; FAIL=1; }
 
-token() {
+token() { # token <tên đăng nhập> [mật khẩu, mặc định DEMO_PASSWORD]
   curl -s -X POST "$KC/realms/communeos/protocol/openid-connect/token" \
-    -d grant_type=password -d client_id=commune-app -d username="$1" -d password="$PASS" |
+    -d grant_type=password -d client_id=commune-app --data-urlencode username="$1" --data-urlencode password="${2:-$PASS}" |
     python3 -c 'import json,sys; print(json.load(sys.stdin).get("access_token",""))'
 }
+jfield() { python3 -c "import json,sys
+try: d=json.load(sys.stdin)
+except Exception: d={}
+print(d.get('$1','') if isinstance(d,dict) else '')"; }
 
 # Lấy danh sách mã hồ sơ, nối bằng dấu phẩy, đã sắp xếp.
 ids() {
@@ -38,7 +45,7 @@ code=$(curl -s -o /dev/null -w '%{http_code}' "$GW/rest/dossiers")
 
 TA=$(token canbo.xa-a); TB=$(token canbo.xa-b)
 if [ -z "$TA" ] || [ -z "$TB" ]; then
-  fail "Không lấy được token (Keycloak chưa chạy hoặc sai DEMO_PASSWORD)"; exit 1
+  fail "Không lấy được token (Keycloak chưa chạy, chưa chạy make demo hoặc sai DEMO_PASSWORD)"; exit 1
 fi
 
 A=$(ids "$TA"); B=$(ids "$TB")
@@ -192,6 +199,67 @@ nosecret=$(curl -s -X POST "$KC/realms/communeos/protocol/openid-connect/token" 
   -d username=congdan.demo --data-urlencode password="$CITIZEN_PASS" | python3 -c 'import json,sys; print(json.load(sys.stdin).get("access_token",""))')
 [ -z "$nosecret" ] && ok "Không có client secret thì không xin được token công dân" || fail "Xin được token công dân mà không cần client secret"
 
+# Khởi tạo tài khoản theo vai trò (core/db/init/35-account-onboarding.sql, dịch vụ accounts):
+# quản trị hệ thống tạo xã kèm lãnh đạo; lãnh đạo mới phải đổi mật khẩu tạm; người dân tự đăng ký.
+QT=$(token "$ADMIN_USER" "$ADMIN_PASS")
+[ -n "$QT" ] && ok "Quản trị hệ thống đăng nhập bằng tài khoản trong .env" || fail "Quản trị $ADMIN_USER không đăng nhập được bằng mật khẩu trong .env"
+post() { # post <token|-> <đường dẫn> <json> → in "mã HTTP<TAB>nội dung"
+  auth=""; [ "$1" != "-" ] && auth="Authorization: Bearer $1"
+  curl -s -w '\t%{http_code}' -X POST -H "$auth" -H 'Content-Type: application/json' -d "$3" "$GW$2" |
+    python3 -c 'import sys; b,_,c=sys.stdin.read().rpartition("\t"); print(c+"\t"+b)'
+}
+code=$(post "$LA" /accounts/tenants '{"code":"xa-kt","name":"Thử","leaderUsername":"ld.kt","leaderFullName":"A B"}' | cut -f1)
+[ "$code" = "403" ] && ok "Lãnh đạo xã không tạo được xã (403)" || fail "Lãnh đạo tạo xã phải 403, nhận $code"
+
+KT="xa-kt-$(date +%s)"; KTL="ld.$KT"
+r=$(post "$QT" /accounts/tenants "{\"code\":\"$KT\",\"name\":\"Xã kiểm thử\",\"leaderUsername\":\"$KTL\",\"leaderFullName\":\"Kiểm Thử\"}")
+tmp=$(echo "$r" | cut -f2- | python3 -c 'import json,sys; print(json.load(sys.stdin).get("leader",{}).get("temporaryPassword",""))' 2>/dev/null)
+early=$(token "$KTL" "$tmp")
+changed=$(post - /accounts/first-password "{\"username\":\"$KTL\",\"currentPassword\":\"$tmp\",\"newPassword\":\"KiemThu2026x\"}" | cut -f1)
+LK=$(token "$KTL" KiemThu2026x)
+tenant_of() { echo "$1" | cut -d. -f2 | python3 -c 'import base64,json,sys; s=sys.stdin.read().strip(); print(json.loads(base64.urlsafe_b64decode(s+"="*(-len(s)%4))).get("tenant_id",""))'; }
+[ "$(echo "$r" | cut -f1)" = "201" ] && [ -n "$tmp" ] && [ -z "$early" ] && [ "$changed" = "200" ] && [ -n "$LK" ] && [ "$(tenant_of "$LK")" = "$KT" ] &&
+  ok "Quản trị tạo xã kèm lãnh đạo; lãnh đạo phải đổi mật khẩu tạm rồi mới đăng nhập, token mang đúng xã" ||
+  fail "Tạo xã kèm lãnh đạo: $(echo "$r" | cut -c1-160), đăng nhập bằng mật khẩu tạm '${early:+được}', đổi mật khẩu $changed"
+
+r=$(post "$QT" /accounts/tenants '{"code":"xa-kt-trung","name":"Thử","leaderUsername":"ld.kt-trung","leaderFullName":"A B","leaderEmail":"lanhdao.xa-a@example.com"}')
+left=$(curl -s -H "Authorization: Bearer $QT" "$GW/rest/tenants?code=eq.xa-kt-trung&select=code" | python3 -c 'import json,sys; print(len(json.load(sys.stdin)))')
+[ "$(echo "$r" | cut -f1)" = "409" ] && [ "$left" = "0" ] && ok "Tạo tài khoản lãnh đạo lỗi (email trùng) thì xã vừa tạo bị hủy" ||
+  fail "Tạo xã khi tài khoản lãnh đạo lỗi: $(echo "$r" | cut -c1-120), xã còn lại $left"
+
+LDB=$(curl -s -H "Authorization: Bearer $QT" "$GW/accounts/tenants/xa-b/leaders" | python3 -c 'import json,sys; print(json.load(sys.stdin)[0]["id"])' 2>/dev/null)
+c1=$(post "$QT" "/accounts/tenants/xa-a/leaders/$LDB/reset-password" '{}' | cut -f1)
+c2=$(curl -s -o /dev/null -w '%{http_code}' -H "Authorization: Bearer $LA" "$GW/accounts/tenants/xa-a/leaders")
+[ "$c1" = "404" ] && [ "$c2" = "403" ] && ok "Lãnh đạo xã B không bị cấp lại mật khẩu qua xã A (404); lãnh đạo không xem được danh sách lãnh đạo (403)" ||
+  fail "Quản lý lãnh đạo: cấp lại qua xã khác $c1, lãnh đạo xem danh sách $c2"
+
+REG="dk.$(date +%s)"
+r1=$(post - /public/accounts/register "{\"fullName\":\"Người Đăng Ký\",\"username\":\"$REG\",\"phone\":\"0912345678\",\"tenantCode\":\"xa-a\",\"password\":\"DangKy2026x\",\"consent\":true}" | cut -f1)
+CR=$(citizen_token citizen-app "$REG" DangKy2026x)
+r2=$(post - /public/accounts/register "{\"fullName\":\"Người Đăng Ký\",\"username\":\"$REG.x\",\"phone\":\"0912345678\",\"tenantCode\":\"xa-a\",\"password\":\"DangKy2026x\"}" | cut -f1)
+r3=$(post - /public/accounts/register "{\"fullName\":\"Người Đăng Ký\",\"username\":\"$REG.y\",\"phone\":\"0912345678\",\"tenantCode\":\"xa-a\",\"password\":\"12345678\",\"consent\":true}" | cut -f1)
+r4=$(post - /public/accounts/register '{"fullName":"Người Đăng Ký","username":"congdan.demo","phone":"0912345678","tenantCode":"xa-a","password":"DangKy2026x","consent":true}' | cut -f1)
+[ "$r1" = "201" ] && [ "$(logins "$CR")" = "$REG" ] && [ "$r2" = "400" ] && [ "$r3" = "400" ] && [ "$r4" = "409" ] &&
+  ok "Người dân tự đăng ký được và chỉ thấy hồ sơ của mình; thiếu đồng ý, mật khẩu yếu, trùng tên bị từ chối" ||
+  fail "Đăng ký công dân: tạo $r1 (hồ sơ '$(logins "$CR")'), không đồng ý $r2, mật khẩu yếu $r3, trùng tên $r4"
+
+# Dọn dữ liệu kiểm thử: xóa tài khoản trong Keycloak bằng quản trị Keycloak (.env), hủy xã vừa tạo.
+KC_ADMIN_TOKEN=$(curl -s -X POST "$KC/realms/master/protocol/openid-connect/token" -d grant_type=password -d client_id=admin-cli \
+  --data-urlencode username="${KEYCLOAK_ADMIN:-$(from_env KEYCLOAK_ADMIN)}" --data-urlencode password="${KEYCLOAK_ADMIN_PASSWORD:-$(from_env KEYCLOAK_ADMIN_PASSWORD)}" | jfield access_token)
+kc_delete() { # kc_delete <tên đăng nhập> → in mã công dân (nếu có) của tài khoản vừa xóa
+  curl -s -H "Authorization: Bearer $KC_ADMIN_TOKEN" "$KC/admin/realms/communeos/users?exact=true&username=$1" |
+    python3 -c 'import json,sys; d=json.load(sys.stdin); print(d[0]["id"]+" "+(d[0].get("attributes",{}).get("citizen_id",[""])[0]) if d else "")' |
+    { read -r uid cid; [ -n "$uid" ] && curl -s -o /dev/null -X DELETE -H "Authorization: Bearer $KC_ADMIN_TOKEN" "$KC/admin/realms/communeos/users/$uid"; echo "$cid"; }
+}
+kc_delete "$KTL" >/dev/null
+curl -s -o /dev/null -X POST -H "Authorization: Bearer $QT" -H 'Content-Type: application/json' -d "{\"p_code\":\"$KT\"}" "$GW/rest/rpc/remove_new_tenant"
+kc_delete "$REG" >/dev/null
+# Hồ sơ công dân giữ lại (nhật ký đồng ý không xóa được), chỉ giải phóng tên đăng nhập như api.system_unregister_citizen.
+docker compose exec -T db sh -c 'psql -q -U "$POSTGRES_USER" -d "$POSTGRES_DB"' <<SQL
+UPDATE citizens SET login_name = 'huy-' || id::text, display_name = 'Đăng ký không hoàn tất', email = NULL, phone = NULL
+WHERE login_name = '$REG';
+SQL
+
 # Kênh người dân qua API của lõi.
 n=$(curl -s -X POST -H 'Content-Type: application/json' -d '{}' "$GW/public/rpc/procedure_catalog" |
   python3 -c 'import json,sys; d=json.load(sys.stdin); print(len(d) if isinstance(d,list) else -1)')
@@ -227,7 +295,7 @@ c5=$(rpc "$LA" publish_procedure_version '{"p_data":{}}')
   fail "API cán bộ cho Kênh người dân: cán bộ $c1, công dân $c2, cán bộ xem dữ liệu cá nhân $c3, lãnh đạo $c4, lãnh đạo công bố $c5"
 
 # Tình trạng dịch vụ lõi qua cổng (trang Tình trạng hệ thống của bảng quản trị): kiểm tra cả thành phần phía sau.
-QT=$(token quantri)
+QT=$(token "$ADMIN_USER" "$ADMIN_PASS")
 codes=""
 for p in workflow/health files/health accounts/health; do
   codes="$codes $(curl -s -o /dev/null -w '%{http_code}' -H "Authorization: Bearer $QT" "$GW/$p")"

@@ -2,7 +2,7 @@
 -- SPDX-License-Identifier: Apache-2.0
 -- 36 thủ tục mở rộng chỉ dành cho dữ liệu DEMO. Thời hạn/phí/chứng cứ pháp lý CHƯA được xác minh.
 -- Không thay thế thông tin chính thức; không tác động tới hồ sơ thật và các phiên bản sẵn có.
--- Chạy lặp nhiều lần an toàn; chỉ mở mới lần đầu cho hai xã mô phỏng.
+-- Chỉ nạp qua make demo. core/demo/demo.mjs bật thủ tục cho hai xã mẫu qua API lõi.
 
 INSERT INTO procedures (id,title,category,summary,icon,sla_days,fee_note,instructions) VALUES
  ('demo-dang-ky-khai-tu','Đăng ký khai tử','Hộ tịch','Dữ liệu mô phỏng để tra cứu; chưa xác minh thẩm quyền, điều kiện và căn cứ pháp lý.','files',0, 'Chưa xác minh', 'Đây chỉ là minh họa, chưa phải hướng dẫn pháp lý. Liên hệ cơ quan có thẩm quyền để xác minh.'),
@@ -62,16 +62,3 @@ SELECT p.id,1,CURRENT_DATE,'unverified_demo',
 FROM procedures p WHERE NOT EXISTS (
   SELECT 1 FROM citizen_procedure_versions v WHERE v.procedure_id=p.id
 ) AND p.id LIKE 'demo-%';
-
--- Mở cho hai xã DEMO đúng một lần; chạy lại không bật thủ tục đã bị quản trị tắt.
-DO $$
-BEGIN
- IF NOT EXISTS (SELECT 1 FROM core_settings WHERE key='citizen_expanded_demo_catalog_enabled') THEN
-  INSERT INTO tenant_procedures(tenant_id,procedure_id)
-  SELECT t.id,p.id FROM tenants t CROSS JOIN procedures p
-  WHERE t.code IN ('xa-a','xa-b') AND p.id LIKE 'demo-%'
-  ON CONFLICT (tenant_id,procedure_id) DO NOTHING;
-  INSERT INTO core_settings(key,value)
-  VALUES('citizen_expanded_demo_catalog_enabled',now()::text) ON CONFLICT (key) DO NOTHING;
- END IF;
-END $$;

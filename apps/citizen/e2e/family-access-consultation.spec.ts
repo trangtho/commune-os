@@ -13,7 +13,7 @@ async function login(page:Page){
 test('Assisted reading mode does not erase text entered in a form',async({page})=>{
   await login(page)
   await page.goto('/lich-tu-van')
-  await expect(page.getByRole('heading',{name:'Đặt lịch tư vấn trực tuyến'})).toBeVisible()
+  await expect(page.getByRole('main').getByRole('heading',{name:'Đặt lịch tư vấn trực tuyến'})).toBeVisible()
   const subject=page.locator('#consult-subject')
   await subject.fill('Cần tư vấn về hồ sơ hộ tịch')
   await page.getByRole('button',{name:'Tùy chọn hỗ trợ tiếp cận'}).click()
@@ -36,7 +36,7 @@ test('Family requests and stage reviews are never available to guest sessions',a
 test('Family screen remains scoped to approved representation',async({page})=>{
   await login(page)
   await page.goto('/ho-so-gia-dinh')
-  await expect(page.getByRole('heading',{name:'Hồ sơ gia đình'})).toBeVisible()
+  await expect(page.getByRole('main').getByRole('heading',{name:'Hồ sơ gia đình'})).toBeVisible()
   await expect(page.getByText(/Không tự động liên kết toàn bộ hồ sơ/)).toBeVisible()
   const data=await (await page.request.get('/api/family')).json()
   expect(Array.isArray(data.members)).toBe(true)
