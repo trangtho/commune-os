@@ -33,6 +33,13 @@ export default defineEventHandler(async (event) => {
     if (reason.includes("disabled")) {
       throw createError({ statusCode: 403, statusMessage: "Tài khoản đang bị khóa." });
     }
-    throw createError({ statusCode: 401, statusMessage: "Sai tên đăng nhập, mật khẩu hoặc mã xác thực." });
+    // Chỉ báo sai mật khẩu khi Keycloak trả đúng lỗi đó; Keycloak chưa chạy hay cấu hình sai thì báo rõ.
+    if (e?.data?.error === "invalid_grant") {
+      throw createError({ statusCode: 401, statusMessage: "Sai tên đăng nhập, mật khẩu hoặc mã xác thực." });
+    }
+    if (!e?.response || e.response.status >= 500 || e.response.status === 404) {
+      throw createError({ statusCode: 503, statusMessage: "Hệ thống định danh (Keycloak) đang khởi động hoặc chưa kết nối được. Vui lòng thử lại sau khoảng 1 phút." });
+    }
+    throw createError({ statusCode: 503, statusMessage: `Cấu hình đăng nhập với Keycloak chưa đúng (${e?.data?.error || e.response.status}). Chạy lại make up hoặc báo quản trị.` });
   }
 });

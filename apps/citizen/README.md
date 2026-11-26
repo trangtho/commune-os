@@ -76,21 +76,14 @@ acceptance have been certified by the responsible teams.
 | Signed results | Secured result-metadata/PDF adapter. Valid signature state is reported **by external results service**, not independently verified by this portal; without it the UI says no signed file is available. |
 | E2E | Playwright journey spec added, **not run in delivery environment**. Requires running stack, Chromium, demo data, optionally staff-side fixtures. |
 
-### Local database permission for document deletion
+### Document deletion
 
-Currently `communeos_app` is granted `SELECT,INSERT`, **not DELETE**, on
-`application_documents`. The new DELETE API will return a clear `503` until an
-administrator runs (against the existing PostgreSQL database, as a role with
-GRANT privilege):
-
-```sql
-GRANT DELETE ON TABLE public.application_documents TO communeos_app;
-```
-
-This changes **no schema or RLS policies**: `FORCE ROW LEVEL SECURITY` and the
-existing owner policy still limit deletion to rows belonging to the logged-in
-citizen. Application code always checks the case status before deletion. Do not
-run this on a production environment without approval from the DB owner.
+Removing a document from a draft (or a case awaiting supplement) calls the core API
+`api.citizen_document_remove` through the APISIX gateway with the citizen's token. The
+core checks the case status and row ownership (RLS) inside the same transaction and
+returns the storage key so the portal can delete the object. No database grant to the
+portal is needed: the portal has no direct table access
+(`core/db/init/34-citizen-direct-access.sql`).
 
 ### Optional server-side integrations (no secrets in Git)
 

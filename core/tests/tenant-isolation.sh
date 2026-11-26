@@ -199,6 +199,12 @@ code=$(rpc - citizen_profile '{}')
 [ "$n" -gt 0 ] && [ "$code" = "404" ] && ok "Khách xem được danh mục thủ tục qua /public, không gọi được hàm của công dân" ||
   fail "Danh mục công khai trả $n thủ tục, hàm công dân qua /public trả $code"
 
+c1=$(rpc - public_knowledge_status '{}'); c2=$(rpc - citizen_receivers '{"p_procedure_id":"khai-sinh"}')
+c3=$(rpc - citizen_vault '{}'); c4=$(rpc "$CA" public_procedure_channels '{"p_procedure_id":"khai-sinh"}')
+[ "$c1" = "200" ] && [ "$c2" = "404" ] && [ "$c3" = "404" ] && [ "$c4" = "200" ] &&
+  ok "Cổng /public chỉ mở các hàm public_* đã liệt kê; hàm của công dân không gọi được khi chưa đăng nhập" ||
+  fail "Cổng /public: hàm công khai $c1, hàm công dân $c2 / $c3, công dân gọi hàm công khai bằng token $c4"
+
 APP_A=$(curl -s -X POST -H "Authorization: Bearer $CA" -H 'Content-Type: application/json' -d '{}' "$GW/rest/rpc/citizen_applications" |
   python3 -c 'import json,sys; d=json.load(sys.stdin); print(d[0]["id"] if isinstance(d,list) and d else "")')
 codeA=$(rpc "$CA" citizen_application "{\"p_application_id\":\"$APP_A\"}")
@@ -211,6 +217,14 @@ code=$(rpc "$CB" citizen_application_submit "{\"p_application_id\":\"$APP_A\",\"
 
 code=$(rpc "$TA" citizen_applications '{}')
 [ "$code" = "403" ] && ok "Token cán bộ không gọi được API của công dân (403)" || fail "Cán bộ gọi API công dân phải 403, nhận $code"
+
+# Phần việc cán bộ phát sinh từ Kênh người dân (core/db/init/26-citizen-staff-api.sql): xã, vai trò lấy từ token.
+c1=$(rpc "$TA" citizen_support_tickets '{}'); c2=$(rpc "$CA" citizen_support_tickets '{}')
+c3=$(rpc "$TA" citizen_privacy_requests '{}'); c4=$(rpc "$LA" citizen_privacy_requests '{}')
+c5=$(rpc "$LA" publish_procedure_version '{"p_data":{}}')
+[ "$c1" = "200" ] && [ "$c2" = "403" ] && [ "$c3" = "403" ] && [ "$c4" = "200" ] && [ "$c5" = "403" ] &&
+  ok "API cán bộ cho Kênh người dân: cán bộ xem hỗ trợ, công dân bị chặn, dữ liệu cá nhân chỉ lãnh đạo, công bố thủ tục chỉ quản trị" ||
+  fail "API cán bộ cho Kênh người dân: cán bộ $c1, công dân $c2, cán bộ xem dữ liệu cá nhân $c3, lãnh đạo $c4, lãnh đạo công bố $c5"
 
 # Tình trạng dịch vụ lõi qua cổng (trang Tình trạng hệ thống của bảng quản trị): kiểm tra cả thành phần phía sau.
 QT=$(token quantri)
@@ -258,7 +272,14 @@ if [ "$(curl -s "$GW/public/ai/ready" | python3 -c 'import json,sys; print(json.
       -d "{\"question\":\"$2\",\"select\":false}" "$GW/ai/ask" |
       python3 -c 'import json,sys; d=json.load(sys.stdin); print(d.get("mode")+":"+",".join(sorted(set(c["procedure_id"] or c["source_type"] for c in d.get("chunks",[])))))'
   }
+  # Tự tắt thủ tục kết hôn ở xã A trong lúc kiểm tra (bản cài mới bật sẵn mọi thủ tục), xong trả lại trạng thái cũ.
+  hon_was=$(curl -s -H "Authorization: Bearer $QT" "$GW/rest/procedures?id=eq.ket-hon&select=enabled_tenants" |
+    python3 -c 'import json,sys; r=json.load(sys.stdin); print("on" if r and "xa-a" in (r[0].get("enabled_tenants") or []) else "off")')
+  set_hon() { curl -s -o /dev/null -X POST -H "Authorization: Bearer $QT" -H 'Content-Type: application/json' \
+    -d "{\"tenant_code\":\"xa-a\",\"procedure_ids\":[\"ket-hon\"],\"enabled\":$1}" "$GW/rest/rpc/set_tenant_procedures"; }
+  set_hon false
   hon=$(scope "$CA" "Đăng ký kết hôn cần giấy tờ gì"); guide_c=$(scope "$CA" "Cán bộ trình lãnh đạo duyệt trả kết quả hồ sơ")
+  [ "$hon_was" = "on" ] && set_hon true
   guide_s=$(scope "$TA" "Cán bộ trình lãnh đạo duyệt trả kết quả hồ sơ"); lookup=$(scope "$TA" "Cho tôi số điện thoại của công dân Nguyễn Văn An")
   case "$hon$guide_c" in *ket-hon*|*staff_guide*) bad=1 ;; *) bad=0 ;; esac
   case "$guide_s" in *staff_guide*) seen=1 ;; *) seen=0 ;; esac

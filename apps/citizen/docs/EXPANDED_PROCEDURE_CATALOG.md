@@ -5,7 +5,7 @@
 - Thêm **36 thủ tục tham khảo** vào 6 thủ tục demo gốc, tổng cộng **42 thủ tục** trên cơ sở dữ liệu mẫu mới.
 - Các nhóm: Hộ tịch, Cư trú, Chứng thực, Kinh doanh, Đất đai – Xây dựng, An sinh xã hội, Người có công, Bảo hiểm y tế.
 - Danh mục có tìm kiếm, lọc lĩnh vực và phân trang 12 thẻ/trang.
-- **Chỉ là dữ liệu demo chưa xác minh**: thời hạn là `0` (giao diện hiển thị “Chưa cập nhật”), lệ phí “Chưa xác minh”, giấy tờ kèm theo chỉ là gợi ý tùy chọn. Không công bố đây là hướng dẫn/khả năng tiếp nhận chính thức.
+- **Chỉ là dữ liệu demo chưa xác minh**: thời hạn là `0` (giao diện hiển thị “Chưa xác minh”), lệ phí “Chưa xác minh”, giấy tờ kèm theo chỉ là gợi ý tùy chọn. Không công bố đây là hướng dẫn/khả năng tiếp nhận chính thức.
 - Giữ nguyên 6 thủ tục cũ và thay đổi mà quản trị đã cập nhật vì câu lệnh `ON CONFLICT DO NOTHING`.
 - Khởi tạo phiên bản cho thủ tục mới bằng chính cơ chế chính SQL bổ sung, với `provenance_status=unverified_demo`.
 - Chỉ bật mặc định những thủ tục mới cho hai xã mô phỏng `xa-a`, `xa-b`. Xã thật phải được quản trị viên cấu hình. Không tự bật ở mọi địa phương.
@@ -38,6 +38,7 @@ Tùy phiên bản Compose, chạy `docker compose up -d` sau đó để các d�
 - `docker-compose.yml`: gọi SQL mới sau khi lược đồ và bảng phiên bản thủ tục được khởi tạo.
 - `apps/citizen/pages/thu-tuc/index.vue`: tìm kiếm, phân trang.
 - `apps/citizen/components/ProcedureCard.vue`, `apps/citizen/pages/thu-tuc/[slug].vue`, `apps/citizen/pages/tai-quay.vue`, `apps/citizen/pages/lo-trinh-hanh-chinh/[id].vue`: không hiển thị sai thời hạn chưa xác minh.
-- `apps/citizen/server/api/applications/[id]/submit.post.ts`: không tạo hạn xử lý giả khi thời hạn chưa có.
+- `core/db/init/21-citizen-api-core-flow.sql`: RPC nộp hồ sơ không tạo hạn xử lý giả khi thời hạn chưa có.
+- `core/db/init/33-citizen-api-public.sql` và `apps/citizen/server/api/procedures/recommended.get.ts`: gợi ý lọc theo địa phương từ token, qua RPC.
 
 **Cảnh báo**: Không nhập thông tin nhạy cảm thật vào môi trường demo. Nguồn tham khảo tên nhóm thủ tục (không phải nguồn xác nhận chi tiết từng thủ tục): Cổng Bộ Tư pháp và Trung tâm Phục vụ hành chính công Hà Nội. Đối chiếu lại trước khi triển khai thật.

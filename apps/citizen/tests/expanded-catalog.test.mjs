@@ -11,6 +11,8 @@ const card=read('../components/ProcedureCard.vue')
 const detail=read('../pages/thu-tuc/[slug].vue')
 const coreSubmit=read('../../../core/db/init/21-citizen-api-core-flow.sql')
 const recommended=read('../server/api/procedures/recommended.get.ts')
+const publicApi=read('../../../core/db/init/33-citizen-api-public.sql')
+const identity=read('../server/utils/identity.ts')
 
 test('36 additional demo procedures use distinct IDs and preserve existing rows',()=>{
   const insert=sql.split('INSERT INTO procedures (id,title,category,summary,icon,sla_days,fee_note,instructions) VALUES')[1].split('ON CONFLICT (id) DO NOTHING;')[0]
@@ -44,6 +46,8 @@ test('unknown SLA is never presented as 0 days or manufactured as due date',()=>
 })
 
 test('recommendations exclude procedures not enabled for current tenant',()=>{
-  assert.match(recommended,/procedure_enabled_for\(\$1::uuid,p\.id\)/)
-  assert.match(recommended,/actor\?\.tenantId/)
+  assert.match(recommended,/catalogRpc<.*>\(event, 'public_recommendation_catalog'\)/)
+  const rpc=publicApi.split('CREATE OR REPLACE FUNCTION api.public_recommendation_catalog()')[1].split('$$;')[0]
+  assert.match(rpc,/public\.request_citizen_tenant\(\) IS NULL OR public\.procedure_enabled_for\(public\.request_citizen_tenant\(\), p\.id\)/)
+  assert.match(identity,/readSession\(event\)\?\.authMethod === 'keycloak' \? citizenRpc<T>\(event, name, args\) : publicRpc<T>\(name, args\)/)
 })

@@ -1,10 +1,8 @@
 // SPDX-FileCopyrightText: 2026 CommuneOS Contributors
 // SPDX-License-Identifier: Apache-2.0
-import { citizenTx } from '../../../../utils/database'
-export default defineEventHandler(event => citizenTx(event, async client=>{
-  const id=getRouterParam(event,'id') || ''
-  const owns=(await client.query('SELECT 1 FROM applications WHERE id=$1',[id])).rowCount
-  if(!owns)throw createError({statusCode:404,statusMessage:'Không tìm thấy hồ sơ'})
-  return {items:(await client.query(`SELECT id,stage,rating,comment,created_at
-    FROM citizen_stage_reviews WHERE application_id=$1 ORDER BY created_at DESC`,[id])).rows}
-}))
+// Đánh giá từng giai đoạn của hồ sơ (api.citizen_stage_reviews của lõi, gọi qua cổng bằng token công dân).
+import { citizenRpc } from '../../../../utils/identity'
+export default defineEventHandler(event=>{
+  setHeader(event,'Cache-Control','private, no-store')
+  return citizenRpc(event,'citizen_stage_reviews',{p_application_id:String(getRouterParam(event,'id')||'')})
+})

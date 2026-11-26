@@ -2,7 +2,8 @@
 # SPDX-License-Identifier: Apache-2.0
 #
 # Toàn bộ CommuneOS: các dịch vụ lõi (db, db-setup, identity, identity-setup, gateway, rest,
-# workflow-engine, orchestrator, accounts, storage, files, antivirus tùy chọn, ai-models, ai, ai-gateway)
+# workflow-engine, orchestrator, accounts, storage, files, antivirus tùy chọn, ai-models, ai, ai-gateway,
+# api-docs)
 # và ba ứng dụng Tầng 2
 # (citizen, commune, admin). Cổng ứng dụng và PostgreSQL chỉ mở trên 127.0.0.1.
 
@@ -88,6 +89,7 @@ services:
     depends_on:
       - identity
       - rest
+      - api-docs
     ports:
       - "${GATEWAY_PORT}:9080"
 
@@ -161,6 +163,17 @@ services:
         psql -v ON_ERROR_STOP=1 -f /setup/init/22-ai-knowledge-vectors.sql
         psql -v ON_ERROR_STOP=1 -f /setup/init/23-staff-notifications.sql
         psql -v ON_ERROR_STOP=1 -f /setup/init/24-staff-guide.sql
+        psql -v ON_ERROR_STOP=1 -f /setup/init/26-citizen-staff-api.sql
+        psql -v ON_ERROR_STOP=1 -f /setup/init/27-citizen-api-vault.sql
+        psql -v ON_ERROR_STOP=1 -f /setup/init/28-citizen-api-case.sql
+        psql -v ON_ERROR_STOP=1 -f /setup/init/29-citizen-api-representation.sql
+        psql -v ON_ERROR_STOP=1 -f /setup/init/30-citizen-api-appointment.sql
+        psql -v ON_ERROR_STOP=1 -f /setup/init/31-citizen-api-support.sql
+        psql -v ON_ERROR_STOP=1 -f /setup/init/32-citizen-api-personal.sql
+        psql -v ON_ERROR_STOP=1 -f /setup/init/33-citizen-api-public.sql
+        psql -v ON_ERROR_STOP=1 -f /setup/init/34-citizen-direct-access.sql
+        # Mô tả API chạy sau cùng (sau mọi tệp tạo hàm, bảng ảo).
+        psql -v ON_ERROR_STOP=1 -f /setup/init/25-api-comments.sql
         psql -v ON_ERROR_STOP=1 -c "SELECT count(*) AS published_procedures FROM procedures WHERE published = true"
         echo 'PostgreSQL setup finished successfully.'
 
@@ -189,6 +202,11 @@ services:
       # Khách chưa đăng nhập: chỉ gọi được hàm cấp cho web_anon (danh mục thủ tục), qua cổng /public/rpc.
       PGRST_DB_ANON_ROLE: web_anon
       PGRST_SERVER_PORT: "3000"
+      # Tài liệu OpenAPI tự sinh (GET /): liệt kê mọi hàm, bảng ảo của schema api (cấu trúc, không có dữ liệu),
+      # kèm mô tả trong core/db/init/25-api-comments.sql; nút "Try it out" gọi qua cổng /rest.
+      PGRST_OPENAPI_MODE: ignore-privileges
+      PGRST_OPENAPI_SECURITY_ACTIVE: "true"
+      PGRST_OPENAPI_SERVER_PROXY_URI: http://localhost:${GATEWAY_PORT}/rest
     volumes:
       - rest-keys:/keys:ro
     depends_on:
@@ -222,6 +240,9 @@ services:
       FLOWABLE_PASSWORD: ${FLOWABLE_ADMIN_PASSWORD}
       REST_URL: http://rest:3000
       WORKFLOW_TOKEN: ${WORKFLOW_TOKEN}
+      # Việc định kỳ cho Kênh người dân (tắt mặc định): gửi nhắc việc mỗi giờ, quét dữ liệu đến hạn rà soát lưu trữ mỗi ngày.
+      CITIZEN_REMINDERS_ENABLED: ${CITIZEN_REMINDERS_ENABLED:-false}
+      CITIZEN_RETENTION_SCAN_ENABLED: ${CITIZEN_RETENTION_SCAN_ENABLED:-false}
     volumes:
       - ./core/orchestrator:/app:ro
     depends_on:
@@ -315,6 +336,17 @@ services:
 
   # Cổng AI của lõi sau APISIX (/ai/*, /public/ai/*): kiểm token, giới hạn số lần gọi, che dữ liệu cá nhân,
   # tìm kiếm lai (toàn văn + vector), mô hình chỉ chọn trích dẫn nguyên văn; tạo vector cho chỉ mục tri thức.
+  # Trang tài liệu API của lõi (Swagger UI), mở qua cổng: http://localhost:${GATEWAY_PORT}/docs/
+  # Chỉ hiển thị đặc tả, không chứa dữ liệu; mọi lời gọi thử vẫn qua cổng và cần token như bình thường.
+  api-docs:
+    image: swaggerapi/swagger-ui:v5.17.14
+    restart: unless-stopped
+    environment:
+      BASE_URL: /docs
+    volumes:
+      - ./core/api-docs:/communeos:ro
+      - ./core/api-docs/50-communeos.sh:/docker-entrypoint.d/50-communeos.sh:ro
+
   ai-gateway:
     image: node:22-alpine
     restart: unless-stopped
@@ -350,8 +382,6 @@ services:
         condition: service_started
     environment:
       NODE_ENV: production
-      CITIZEN_STAFF_BRIDGE_TOKEN: ${CITIZEN_STAFF_BRIDGE_TOKEN:-}
-      CITIZEN_GOVERNANCE_TOKEN: ${CITIZEN_GOVERNANCE_TOKEN:-}
       HOST: 0.0.0.0
       PORT: 3000
       PGHOST: db
@@ -361,7 +391,6 @@ services:
       PGPASSWORD: ${POSTGRES_APP_PASSWORD}
       SESSION_SECRET: ${SESSION_SECRET}
       DEMO_MODE: ${DEMO_MODE:-true}
-      CITIZEN_RETENTION_SCAN_ENABLED: ${CITIZEN_RETENTION_SCAN_ENABLED:-false}
       STORAGE_DIR: /app/storage
       # Nuxt runtimeConfig: ghi đè giá trị mặc định lúc chạy container.
       # Chuyển từ docker-compose.override.yml vào cấu hình chính.
@@ -387,7 +416,6 @@ services:
       NUXT_RESULT_ENDPOINT: ${CITIZEN_RESULTS_ENDPOINT:-}
       NUXT_RESULT_TOKEN: ${CITIZEN_RESULTS_TOKEN:-}
       CITIZEN_OCR_ENDPOINT: ${CITIZEN_OCR_ENDPOINT:-}
-      CITIZEN_REMINDERS_ENABLED: ${CITIZEN_REMINDERS_ENABLED:-false}
       CITIZEN_OCR_TOKEN: ${CITIZEN_OCR_TOKEN:-}
       # Disabled by default: only for authorized OIDC attribute contracts + explicit opt-in.
       CITIZEN_OIDC_PERSONAL_DATA_APPROVED: ${CITIZEN_OIDC_PERSONAL_DATA_APPROVED:-false}

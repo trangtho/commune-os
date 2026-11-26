@@ -49,7 +49,15 @@ export default defineEventHandler(async (event) => {
     if (String(e?.data?.error_description || '').includes('disabled')) {
       throw createError({ statusCode: 403, statusMessage: 'Tài khoản đang bị khóa. Liên hệ lãnh đạo xã.' })
     }
-    throw createError({ statusCode: 401, statusMessage: 'Tên đăng nhập hoặc mật khẩu không đúng' })
+    // Chỉ báo sai mật khẩu khi Keycloak trả đúng lỗi đó; Keycloak chưa chạy (vừa make up, đang khởi động)
+    // hay cấu hình sai thì báo rõ để người dùng không tưởng mình gõ nhầm.
+    if (e?.data?.error === 'invalid_grant') {
+      throw createError({ statusCode: 401, statusMessage: 'Tên đăng nhập hoặc mật khẩu không đúng' })
+    }
+    if (!e?.response || e.response.status >= 500 || e.response.status === 404) {
+      throw createError({ statusCode: 503, statusMessage: 'Hệ thống định danh (Keycloak) đang khởi động hoặc chưa kết nối được. Vui lòng thử lại sau khoảng 1 phút.' })
+    }
+    throw createError({ statusCode: 503, statusMessage: `Cấu hình đăng nhập với Keycloak chưa đúng (${e?.data?.error || e.response.status}). Chạy lại make up hoặc báo quản trị.` })
   }
 
   const info = readToken(token)

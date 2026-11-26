@@ -1,7 +1,9 @@
 // SPDX-FileCopyrightText: 2026 CommuneOS Contributors
 // SPDX-License-Identifier: Apache-2.0
+// Đặt lịch tư vấn: kiểm tra dữ liệu ở đây, lõi kiểm tra lại thời gian, giới hạn 3 lịch, lĩnh vực và khung giờ
+// trong cùng giao dịch với lệnh ghi (api.citizen_consultation_create).
 import { z } from 'zod'
-import { citizenTx } from '../../utils/database'
+import { citizenRpc } from '../../utils/identity'
 import { validate } from '../../utils/validation'
 import { phoneIssue } from '../../../shared/identity-validation'
 const schema = z.object({
@@ -20,26 +22,8 @@ export default defineEventHandler(async event => {
   const offset=chosen.valueOf()-Date.now()
   if (!Number.isFinite(offset) || offset<60*60*1000 || offset>31*24*60*60*1000)
     throw createError({statusCode:422,statusMessage:'Vui lòng chọn thời gian từ 1 giờ đến 31 ngày tới'})
-  const result=await citizenTx(event,async(client,actor)=>{
-    const active=Number((await client.query(`SELECT count(*)::int AS total FROM citizen_consultation_requests
-      WHERE status IN ('pending','confirmed') AND preferred_at>now()`)).rows[0].total)
-    if(active>=3) throw createError({statusCode:429,statusMessage:'Bạn đang có 3 lịch tư vấn chưa kết thúc'})
-    const found=(await client.query('SELECT 1 FROM procedures WHERE published AND category=$1 LIMIT 1',[body.category])).rowCount
-    if(!found) throw createError({statusCode:422,statusMessage:'Lĩnh vực tư vấn không có trong danh mục'})
-    if(body.slotId){
-      await client.query('SELECT pg_advisory_xact_lock(hashtext($1))',[body.slotId])
-      const slot=(await client.query(`SELECT id,category,starts_at FROM citizen_consultation_slots
-        WHERE id=$1 AND is_published AND starts_at>now()+interval '1 hour' AND starts_at<now()+interval '31 days'`,[body.slotId])).rows[0]
-      if(!slot || slot.category!==body.category || Math.abs(new Date(slot.starts_at).valueOf()-chosen.valueOf())>1000)
-        throw createError({statusCode:409,statusMessage:'Khung giờ đã thay đổi hoặc không phù hợp'})
-      const remaining=Number((await client.query('SELECT citizen_slot_remaining($1) AS n',[body.slotId])).rows[0].n)
-      if(remaining<=0)throw createError({statusCode:409,statusMessage:'Khung giờ đã hết lượt đăng ký; vui lòng chọn thời gian khác'})
-    }
-    return (await client.query(`INSERT INTO citizen_consultation_requests
-      (citizen_id,tenant_id,category,subject,description,channel,contact_phone,preferred_at,slot_id)
-      VALUES($1,$2,$3,$4,$5,$6,$7,$8,$9) RETURNING id,status,preferred_at`,
-      [actor.id,actor.tenantId,body.category,body.subject,body.description,body.channel,body.contactPhone,chosen,body.slotId||null])).rows[0]
-  })
+  const result=await citizenRpc<Record<string,unknown>>(event,'citizen_consultation_create',{p_category:body.category,p_subject:body.subject,
+    p_description:body.description,p_channel:body.channel,p_contact_phone:body.contactPhone,p_preferred_at:chosen.toISOString(),p_slot_id:body.slotId||null})
   setResponseStatus(event,201)
   return {...result,message:'Đã gửi yêu cầu; lịch hẹn chưa được cán bộ xác nhận.'}
 })

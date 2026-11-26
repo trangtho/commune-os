@@ -1,7 +1,8 @@
 // SPDX-FileCopyrightText: 2026 CommuneOS Contributors
 // SPDX-License-Identifier: Apache-2.0
+// Lưu ngày sinh, số định danh tự khai (api.citizen_self_facts_update của lõi).
 import { z } from 'zod'
-import { citizenTx } from '../../../utils/database'
+import { citizenRpc } from '../../../utils/identity'
 import { validate } from '../../../utils/validation'
 import { safeVerifiedClaim } from '../../../../shared/citizen-autofill'
 const schema=z.object({birthDate:z.string().max(10),citizenIdentifier:z.string().max(12)}).strict().superRefine((data,ctx)=>{
@@ -11,11 +12,5 @@ const schema=z.object({birthDate:z.string().max(10),citizenIdentifier:z.string()
 })
 export default defineEventHandler(async event=>{
  const body=validate(schema,await readBody(event))
- return citizenTx(event,async(client,actor)=>{
-  await client.query(`INSERT INTO citizen_self_facts(citizen_id,tenant_id,birth_date,citizen_identifier)
-    VALUES($1,$2,$3::date,$4) ON CONFLICT(citizen_id) DO UPDATE SET
-    birth_date=EXCLUDED.birth_date,citizen_identifier=EXCLUDED.citizen_identifier,updated_at=now()`,
-    [actor.id,actor.tenantId,body.birthDate||null,body.citizenIdentifier||null])
-  return {ok:true,notice:'Dữ liệu tự khai, chưa xác minh qua cơ quan định danh'}
- })
+ return citizenRpc(event,'citizen_self_facts_update',{p_birth_date:body.birthDate||null,p_citizen_identifier:body.citizenIdentifier||null})
 })

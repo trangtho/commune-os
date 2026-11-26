@@ -21,7 +21,7 @@ Các trang được dẫn từ `/ho-so/:id`. Danh sách `/ho-so` hiển thị c�
 
 - `GET /api/applications/:id/deadline` đối chiếu `due_at` với ngày hiện tại của PostgreSQL. Khi còn 2 ngày hoặc quá hạn sẽ tạo cảnh báo **một lần trên mỗi mức** (`approaching`, `overdue`) và thông báo trong hộp thư công dân; dữ liệu đã lưu không bị suy diễn là chính sách SLA chính thức.
 - Lý do thay đổi hiển thị từ `citizen_case_stage_updates`, chỉ khi cán bộ đã ghi nhận. Không tự động sinh lời giải thích hoặc tự cập nhật hạn dự kiến.
-- `POST /api/internal/deadlines/scan` dùng bearer token của kênh backend cán bộ và `x-communeos-tenant-id`, `x-communeos-staff-id` để quét hồ sơ đến hạn theo địa phương, tạo thông báo đã khử trùng lặp.
+- `POST /rest/rpc/scan_citizen_deadlines` (API của lõi, token Keycloak của cán bộ xã) quét hồ sơ đến hạn của xã người gọi, tạo thông báo đã khử trùng lặp.
 - **Chưa có bộ lập lịch chạy sẵn**: để cảnh báo chủ động cho công dân không mở ứng dụng, nhóm vận hành cần cấu hình scheduler an toàn gọi endpoint trên theo chu kỳ (ví dụ hằng ngày), qua mạng nội bộ. Không để token xuất hiện trên trình duyệt/log.
 
 ## Yêu cầu xử lý hồ sơ
@@ -46,22 +46,22 @@ Các trang được dẫn từ `/ho-so/:id`. Danh sách `/ho-so` hiển thị c�
 - Cán bộ nguồn khởi tạo giao dịch và đơn vị đích **phải xác nhận tiếp nhận**. Khi có xác nhận hợp lệ và tuyến còn hiệu lực, `receiving_tenant_id` mới được đổi, lưu trong `citizen_case_transfer_handoffs` và `application_events`. Quyền sở hữu hồ sơ của công dân (`tenant_id`, `citizen_id`) không đổi.
 - Dự án cán bộ cần đồng bộ workflow và hồ sơ vật lý/hồ sơ điện tử phù hợp trước khi coi quá trình chuyển giao hoàn tất về mặt nghiệp vụ.
 
-## API dành cho dịch vụ cán bộ (chưa có giao diện cán bộ tương ứng)
+## API cho cán bộ (API của lõi, chưa có giao diện cán bộ tương ứng)
 
-**Tất cả các API sau yêu cầu `Authorization: Bearer <CITIZEN_STAFF_BRIDGE_TOKEN>` và hai header định danh nhân sự/địa phương do backend cán bộ đã xác thực truyền qua mạng nội bộ**. Header không được nhận trực tiếp từ giao diện công dân. Chỉ bật token sau khi đã kiểm tra ranh giới mạng và xác thực dịch vụ cán bộ.
+Gọi qua cổng APISIX bằng token Keycloak của cán bộ (`Authorization: Bearer <token>`); xã lấy từ claim `tenant_id`, mã cán bộ từ `sub`, vai trò từ `realm_access`. Danh sách đầy đủ kèm tham số ở trang tài liệu API `/docs/` (mục "Dữ liệu – PostgREST").
 
 | Endpoint | Ý nghĩa |
 | --- | --- |
-| `GET /api/internal/cases/requests` | Danh sách đề nghị đang chờ của địa phương |
-| `POST /api/internal/cases/requests/:id/decide` | Duyệt/từ chối đề nghị không phải chuyển cơ quan (`approved`, `response`) |
-| `POST /api/internal/cases/transfers/start` | Chuyển yêu cầu đã xác thực (`requestId`, `response`) sang trạng thái chờ đích |
-| `GET /api/internal/cases/transfers` | Danh sách chuyển giao đang chờ thuộc địa phương nhận |
-| `POST /api/internal/cases/transfers/:id/decide` | Đơn vị nhận xác nhận/từ chối (`accepted`, `reason`) |
-| `POST /api/internal/results/methods` | Công bố phương thức trả kết quả (`procedureId`, `method`, `approvalReference`, `validUntil`, `instructions`) |
-| `POST /api/internal/results/delivery` | Cập nhật trạng thái giao nhận (`applicationId`, `status`, `shipmentReference`, `note`) |
-| `POST /api/internal/deadlines/scan` | Ghi nhận cảnh báo gần/quá hạn theo địa phương qua công việc định kỳ |
+| `POST /rest/rpc/citizen_case_requests` | Danh sách đề nghị đang chờ của địa phương |
+| `POST /rest/rpc/decide_citizen_case_request` | Duyệt/từ chối đề nghị không phải chuyển cơ quan (`p_request_id`, `p_approved`, `p_response`) |
+| `POST /rest/rpc/start_citizen_case_transfer` | Chuyển yêu cầu đã xác thực (`p_request_id`, `p_response`) sang trạng thái chờ đích |
+| `POST /rest/rpc/citizen_case_transfers` | Danh sách chuyển giao đang chờ thuộc địa phương nhận |
+| `POST /rest/rpc/decide_citizen_case_transfer` | Đơn vị nhận xác nhận/từ chối (`p_transfer_id`, `p_accepted`, `p_reason`) |
+| `POST /rest/rpc/publish_citizen_result_channel` | Công bố phương thức trả kết quả (`p_procedure_id`, `p_method`, `p_approval_reference`, `p_valid_until`, `p_instructions`) |
+| `POST /rest/rpc/update_citizen_delivery` | Cập nhật trạng thái giao nhận (`p_application_id`, `p_status`, `p_shipment_reference`, `p_note`) |
+| `POST /rest/rpc/scan_citizen_deadlines` | Ghi nhận cảnh báo gần/quá hạn theo địa phương qua công việc định kỳ |
 
-Cần phân quyền nghiệp vụ theo **vai trò cán bộ** ở hệ thống nguồn; token chia sẻ chỉ là cơ chế xác thực dịch vụ, không thay thế RBAC hoặc xác minh danh tính pháp lý.
+Quyền theo vai trò cán bộ trong token Keycloak; không thay thế xác minh danh tính pháp lý tại quầy.
 
 ## Cơ sở dữ liệu & nghiệm thu
 

@@ -6,7 +6,7 @@
 // Tệp này đọc realm/communeos-realm.json và thêm những mục chưa có, KHÔNG ghi đè mục đã có:
 //   * vai trò, client, người dùng liệt kê trong IMPORT (qua partialImport, ifResourceExists=SKIP)
 //   * thuộc tính khai báo trong user profile (chỉ thêm thuộc tính chưa có)
-//   * client liệt kê trong CONFIDENTIAL: luôn là client bí mật với secret lấy từ biến môi trường
+//   * client liệt kê trong CONFIDENTIAL: luôn là client bí mật (có tài khoản dịch vụ) với secret lấy từ biến môi trường
 // Biến ${TÊN} trong tệp realm được thay bằng biến môi trường cùng tên (giống Keycloak khi nạp realm).
 // Không thư viện ngoài (chỉ Node 22).
 
@@ -101,9 +101,12 @@ async function main() {
     const [client] = await api('GET', `/clients?clientId=${encodeURIComponent(clientId)}`)
     if (!client) continue
     const current = client.publicClient ? null : (await api('GET', `/clients/${client.id}/client-secret`))?.value
-    if (client.publicClient || current !== secret) {
-      await api('PUT', `/clients/${client.id}`, { ...client, publicClient: false, clientAuthenticatorType: 'client-secret', secret })
-      console.log(`Client ${clientId}: đặt là client bí mật, cập nhật secret`)
+    // Tài khoản dịch vụ: máy chủ Kênh người dân gọi lõi thay mặt chính nó (liên kết đăng nhập OIDC bên ngoài),
+    // không cần khóa dùng chung riêng (core/db/init/34-citizen-direct-access.sql, public.is_citizen_service()).
+    if (client.publicClient || current !== secret || !client.serviceAccountsEnabled) {
+      await api('PUT', `/clients/${client.id}`, { ...client, publicClient: false, clientAuthenticatorType: 'client-secret', secret,
+        serviceAccountsEnabled: true })
+      console.log(`Client ${clientId}: client bí mật có tài khoản dịch vụ, cập nhật secret`)
     }
   }
   console.log('Cấu hình định danh đã đủ.')

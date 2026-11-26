@@ -1,16 +1,17 @@
 -- SPDX-FileCopyrightText: 2026 CommuneOS Contributors
 -- SPDX-License-Identifier: Apache-2.0
+-- Kênh người dân gọi lõi bằng vai trò citizen-app (token công dân qua PostgREST); communeos_app không còn quyền dữ liệu.
 \set ON_ERROR_STOP on
 BEGIN;
 DO $$ BEGIN
- IF has_table_privilege('communeos_app','citizen_case_handoffs','DELETE') THEN
+ IF has_table_privilege('citizen-app','citizen_case_handoffs','DELETE') THEN
   RAISE EXCEPTION 'Citizen application must not delete handoff records'; END IF;
- IF has_column_privilege('communeos_app','citizen_case_handoffs','redeemed_at','UPDATE') THEN
+ IF has_column_privilege('citizen-app','citizen_case_handoffs','redeemed_at','UPDATE') THEN
   RAISE EXCEPTION 'Citizen must not claim handoffs on behalf of staff'; END IF;
- IF has_column_privilege('communeos_app','citizen_support_tickets','status','UPDATE') THEN
+ IF has_column_privilege('citizen-app','citizen_support_tickets','status','UPDATE') THEN
   RAISE EXCEPTION 'Citizen must not directly assign staff status'; END IF;
 END $$;
-SET LOCAL ROLE communeos_app;
+SET LOCAL ROLE "citizen-app";
 SELECT set_config('app.citizen_id','20000000-0000-4000-8000-000000000001',true);
 SELECT set_config('app.tenant_id','10000000-0000-4000-8000-000000000001',true);
 INSERT INTO applications(id,citizen_id,tenant_id,procedure_id,status,applicant_name)
@@ -65,7 +66,7 @@ DO $$DECLARE v_claim jsonb;BEGIN
      '10000000-0000-4000-8000-000000000002') IS NOT NULL
  THEN RAISE EXCEPTION 'Cross-tenant staff ticket detail leaked'; END IF;
 END $$;
-SET LOCAL ROLE communeos_app;
+SET LOCAL ROLE "citizen-app";
 SELECT set_config('app.citizen_id','20000000-0000-4000-8000-000000000001',true);
 SELECT set_config('app.tenant_id','10000000-0000-4000-8000-000000000001',true);
 DO $$DECLARE v_result text;BEGIN

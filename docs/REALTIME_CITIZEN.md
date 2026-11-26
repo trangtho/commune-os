@@ -5,7 +5,7 @@ SPDX-License-Identifier: Apache-2.0
 
 # Tự cập nhật dữ liệu kênh Công dân (PostgreSQL → Nuxt)
 
-Khi thủ tục, hồ sơ, giấy tờ, tiến trình hoặc thông báo thay đổi, PostgreSQL phát `NOTIFY communeos_citizen_changes` qua trigger. Nitro dùng một kết nối `LISTEN` dùng chung để gửi **SSE** đến các trình duyệt đang mở. Vue gọi `refreshNuxtData` theo khóa và cập nhật UI **không tải lại cả trang**, không làm cuộn nội dung về đầu.
+Khi thủ tục, hồ sơ, giấy tờ, tiến trình hoặc thông báo thay đổi, PostgreSQL phát `NOTIFY communeos_citizen_changes` qua trigger. Nitro dùng một kết nối `LISTEN` dùng chung (vai trò `communeos_app`, không có quyền đọc ghi dữ liệu) để gửi **SSE** đến các trình duyệt đang mở. Vue gọi `refreshNuxtData` theo khóa và cập nhật UI **không tải lại cả trang**, không làm cuộn nội dung về đầu.
 
 - Thay đổi `procedures` và `procedure_documents`: cập nhật danh mục/thông tin thủ tục đang mở (công khai).
 - Thay đổi `applications`, `application_events`, `application_documents`: cập nhật danh sách và chi tiết hồ sơ chỉ cho đúng công dân/xã.

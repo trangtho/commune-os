@@ -1,18 +1,19 @@
 -- SPDX-FileCopyrightText: 2026 CommuneOS Contributors
 -- SPDX-License-Identifier: Apache-2.0
+-- Kênh người dân gọi lõi bằng vai trò citizen-app (token công dân qua PostgREST); communeos_app không còn quyền dữ liệu.
 -- PostgreSQL integration test after migration 16; transaction ALWAYS rolls back.
 \set ON_ERROR_STOP on
 BEGIN;
 DO $$ BEGIN
  IF NOT EXISTS(SELECT 1 FROM citizen_procedure_versions WHERE procedure_id='chung-thuc' AND version_no=1)
  THEN RAISE EXCEPTION 'Missing initial procedure baseline'; END IF;
- IF has_table_privilege('communeos_app','citizen_data_access_events','DELETE')
- OR has_table_privilege('communeos_app','citizen_procedure_versions','UPDATE')
- OR has_table_privilege('communeos_app','citizen_consent_events','UPDATE')
+ IF has_table_privilege('citizen-app','citizen_data_access_events','DELETE')
+ OR has_table_privilege('citizen-app','citizen_procedure_versions','UPDATE')
+ OR has_table_privilege('citizen-app','citizen_consent_events','UPDATE')
  THEN RAISE EXCEPTION 'Append-only / procedure history must not be editable by app role'; END IF;
 END $$;
 -- A and B cannot read each other's consents or audit events.
-SET LOCAL ROLE communeos_app;
+SET LOCAL ROLE "citizen-app";
 SELECT set_config('app.citizen_id','20000000-0000-4000-8000-000000000001',true);
 SELECT set_config('app.tenant_id','10000000-0000-4000-8000-000000000001',true);
 INSERT INTO citizen_consent_events(citizen_id,tenant_id,purpose_id,decision,valid_until)

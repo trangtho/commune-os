@@ -1,0 +1,77 @@
+# SPDX-FileCopyrightText: 2026 CommuneOS Contributors
+# SPDX-License-Identifier: Apache-2.0
+
+# Phát hành: đẩy tag dạng v0.1.0 lên GitHub thì quy trình này
+#   1. kiểm tra giấy phép (reuse lint) và số phiên bản của ba ứng dụng khớp tag,
+#   2. đóng gói mã nguồn (.tar.gz, .zip),
+#   3. tạo SBOM (danh sách thành phần phần mềm) dạng SPDX và CycloneDX,
+#   4. tính mã băm SHA-256 cho mọi tệp,
+#   5. tạo bản nháp GitHub Release kèm các tệp trên, ghi chú lấy từ CHANGELOG.md.
+# Bản nháp chỉ công khai khi người phát hành xem lại và bấm "Publish release".
+name: Phát hành
+
+on:
+  push:
+    tags: ["v*.*.*"]
+
+permissions:
+  contents: write
+
+jobs:
+  phat-hanh:
+    name: Đóng gói và tạo bản nháp Release
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Số phiên bản ba ứng dụng khớp tag
+        run: |
+          VER="${GITHUB_REF_NAME#v}"
+          echo "VER=$VER" >> "$GITHUB_ENV"
+          for app in citizen commune admin; do
+            v=$(node -p "require('./apps/$app/package.json').version")
+            [ "$v" = "$VER" ] || { echo "apps/$app/package.json ghi $v, tag là $VER"; exit 1; }
+          done
+          grep -q "^## \[$VER\]" CHANGELOG.md || { echo "CHANGELOG.md chưa có mục [$VER]"; exit 1; }
+
+      - name: Mọi tệp đều có thông tin giấy phép
+        run: |
+          pipx install reuse
+          reuse lint
+
+      - name: Đóng gói mã nguồn
+        run: |
+          mkdir -p dist
+          git archive --format=tar.gz --prefix="commune-os-$VER/" -o "dist/commune-os-$VER.tar.gz" "$GITHUB_REF_NAME"
+          git archive --format=zip --prefix="commune-os-$VER/" -o "dist/commune-os-$VER.zip" "$GITHUB_REF_NAME"
+
+      - name: Tạo SBOM (SPDX, CycloneDX)
+        run: |
+          tar -xzf "dist/commune-os-$VER.tar.gz" -C "$RUNNER_TEMP"
+          docker run --rm -v "$RUNNER_TEMP/commune-os-$VER:/src:ro" -v "$PWD/dist:/out" anchore/syft:v1.18.1 \
+            scan dir:/src --source-name commune-os --source-version "$VER" \
+            -o "spdx-json=/out/commune-os-$VER.spdx.json" -o "cyclonedx-json=/out/commune-os-$VER.cdx.json"
+
+      - name: Mã băm SHA-256
+        run: cd dist && sha256sum * > SHA256SUMS && cat SHA256SUMS
+
+      - name: Ghi chú phát hành từ CHANGELOG
+        run: |
+          {
+            echo "Mã nguồn, SBOM và mã băm kèm theo bên dưới. Kiểm tra tệp tải về: \`sha256sum -c SHA256SUMS\`."
+            echo
+            echo "Cài đặt: xem [README](https://github.com/$GITHUB_REPOSITORY/blob/$GITHUB_REF_NAME/README.md#dựng-từ-mã-nguồn)."
+            echo
+            awk -v v="## [$VER]" 'index($0, v) == 1 { on = 1; next } on && /^## \[/ { exit } on' CHANGELOG.md
+          } > "$RUNNER_TEMP/notes.md"
+          wc -c "$RUNNER_TEMP/notes.md"
+
+      - name: Tạo bản nháp GitHub Release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create "$GITHUB_REF_NAME" dist/* --draft --verify-tag \
+            --title "CommuneOS $GITHUB_REF_NAME" --notes-file "$RUNNER_TEMP/notes.md"

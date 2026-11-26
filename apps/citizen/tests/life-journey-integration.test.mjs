@@ -27,10 +27,15 @@ test('draft autosave checks optimistic revision and citizen RLS and respects ser
 })
 test('plans and tasks remain opt-in; no background administrative submissions',()=>{
  const journey=read('../server/api/citizen/journeys/index.post.ts')
- assert.match(journey,/citizenTx/);assert.match(journey,/procedure_enabled_for/)
- assert.doesNotMatch(journey,/INSERT INTO applications/)
- const schedule=read('../server/plugins/reminder-delivery.ts')
- assert.match(schedule,/CITIZEN_REMINDERS_ENABLED/)
+ assert.match(journey,/citizenRpc\(event,'citizen_journey_create'/)
+ const personal=read('../../../core/db/init/32-citizen-api-personal.sql')
+ const create=personal.slice(personal.indexOf('FUNCTION api.citizen_journey_create(')).split('END $$;')[0]
+ assert.match(create,/procedure_enabled_for/)
+ assert.doesNotMatch(create,/INSERT INTO applications/)
+ // Nhắc việc định kỳ do dịch vụ điều phối của lõi chạy, bật bằng biến môi trường (tắt mặc định).
+ const schedule=read('../../../core/orchestrator/server.mjs')
+ assert.match(schedule,/CITIZEN_REMINDERS_ENABLED === 'true'/)
+ assert.match(schedule,/system_dispatch_citizen_reminders/)
  const settings=read('../server/api/citizen/reminders/settings.put.ts')
  assert.match(settings,/enabled/);assert.match(settings,/daysBefore/)
 })
@@ -40,8 +45,8 @@ test('friction aggregation does not store raw text, session identity, or low-vol
  const ingest=read('../server/api/citizen/feedback-signals/index.post.ts')
  assert.match(ingest,/consent:z\.literal\(true\)/)
  assert.doesNotMatch(ingest,/INSERT INTO.*citizen_id/s)
- const report=read('../server/api/internal/insights/friction.get.ts')
- assert.match(report,/requireStaffBridge/);assert.match(report,/requireGovernanceToken/)
+ const report=read('../../../core/db/init/26-citizen-staff-api.sql')
+ assert.match(report,/FUNCTION api\.citizen_friction_summary[\s\S]*?staff_tenant_id\(true\)/)
 })
 test('new documentation is in apps/citizen/docs and inherits SPDX',()=>{
  const docs=read('../docs/LIFE_JOURNEYS_14_FEATURES.md')

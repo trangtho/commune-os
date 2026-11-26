@@ -1,8 +1,9 @@
 -- SPDX-FileCopyrightText: 2026 CommuneOS Contributors
 -- SPDX-License-Identifier: Apache-2.0
+-- Kênh người dân gọi lõi bằng vai trò citizen-app (token công dân qua PostgREST); communeos_app không còn quyền dữ liệu.
 -- Integration test with RLS enforced as the application role. All changes rollback.
 BEGIN;
-SET LOCAL ROLE communeos_app;
+SET LOCAL ROLE "citizen-app";
 DO $$
 DECLARE
   a uuid := '20000000-0000-4000-8000-000000000001';

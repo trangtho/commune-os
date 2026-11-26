@@ -7,6 +7,7 @@
 // Đường dẫn công khai (đi qua cổng APISIX /files/*, cổng đã kiểm tra token Keycloak):
 //   POST /files/dossiers/:id/documents?code=<loại>&name=<tên tệp>   thân = nội dung tệp
 //   GET  /files/documents/:id                                       tải giấy tờ (kiểm tra mã băm)
+//   GET  /files/handoffs/:id/documents/:id                          giấy tờ trong mã chuyển hồ sơ tại quầy
 // Đường dẫn nội bộ (chỉ trong mạng docker, cổng không chuyển tới; cần X-Service-Token):
 //   PUT    /internal/objects            lưu một tệp, trả { key, sha256 }
 //   GET    /internal/objects/:key       đọc tệp
@@ -272,6 +273,14 @@ async function handle(req, res) {
       }
       const ext = meta.storage_key.split('.').pop()
       return sendFile(res, data, { ...meta, original_name: `${meta.title}.${ext}` })
+    }
+    // GET /files/handoffs/:handoffId/documents/:documentId — cán bộ xã tiếp nhận tải giấy tờ trong mã chuyển hồ sơ
+    // tại quầy đã dùng (api.redeem_citizen_handoff); PostgreSQL kiểm tra xã, hạn và người dùng mã.
+    if (req.method === 'GET' && parts.length === 5 && parts[1] === 'handoffs' && parts[3] === 'documents') {
+      if (!UUID_RE.test(parts[2]) || !UUID_RE.test(parts[4])) throw new HttpError(404, 'Không tìm thấy giấy tờ')
+      const [meta] = await rpc('citizen_handoff_document', { p_handoff_id: parts[2], p_document_id: parts[4] }, auth)
+      if (!meta) throw new HttpError(404, 'Không có quyền truy cập tài liệu này')
+      return sendFile(res, await readObject(meta.storage_key), meta)
     }
     throw new HttpError(404, 'Không có đường dẫn này')
   }

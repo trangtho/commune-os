@@ -45,7 +45,6 @@ export default defineNuxtConfig({
     resultToken: process.env.CITIZEN_RESULTS_TOKEN || '',
     ocrEndpoint: process.env.CITIZEN_OCR_ENDPOINT || '',
     supportEndpoint: process.env.CITIZEN_SUPPORT_ENDPOINT || '',
-    staffBridgeToken: process.env.CITIZEN_STAFF_BRIDGE_TOKEN || '',
     supportToken: process.env.CITIZEN_SUPPORT_TOKEN || '',
     dbHost: process.env.PGHOST || '127.0.0.1',
     dbPort: process.env.PGPORT || '5432',

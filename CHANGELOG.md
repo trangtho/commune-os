@@ -11,6 +11,148 @@ Mọi thay đổi đáng chú ý của dự án được ghi tại đây.
 
 ## [Chưa phát hành]
 
+### Sửa lỗi (giao diện, 2026-11-24)
+
+- Trang nộp hồ sơ (bước giấy tờ) và các trang có ô chọn tệp: sau khi chọn tệp, cả khung ứng dụng trượt lên làm lộ ảnh
+  nền và mất phần dưới nội dung. Ô chọn tệp ẩn (`sr-only`, `position: absolute`) không có mốc vị trí nên kéo dài chiều
+  cao trang, trình duyệt cuộn cả trang khi focus. Vùng nội dung cuộn nay là mốc vị trí, khung ngoài dùng
+  `overflow: clip` (Kênh người dân và màn hình cán bộ).
+- Màn hình cán bộ tự cập nhật khi người khác thay đổi dữ liệu (đề nghị mới chờ duyệt, kết quả phê duyệt trong hồ sơ cá
+  nhân, danh sách nhân viên, việc được giao, thông báo), không cần F5: tải lại dữ liệu trang mỗi 15 giây khi tab đang mở
+  và ngay khi quay lại tab (`apps/commune/composables/useAutoRefresh.ts`); biểu mẫu đang nhập không bị ghi đè.
+
+### Thay đổi (Kênh người dân không còn quyền đọc ghi PostgreSQL trực tiếp, 2026-11-24)
+
+- Mọi thao tác dữ liệu của Kênh người dân đi qua cổng APISIX tới API của lõi. Vai trò `communeos_app` bị thu hồi mọi
+  quyền trên bảng, chuỗi số, hàm (`core/db/init/34-citizen-direct-access.sql`); chỉ còn kết nối nhận tín hiệu
+  (LISTEN) cho thông báo thời gian thực. `utils/database.ts` chỉ còn kết nối này.
+- Đăng nhập OIDC bên ngoài (tùy chọn) liên kết tài khoản, ghi địa phương cư trú và thông tin đã xác minh qua
+  `api.citizen_service_oidc_link`, bằng tài khoản dịch vụ Keycloak của client `citizen-app` (bật `serviceAccountsEnabled`,
+  dùng secret đã có, không thêm biến môi trường).
+- Gửi nhắc việc và quét dữ liệu đến hạn rà soát lưu trữ chuyển từ plugin của Kênh người dân sang dịch vụ điều phối của
+  lõi (`CITIZEN_REMINDERS_ENABLED`, `CITIZEN_RETENTION_SCAN_ENABLED` đặt cho `orchestrator`), gọi
+  `api.system_*` bằng khóa nội bộ.
+- `/api/health` của Kênh người dân kiểm tra lõi qua cổng thay cho truy vấn cơ sở dữ liệu.
+- Các bộ kiểm thử RLS (`make *-test`) chạy bằng vai trò `citizen-app`, vai trò Kênh người dân thực sự dùng.
+- Sửa README, `docs/CITIZEN_SETUP.md`, `core/db/README.md`, `core/rest/README.md`, `apps/citizen/README.md` và tài liệu
+  trong `apps/citizen/docs` theo hiện trạng.
+
+### Thay đổi (API công khai cho Kênh người dân qua lõi, 2026-11-24)
+
+- Kho tri thức của trợ lý, phiên bản và nguồn văn bản thủ tục, hướng dẫn biểu mẫu, kênh thực hiện, gợi ý thủ tục, địa
+  phương, phân tích tình huống, phiên chuẩn bị tại quầy (không đăng nhập) và tra cứu mã kiểm chứng kết quả gọi các hàm
+  `api.public_*` của lõi (`core/db/init/33-citizen-api-public.sql`) qua `/public/rpc/*` cho khách hoặc `/rest/rpc/*`
+  bằng token công dân. Hàm công khai chỉ trả dữ liệu đã công bố; với token công dân thì lọc theo xã của công dân.
+  Phần riêng của công dân (lịch sử, tùy chọn, tuyến tiếp nhận) là hàm `citizen_*` chạy bằng quyền công dân.
+- Cổng APISIX liệt kê từng hàm công khai được mở trên `/public/rpc/`; hàm khác không gọi được khi chưa đăng nhập.
+  `make test` thêm kiểm tra này (48 kiểm tra).
+- Bỏ `utils/citizen-preferences.ts` (tùy chọn, tuyến tiếp nhận đọc qua lõi).
+
+### Thay đổi (cá nhân hóa của Kênh người dân qua lõi, 2026-11-24)
+
+- 25 API quyền chia sẻ dữ liệu, nhật ký sử dụng dữ liệu cá nhân, lưu trữ và đề nghị về dữ liệu, đồng bộ thông tin tự
+  khai, tùy chọn cá nhân hóa, lộ trình sự kiện cuộc sống, nhắc việc, sổ giao dịch, không gian làm việc, bước đang soạn và
+  tín hiệu khó khăn ẩn danh gọi 26 hàm `api.*` của lõi (`core/db/init/32-citizen-api-personal.sql`) thay cho truy vấn
+  PostgreSQL trực tiếp. Bỏ `utils/privacy-events.ts` (nhật ký sử dụng dữ liệu ghi trong lõi).
+
+### Thay đổi (hỗ trợ, góp ý, lịch sử trò chuyện của Kênh người dân qua lõi, 2026-11-24)
+
+- 11 API yêu cầu hỗ trợ, góp ý, tin nhắn hỗ trợ theo hồ sơ, lịch sử trò chuyện với trợ lý, cùng phần lưu câu hỏi / câu
+  trả lời và phạm vi thủ tục của trợ lý, gọi 14 hàm `api.*` của lõi (`core/db/init/31-citizen-api-support.sql`) thay
+  cho truy vấn PostgreSQL trực tiếp. Cán bộ trả lời yêu cầu hỗ trợ qua API cán bộ của lõi, công dân thấy ngay.
+
+### Thay đổi (lịch hẹn một cửa, lịch tư vấn của Kênh người dân qua lõi, 2026-11-24)
+
+- 8 API đặt lượt tại bộ phận một cửa và đặt lịch tư vấn gọi 8 hàm `api.*` của lõi
+  (`core/db/init/30-citizen-api-appointment.sql`) thay cho truy vấn PostgreSQL trực tiếp; khung giờ vẫn chỉ do cán bộ
+  công bố, số thứ tự cấp trong lõi.
+
+### Thay đổi (đại diện nộp thay, gia đình, nhóm thủ tục của Kênh người dân qua lõi, 2026-11-24)
+
+- 10 API đại diện nộp thay (đăng ký, minh chứng, thu hồi, nhật ký), trang gia đình và nhóm thủ tục nộp cùng lúc gọi
+  10 hàm `api.*` của lõi (`core/db/init/29-citizen-api-representation.sql`) thay cho truy vấn PostgreSQL trực tiếp.
+  Kiểm tra quyền đại diện, người kê khai dùng chung hàm của lõi; bỏ bản sao kiểm tra trong `utils/representations.ts`.
+- Sửa tên tệp khi tải minh chứng đại diện (trước đây thừa dấu ngoặc kép: `minh-chung."pdf"`).
+- `make guidance-batches-test` chỉ kiểm tra nhóm thủ tục do chính bài kiểm thử tạo, không còn lỗi khi công dân mẫu
+  đã có nhóm thủ tục thật.
+
+### Thay đổi (trang chi tiết hồ sơ của Kênh người dân qua lõi, 2026-11-24)
+
+- 25 API của trang chi tiết hồ sơ (bổ sung theo yêu cầu, hạn giải quyết, công đoạn, lộ trình, nhận kết quả, mã chuyển
+  hồ sơ tại quầy, đề nghị điều chỉnh / chuyển cơ quan, đánh giá giai đoạn, kiểm tra trước khi nộp, xem trước bộ hồ sơ,
+  cập nhật phiên bản thủ tục, tạo lại hồ sơ, mã kiểm chứng kết quả, trợ lý hồ sơ) gọi 27 hàm `api.*` của lõi
+  (`core/db/init/28-citizen-api-case.sql`) thay cho truy vấn PostgreSQL trực tiếp. Diễn giải trạng thái, gợi ý bước
+  tiếp và kiểm tra biểu mẫu vẫn dùng mã dùng chung `shared/`.
+- Tạo lại hồ sơ từ hồ sơ đã kết thúc dùng chung quy tắc với tạo bản nháp mới (`api.citizen_application_create`): ghim
+  phiên bản thủ tục, kiểm tra xã đã mở thủ tục.
+- Mã chuyển hồ sơ tại quầy và mã kiểm chứng kết quả: lõi chỉ nhận mã băm SHA-256, mã gốc chỉ trả cho công dân.
+
+### Thay đổi (kho giấy tờ, tự điền biểu mẫu của Kênh người dân qua lõi, 2026-11-24)
+
+- Kho giấy tờ cá nhân (xem, thêm giấy tờ và phiên bản, đổi tên, lưu trữ, đặt hạn, tải tệp), tự điền biểu mẫu và dùng
+  giấy tờ trong kho cho hồ sơ gọi 9 hàm `api.*` của lõi qua cổng (`core/db/init/27-citizen-api-vault.sql`) thay cho
+  truy vấn PostgreSQL trực tiếp. Mỗi giao dịch cũ là một hàm, chạy bằng quyền công dân nên RLS giữ nguyên; kiểm tra
+  quyền tái sử dụng, hạn dùng, quyết định lưu trữ và nhật ký sử dụng dữ liệu cá nhân nằm trong lõi.
+- Vai trò `citizen-app` của lõi nhận đúng các quyền vai trò `communeos_app` đang có (trừ hàm dành cho cán bộ), để các
+  đợt sau chuyển tiếp mà không đổi chính sách RLS.
+- Ngày hết hạn giấy tờ trả về dạng `YYYY-MM-DD` (trước đây kèm giờ), ô sửa hạn hiện đúng ngày.
+
+### Thay đổi (chức năng cán bộ của Kênh người dân chuyển vào lõi, 2026-11-24)
+
+- 22 API `/api/internal/*` của Kênh người dân (yêu cầu hỗ trợ, mã chuyển hồ sơ tại quầy, đề nghị điều chỉnh và chuyển
+  cơ quan, giao nhận kết quả, yêu cầu về dữ liệu cá nhân, rà soát lưu trữ, đồng bộ, báo cáo tổng hợp, công bố phiên bản
+  thủ tục, gửi nhắc việc) trở thành 24 hàm `api.*` của lõi (`core/db/init/26-citizen-staff-api.sql`), gọi qua cổng
+  `/rest/rpc/*` bằng token Keycloak của cán bộ. Xã lấy từ claim `tenant_id`, mã cán bộ từ `sub`, vai trò từ token:
+  lãnh đạo xã cho dữ liệu cá nhân, lưu trữ, đồng bộ, báo cáo; quản trị hệ thống cho công bố thủ tục, gửi nhắc việc.
+  Kiểm tra dữ liệu đầu vào của ứng dụng cũ chuyển vào các hàm này.
+- Dịch vụ tệp của lõi thêm `GET /files/handoffs/{id}/documents/{id}` để cán bộ xã tiếp nhận tải giấy tờ trong mã chuyển
+  hồ sơ tại quầy.
+- Bỏ khóa dùng chung `CITIZEN_STAFF_BRIDGE_TOKEN`, `CITIZEN_GOVERNANCE_TOKEN` và cơ chế truyền xã, mã cán bộ qua header.
+- `make test` thêm kiểm tra phân quyền cho các API này (47 kiểm tra).
+
+## [0.1.0] - 2026-11-24
+
+Bản phát hành đầu tiên. Lõi headless đa xã (Keycloak, APISIX, PostgreSQL + PostgREST với RLS, Flowable, SeaweedFS,
+sổ ghi nhận chống sửa, AI chạy cục bộ, trang tài liệu API) và ba ứng dụng: Kênh người dân, màn hình cán bộ xã, bảng
+quản trị hệ thống. Kiểm thử: `make test` 46 kiểm tra qua cổng API, `make test-citizen` 124 kiểm tra, các bộ
+`make *-test` (RLS, ROLLBACK), `reuse lint`.
+
+### Thêm mới (quy trình phát hành, 2026-11-24)
+
+- `.github/workflows/release.yml`: đẩy tag `v*.*.*` thì kiểm tra giấy phép, kiểm tra số phiên bản khớp tag, đóng gói
+  mã nguồn, tạo SBOM (SPDX và CycloneDX), mã băm SHA-256 và bản nháp GitHub Release kèm các tệp đó.
+- Số phiên bản ba ứng dụng và đặc tả API dịch vụ lõi thống nhất là 0.1.0.
+
+### Thêm mới (trang tài liệu API của lõi, 2026-11-23)
+
+- Trang tài liệu API (Swagger UI, dịch vụ `api-docs`) tại `/docs/` của cổng APISIX (mặc định
+  http://localhost:9080/docs/): đặc tả viết tay cho `/workflow`, `/files`, `/accounts`, `/ai`, `/public` (tham số,
+  phản hồi mẫu, mã lỗi) và đặc tả PostgREST tự sinh cho toàn bộ `/rest`. Nút **Authorize** đăng nhập Keycloak qua
+  cổng, token được tự gắn vào lời gọi thử của cả hai đặc tả.
+- `core/db/init/25-api-comments.sql`: mô tả tiếng Việt cho mọi hàm, bảng ảo của schema `api`, hiện trong tài liệu
+  OpenAPI của PostgREST.
+- PostgREST xuất tài liệu OpenAPI đầy đủ (`PGRST_OPENAPI_MODE=ignore-privileges`, chỉ cấu trúc, không có dữ liệu),
+  kèm cơ chế xác thực JWT và địa chỉ cổng `/rest`.
+
+### Sửa lỗi (đăng nhập sau khi cập nhật mã, kiểm thử, tài liệu, 2026-11-23)
+
+- Máy đã cài từ trước, `git pull` rồi `make up` thì `orchestrator`, `accounts`, `files`, `ai-gateway` vẫn chạy mã cũ
+  (mã nguồn gắn từ `core/` vào container, compose thấy cấu hình không đổi nên không khởi động lại): thiếu API mới, đăng
+  nhập và nộp hồ sơ lỗi. `make up` nay khởi động lại các dịch vụ này cùng `gateway`. Đã kiểm tra nâng cấp từ bản `ceb241b`
+  giữ nguyên dữ liệu: đăng nhập ba ứng dụng và `make test` đều đạt.
+- `.env` tạo từ bản cũ thiếu biến mới (ví dụ `CITIZEN_KEYCLOAK_SECRET`) thì dịch vụ vẫn chạy nhưng đăng nhập công dân
+  lỗi. `make up` nay chạy `make check-env` trước: thiếu hoặc để trống biến bắt buộc thì dừng và báo tên biến.
+- Màn hình cán bộ và bảng quản trị báo "sai tên đăng nhập hoặc mật khẩu" cả khi Keycloak chưa khởi động xong; nay chỉ báo
+  vậy khi Keycloak trả lỗi sai mật khẩu, còn lại báo hệ thống định danh đang khởi động hoặc cấu hình chưa đúng.
+- Kiểm tra phạm vi trợ lý AI trong `make test` tự tắt thủ tục kết hôn ở xã A trong lúc kiểm tra rồi trả lại trạng thái cũ;
+  trước đây chỉ đạt trên máy đã tắt thủ tục này bằng tay, lỗi trên bản cài mới.
+- README: hướng dẫn sau `git pull`, đổi `POSTGRES_PORT` khi cổng 5432 đã dùng; bỏ dòng lặp ở mục Cấu hình; sửa
+  "đa thuê ước" thành "đa xã", "sổ cái" thành "sổ ghi nhận" cho thống nhất; mục Kênh người dân đưa lên trước phần
+  Đóng góp.
+- `make vault-autofill-test` chỉ kiểm tra giấy tờ do chính bài kiểm thử tạo, không còn lỗi khi công dân mẫu đã có
+  giấy tờ trong kho; kiểm tra thêm hai chiều: mỗi công dân không thấy giấy tờ, phiên bản giấy tờ của người khác.
+- Sửa liên kết hỏng trong `apps/admin/README.md`; cập nhật `docs/QUAN_LY_NHAN_VIEN.md` theo mục "Việc được giao" mới.
+
 ### Thay đổi (làm mới giao diện ba ứng dụng, 2026-11-23)
 
 - Cùng một hệ thống giao diện cho ba ứng dụng, mỗi ứng dụng một màu chủ đạo (người dân xanh dương, cán bộ xanh ngọc,
@@ -305,41 +447,26 @@ Mọi thay đổi đáng chú ý của dự án được ghi tại đây.
 - Cửa ngõ kiểm chữ ký và nơi cấp của JWT do Keycloak phát hành trên tuyến `/api/*`.
 - Biến `KEYCLOAK_PUBLIC_URL` và `GATEWAY_PORT` trong `.env`.
 - Bảng quản trị lõi (`core/admin`): khung giao diện, màn hình quản lý xã và gói thủ tục, dùng dữ liệu giả lập.
-- PostgREST sau cổng /rest/\*.
-- Thêm schema api + RLS cách ly xã.
-- Bảng quản trị dùng dữ liệu thật.
-- make test
-- Biến mới POSTGRES_REST_PASSWORD
 
 ### Sửa lỗi
 
 - Bỏ khóa ký token khỏi tệp realm; mỗi nơi cài đặt tự sinh khóa riêng khi khởi động lần đầu.
 
-<!--
-Mẫu cho mỗi bản phát hành:
+### Thêm mới (Kênh người dân bản đầu, Nuxt + PostgreSQL, 2026-11-13)
 
-## [0.1.0] - 2026-11-15
-
-### Thêm mới
-
-### Thay đổi
-
-### Sửa lỗi
-
--->
-
-## Unreleased — Kênh Công dân Nuxt + PostgreSQL mẫu
-
-- Bổ sung giao diện Công dân dùng chung design system theo bản mockup thống nhất.
+- Giao diện Kênh người dân dùng chung hệ thống thiết kế theo bản phác thảo thống nhất.
 - Bổ sung bảng, dữ liệu seed và RLS cho PostgreSQL 17.
 - Bổ sung API đăng nhập demo ký cookie; danh mục thủ tục, hồ sơ, tệp, thông báo,
   phản hồi và hồ sơ cá nhân.
-- Triển khai luồng bản nháp → tải giấy tờ → kiểm tra Poka-yoke → nộp hồ sơ.
-- Bổ sung Docker Compose và tài liệu chạy thử; không cam kết OIDC/AI/OTP thật.
+- Luồng bản nháp → tải giấy tờ → kiểm tra chống sai sót (Poka-yoke) → nộp hồ sơ.
+- Docker Compose và tài liệu chạy thử (khi đó chưa có OIDC, AI, OTP thật).
 
-## Citizen database connectivity fix (2026-11-13)
+### Sửa lỗi (kết nối cơ sở dữ liệu Kênh người dân, 2026-11-13)
 
 - Chạy `db-setup` cho cả volume PostgreSQL cũ, tự tạo schema và seed thủ tục.
 - Đồng bộ mật khẩu role `communeos_app` khi triển khai lại; giữ nguyên dữ liệu.
 - Cải tiến `/api/health` để kiểm tra bảng, quyền và thủ tục đã được nạp.
-- Thêm `make repair-db`, `make doctor` và thông báo lỗi dễ xử lý trong UI.
+- Thêm `make repair-db`, `make doctor` và thông báo lỗi dễ xử lý trên giao diện.
+
+[Chưa phát hành]: https://github.com/trangtho/commune-os/compare/v0.1.0...HEAD
+[0.1.0]: https://github.com/trangtho/commune-os/releases/tag/v0.1.0

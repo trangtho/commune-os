@@ -10,6 +10,7 @@
 //   GET  /dossiers/:id/actions            → bước hiện tại và các bước được phép đi tiếp
 //   POST /dossiers/:id/actions {action, note} → thực hiện một bước
 //   GET  /health   (qua cổng: /workflow/health) dịch vụ và động cơ Flowable
+// Việc định kỳ (tùy chọn): gửi nhắc việc, quét dữ liệu đến hạn rà soát lưu trữ của Kênh người dân.
 //
 // Không dùng thư viện ngoài: chỉ Node.js 22 (http, fetch, crypto, fs).
 import { createServer } from 'node:http'
@@ -209,3 +210,30 @@ for (let i = 1; ; i++) {
   }
 }
 server.listen(PORT, () => console.log(`Dịch vụ điều phối chạy ở cổng ${PORT}`))
+
+// ---------- Việc định kỳ cho Kênh người dân (tắt mặc định) ----------
+// Gọi hàm hệ thống của lõi bằng khóa nội bộ (api.system_*, kiểm tra public.is_workflow_call()), không qua cổng.
+// Nhiều bản chạy cùng lúc vẫn an toàn: hàm quét dùng ON CONFLICT DO NOTHING, nhắc việc có kiểm tra trùng.
+async function systemJob(name, fn) {
+  try {
+    const res = await fetch(`${REST}/rpc/${fn}`, {
+      method: 'POST', headers: { 'Content-Type': 'application/json', 'X-Workflow-Token': WORKFLOW_TOKEN }, body: '{}',
+      signal: AbortSignal.timeout(120000),
+    })
+    const body = await res.json().catch(() => null)
+    if (!res.ok) throw new Error(body?.message || `HTTP ${res.status}`)
+    console.log(`[${name}]`, JSON.stringify(body))
+  } catch (e) {
+    console.error(`[${name}] thất bại: ${e.message}`)
+  }
+}
+function every(ms, firstDelay, job) {
+  setTimeout(job, firstDelay).unref()
+  setInterval(job, ms).unref()
+}
+if (process.env.CITIZEN_REMINDERS_ENABLED === 'true') {
+  every(60 * 60 * 1000, 30000, () => systemJob('nhắc việc', 'system_dispatch_citizen_reminders'))
+}
+if (process.env.CITIZEN_RETENTION_SCAN_ENABLED === 'true') {
+  every(24 * 60 * 60 * 1000, 60000, () => systemJob('rà soát lưu trữ', 'system_scan_citizen_retention'))
+}

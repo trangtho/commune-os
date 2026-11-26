@@ -1,13 +1,8 @@
 // SPDX-FileCopyrightText: 2026 CommuneOS Contributors
 // SPDX-License-Identifier: Apache-2.0
-import {publicQuery} from '../../../utils/database'
-export default defineEventHandler(async event=>{
- const id=getRouterParam(event,'id')
- const published=await publicQuery('SELECT 1 FROM procedures WHERE id=$1 AND published',[id])
- if(!published.length)throw createError({statusCode:404,statusMessage:'Không tìm thấy thủ tục được công bố'})
- const items=await publicQuery(`SELECT id,version_no,effective_from,source_url,source_title,source_reference,
-  issuing_authority,scope_note,provenance_status,change_sections,change_note,published_at,snapshot
-  FROM citizen_procedure_versions WHERE procedure_id=$1 ORDER BY version_no DESC LIMIT 30`,[id])
+// Các phiên bản và nguồn văn bản của một thủ tục đã công bố (api.public_procedure_versions của lõi).
+import {publicRpc} from '../../../utils/identity'
+export default defineEventHandler(event=>{
  setHeader(event,'Cache-Control','no-store')
- return {procedureId:id,current:items[0]||null,versions:items}
+ return publicRpc('public_procedure_versions',{p_procedure_id:String(getRouterParam(event,'id')||'')})
 })

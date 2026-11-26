@@ -7,7 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 
 **DX-OS Open-Core cho chính quyền cơ sở.**
 
-CommuneOS là nền tảng lõi mở headless, đa thuê ước, giúp một xã tự dựng hệ
+CommuneOS là nền tảng lõi mở headless, đa xã (multi-tenant), giúp một xã tự dựng hệ
 điều hành số của mình: định danh, cổng API, dữ liệu, quy trình và AI chạy
 ngay trên máy chủ của xã, không phụ thuộc nhà cung cấp.
 
@@ -32,7 +32,7 @@ Giấy phép của các thành phần bên thứ ba được liệt kê trong
 
 | Tầng                  | Thư mục         | Nội dung                                                                          |
 | --------------------- | --------------- | --------------------------------------------------------------------------------- |
-| Tầng 1 - Lõi headless | core/           | Cửa ngõ API, định danh, dữ liệu, lưu trữ tệp, quy trình, sổ cái (không giao diện) |
+| Tầng 1 - Lõi headless | `core/`         | Cửa ngõ API, định danh, dữ liệu, lưu trữ tệp, quy trình, sổ ghi nhận (không giao diện) |
 | Tầng 2 - Ứng dụng     | `apps/commune/` | Ứng dụng xã cho cán bộ, lãnh đạo, cấp trên                                        |
 | Tầng 2 - Ứng dụng     | `apps/citizen/` | Kênh nộp hồ sơ trực tuyến cho người dân                                           |
 | Tầng 2 - Ứng dụng     | `apps/admin/`   | Bảng quản trị hệ thống: xã, thủ tục, sổ ghi nhận                                  |
@@ -40,9 +40,9 @@ Giấy phép của các thành phần bên thứ ba được liệt kê trong
 
 Lõi hoàn toàn không có giao diện: chỉ có dịch vụ và API. Bảng quản trị (`apps/admin`) và
 phần xử lý hồ sơ của màn hình cán bộ (`apps/commune`) gọi lõi qua cửa ngõ API.
-Kênh người dân (`apps/citizen`) đăng nhập qua Keycloak; luồng chính (thủ tục, bản nháp, nộp hồ sơ,
-giấy tờ, hồ sơ của tôi, thông báo, hồ sơ cá nhân) gọi lõi qua cửa ngõ. Các chức năng phụ còn lại vẫn
-đọc ghi PostgreSQL trực tiếp bằng vai trò `communeos_app` (có RLS).
+Kênh người dân (`apps/citizen`) đăng nhập qua Keycloak và gọi lõi qua cửa ngõ cho mọi thao tác dữ liệu (hàm `api.*`,
+`core/db/init/21-*.sql`, `26-*.sql` đến `34-*.sql`); không còn đọc ghi PostgreSQL trực tiếp. Kết nối duy nhất còn lại tới
+PostgreSQL chỉ để nhận tín hiệu thay đổi cho thông báo thời gian thực, bằng vai trò đã bị thu hồi mọi quyền dữ liệu.
 Mỗi xã tự có danh sách thủ tục được mở. Cán bộ và người dân chỉ thấy, chỉ nộp được thủ tục xã mình đang mở; cơ sở dữ liệu tự chặn nếu ai đó vượt qua giao diện. Quản trị hệ thống cấu hình xã và thủ tục nhưng không đọc được nội dung hồ sơ.
 
 ### Dịch vụ của lõi
@@ -50,7 +50,7 @@ Mỗi xã tự có danh sách thủ tục được mở. Cán bộ và người 
 | Dịch vụ (docker compose)          | Thành phần            | Vai trò                                                                                      |
 | --------------------------------- | --------------------- | -------------------------------------------------------------------------------------------- |
 | `identity`, `identity-setup`      | Keycloak              | Đăng nhập một lần cho cán bộ và công dân; `identity-setup` bổ sung mục mới vào realm đã có  |
-| `gateway`                         | Apache APISIX         | Cửa ngõ API: `/rest`, `/workflow`, `/files`, `/accounts`, `/ai` (kiểm tra token), `/public` (khách) |
+| `gateway`                         | Apache APISIX         | Cửa ngõ API: `/rest`, `/workflow`, `/files`, `/accounts`, `/ai` (kiểm tra token), `/public` (khách), `/docs` (tài liệu API) |
 | `db`, `rest`                      | PostgreSQL, PostgREST | Dữ liệu có cấu trúc, API tự sinh, cách ly xã bằng RLS                                        |
 | `workflow-engine`, `orchestrator` | Flowable, Node.js     | Quy trình xử lý hồ sơ theo sơ đồ BPMN                                                        |
 | `storage`                         | SeaweedFS             | Kho đối tượng chuẩn S3 cho giấy tờ (dữ liệu phi cấu trúc)                                    |
@@ -58,6 +58,7 @@ Mỗi xã tự có danh sách thủ tục được mở. Cán bộ và người 
 | `antivirus` (tùy chọn)            | ClamAV                | Quét mã độc tệp tải lên                                                                      |
 | `accounts`                        | Node.js               | Lãnh đạo xã quản lý tài khoản cán bộ qua Keycloak ([core/accounts](core/accounts/README.md)) |
 | `ai`, `ai-gateway`, `ai-models`   | Ollama, Node.js       | AI chạy cục bộ: tìm kiếm ngữ nghĩa, chọn trích dẫn ([core/ai](core/ai/README.md))            |
+| `api-docs`                        | Swagger UI            | Trang tài liệu API của lõi, gọi thử được ([core/api-docs](core/api-docs/README.md))          |
 
 AI của lõi chạy hoàn toàn trên máy chủ: mô hình (mặc định `qwen3:1.7b` và `bge-m3`) nằm trong mạng
 Docker không có đường ra Internet, không gọi API AI bên ngoài. Mô hình không nằm trong kho mã;
@@ -84,6 +85,12 @@ make test                 # 46 kiểm tra qua gateway: cách ly xã, quy trình,
 make test-citizen         # kiểm thử đơn vị Kênh người dân
 ```
 
+Sau mỗi lần `git pull`, chạy lại `make up`: lệnh này dừng ngay nếu `.env` thiếu biến bắt buộc mới thêm
+(`make check-env` báo tên biến, chép dòng tương ứng từ `.env.example`), và khởi động lại các dịch vụ lõi chạy thẳng
+mã nguồn (`gateway`, `orchestrator`, `accounts`, `files`, `ai-gateway`) để không còn chạy mã cũ. Máy đã có PostgreSQL
+dùng cổng 5432 thì đổi `POSTGRES_PORT` trong `.env`. Vừa khởi động lại máy mà đăng nhập báo "Hệ thống định danh
+đang khởi động" thì chờ khoảng 1 phút cho Keycloak chạy xong.
+
 `make seed` chỉ cần khi muốn nạp lại dữ liệu mẫu bằng tay (idempotent).
 `make backup` / `make restore BACKUP=...` sao lưu và khôi phục cơ sở dữ liệu, kho tệp ([core/backup](core/backup/README.md)).
 `make help` liệt kê mọi lệnh, gồm các bài kiểm thử RLS của Kênh người dân (`make rls-test`, ...).
@@ -98,6 +105,7 @@ Sau khi `make up` chạy xong, mở trình duyệt:
 | Màn hình cán bộ xã      | http://localhost:3002 | Docker (tự chạy) |
 | Bảng quản trị hệ thống  | http://localhost:3001 | Docker (tự chạy) |
 | Trang quản trị Keycloak | http://localhost:8080 | Docker (tự chạy) |
+| Tài liệu API của lõi    | http://localhost:9080/docs/ | Docker (tự chạy) |
 
 ## Cấu hình
 
@@ -105,7 +113,7 @@ Xem chú thích từng biến trong [.env.example](.env.example).
 Với kho lưu trữ tệp, cần đặt `S3_SECRET_KEY` và `FILES_SERVICE_TOKEN` bằng giá trị ngẫu nhiên
 (`openssl rand -hex 24`); tương tự với `CITIZEN_KEYCLOAK_SECRET`, bí mật của client `citizen-app`
 mà chỉ máy chủ Kênh người dân giữ. Giá trị trong `.env.example` chỉ dùng trên máy phát triển.
-(`openssl rand -hex 24`). Bật quét mã độc: `docker compose --profile antivirus up -d antivirus`
+Bật quét mã độc: `docker compose --profile antivirus up -d antivirus`
 rồi đặt `CLAMAV_HOST=antivirus`.
 
 ## Tài khoản thử
@@ -132,24 +140,15 @@ Trang quản trị Keycloak: http://localhost:8080 (tài khoản quản trị l�
 
 - Thêm thủ tục mới: sao `packs/_template/`, sửa `pack.yaml`, nạp ở bảng quản trị → Danh mục thủ tục → Thêm thủ tục,
   rồi mở cho từng xã (Danh sách xã → bấm vào xã → tab Thủ tục). Thủ tục mới chưa mở cho xã nào.
-- Xây ứng dụng mới trên lõi: thêm thư mục trong `apps/`, gọi API qua cửa ngõ.
+- Xây ứng dụng mới trên lõi: thêm thư mục trong `apps/`, gọi API qua cửa ngõ. Danh sách API, tham số, phản hồi mẫu
+  và nút gọi thử nằm ở trang tài liệu http://localhost:9080/docs/ (cổng theo `GATEWAY_PORT`).
 
 Hướng dẫn chi tiết trong [docs/](docs/).
-
-## Đóng góp và báo lỗi
-
-- Báo lỗi và đề xuất: [Issues](https://github.com/trangtho/commune-os/issues)
-- Hướng dẫn đóng góp: [CONTRIBUTING.md](CONTRIBUTING.md)
-- Lịch sử thay đổi: [CHANGELOG.md](CHANGELOG.md)
-
-## Đội phát triển
-
-Danh sách người đóng góp: [Contributors](https://github.com/trangtho/commune-os/graphs/contributors).
 
 ## Kênh người dân (`apps/citizen`)
 
 Ứng dụng Nuxt 3 cho người dân: danh mục thủ tục theo xã, nộp hồ sơ nhiều bước có
-Poka-yoke, kho giấy tờ cá nhân, tự điền biểu mẫu, theo dõi tiến độ, bổ sung hồ sơ,
+kiểm tra chống sai sót (Poka-yoke), kho giấy tờ cá nhân, tự điền biểu mẫu, theo dõi tiến độ, bổ sung hồ sơ,
 đại diện nộp thay, lịch hẹn một cửa, thông báo thời gian thực (PostgreSQL
 `LISTEN/NOTIFY` → SSE) và trợ lý hỏi đáp thủ tục.
 
@@ -157,11 +156,11 @@ Hiện trạng cần biết (chi tiết trong [docs/CITIZEN_SETUP.md](docs/CITIZ
 
 - Đăng nhập công dân qua Keycloak (client bí mật `citizen-app`); đổi mật khẩu qua `/accounts/me/password`.
   Kết nối OIDC bên ngoài là tùy chọn, tắt mặc định.
-- Luồng chính gọi các hàm `api.*` của lõi qua cổng `/rest` (khách xem thủ tục qua `/public`); lõi kiểm tra
-  lại mọi ràng buộc khi ghi, kể cả đủ giấy tờ bắt buộc. Giấy tờ lưu qua dịch vụ tệp `files` của lõi
-  (SeaweedFS, SHA-256, ClamAV tùy chọn).
-- Các chức năng phụ còn lại (kho giấy tờ, đại diện, lịch hẹn, lộ trình, trợ lý...) vẫn đọc ghi
-  PostgreSQL trực tiếp (vai trò `communeos_app`, RLS theo công dân và xã).
+- Mọi chức năng (thủ tục, hồ sơ, kho giấy tờ, đại diện, lịch hẹn, lộ trình, hỗ trợ, trợ lý...) gọi các hàm `api.*`
+  của lõi qua cổng `/rest` bằng token công dân (khách dùng các hàm `public_*` qua `/public`); lõi kiểm tra lại mọi
+  ràng buộc khi ghi, RLS theo công dân và xã. Giấy tờ lưu qua dịch vụ tệp `files` của lõi (SeaweedFS, SHA-256,
+  ClamAV tùy chọn). Phần việc của cán bộ (trả lời hỗ trợ, mã chuyển hồ sơ tại quầy, dữ liệu cá nhân...) là API của
+  lõi cho cán bộ; việc định kỳ (nhắc việc, rà soát lưu trữ) do dịch vụ điều phối của lõi chạy.
 - Trợ lý hỏi đáp dùng AI của lõi: tìm kiếm lai toàn văn + ngữ nghĩa trên thủ tục đã công bố, mô hình chỉ chọn
   câu trích dẫn nguyên văn; câu trả lời luôn có nguồn. AI chưa sẵn sàng thì dùng tìm kiếm toàn văn.
   Nút "Hỏi trợ lý AI" có trên mọi trang, cả ở màn hình cán bộ (thêm hướng dẫn nghiệp vụ). Trợ lý chỉ dùng thủ tục
@@ -174,3 +173,13 @@ Không đưa bản demo ra Internet khi `DEMO_MODE=true`.
 Nếu trang báo "Không tải được thủ tục từ PostgreSQL": `make repair-db`, `make doctor`,
 rồi mở `http://localhost:3000/api/health`. Không xóa volume có dữ liệu cần giữ.
 Cập nhật thời gian thực: [docs/REALTIME_CITIZEN.md](docs/REALTIME_CITIZEN.md).
+
+## Đóng góp và báo lỗi
+
+- Báo lỗi và đề xuất: [Issues](https://github.com/trangtho/commune-os/issues)
+- Hướng dẫn đóng góp: [CONTRIBUTING.md](CONTRIBUTING.md)
+- Lịch sử thay đổi: [CHANGELOG.md](CHANGELOG.md)
+
+## Đội phát triển
+
+Danh sách người đóng góp: [Contributors](https://github.com/trangtho/commune-os/graphs/contributors).

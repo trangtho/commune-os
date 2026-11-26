@@ -9,8 +9,14 @@ html, body, #__nuxt {
   height: 100%;
   min-height: 0;
   overflow: hidden;
+  /* clip: trình duyệt cũng không tự cuộn được (khi focus ô ẩn, scrollIntoView). */
+  overflow: clip;
   overscroll-behavior: none;
 }
+/* Khung ngoài cố định, chỉ vùng nội dung cuộn; vùng cuộn là mốc vị trí của phần tử absolute bên trong (ô chọn tệp
+   sr-only...) để chúng không kéo dài chiều cao trang. Màn hình hẹp dùng cách cuộn cả trang (@media bên dưới ghi đè). */
+.commune-app-shell, .commune-workspace { overflow: clip; }
+.commune-inner-scroll { position: relative; }
 body { margin: 0; max-width: 100%; }
 #__nuxt { min-width: 0; max-width: 100%; }
 .commune-app-shell { height: 100vh; height: 100dvh; min-height: 0; }
