@@ -1,9 +1,9 @@
 // SPDX-FileCopyrightText: 2026 CommuneOS Contributors
 // SPDX-License-Identifier: Apache-2.0
 
-// Nơi duy nhất lấy và sửa dữ liệu xã, qua API lõi:
-//   GET  /rest/tenants                 danh sách xã
-//   POST /accounts/tenants             thêm xã kèm tài khoản lãnh đạo xã (trả mật khẩu tạm một lần)
+// Nơi duy nhất lấy và sửa dữ liệu đơn vị (xã, công ty...), qua API lõi:
+//   GET  /rest/tenants                 danh sách đơn vị
+//   POST /accounts/tenants             thêm đơn vị, bật gói, tạo tài khoản lãnh đạo (trả mật khẩu tạm một lần)
 //   POST /rest/rpc/set_tenant_status   khóa / mở khóa
 import type { IssuedPassword, Tenant } from "~/types";
 
@@ -13,6 +13,8 @@ export interface NewTenantForm {
   leaderUsername: string;
   leaderFullName: string;
   leaderEmail: string;
+  /** Gói nghiệp vụ bật cho đơn vị, ví dụ ["xa"]. */
+  modules: string[];
 }
 
 const CODE_PATTERN = /^[a-z0-9]+(-[a-z0-9]+)*$/;
@@ -39,20 +41,20 @@ export function useTenants() {
   /** Kiểm tra nhanh trên trình duyệt; máy chủ vẫn kiểm tra lại. */
   function validate(form: NewTenantForm): string | null {
     const code = form.code.trim();
-    if (!code) return "Vui lòng nhập mã xã.";
+    if (!code) return "Vui lòng nhập mã đơn vị.";
     if (!CODE_PATTERN.test(code)) {
-      return "Mã xã chỉ gồm chữ thường không dấu, số và dấu gạch ngang, ví dụ: xa-c.";
+      return "Mã đơn vị chỉ gồm chữ thường không dấu, số và dấu gạch ngang, ví dụ: xa-c.";
     }
-    if (tenants.value.some((t) => t.code === code)) return `Mã xã "${code}" đã tồn tại.`;
-    if (!form.name.trim()) return "Vui lòng nhập tên xã.";
+    if (tenants.value.some((t) => t.code === code)) return `Mã đơn vị "${code}" đã tồn tại.`;
+    if (!form.name.trim()) return "Vui lòng nhập tên đơn vị.";
     if (!USERNAME_PATTERN.test(form.leaderUsername.trim().toLowerCase())) {
       return "Tên đăng nhập lãnh đạo 3–50 ký tự: chữ thường không dấu, số, dấu chấm, gạch. Ví dụ: lanhdao.xa-c";
     }
-    if (!form.leaderFullName.trim()) return "Vui lòng nhập họ tên lãnh đạo xã.";
+    if (!form.leaderFullName.trim()) return "Vui lòng nhập họ tên lãnh đạo.";
     return null;
   }
 
-  /** Tạo xã và tài khoản lãnh đạo trong một lần gọi. Tạo tài khoản lỗi thì lõi hủy xã vừa tạo. */
+  /** Tạo đơn vị, bật gói và tạo tài khoản lãnh đạo trong một lần gọi. Lỗi thì lõi hủy đơn vị vừa tạo. */
   async function addTenant(form: NewTenantForm): Promise<{ error: string | null; leader?: IssuedPassword }> {
     const error = validate(form);
     if (error) return { error };
@@ -62,6 +64,7 @@ export function useTenants() {
         body: {
           code: form.code.trim(),
           name: form.name.trim(),
+          modules: form.modules,
           leaderUsername: form.leaderUsername.trim().toLowerCase(),
           leaderFullName: form.leaderFullName.trim(),
           leaderEmail: form.leaderEmail.trim() || undefined,

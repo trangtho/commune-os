@@ -13,8 +13,9 @@ tài khoản công dân. Tài khoản vẫn nằm ở Keycloak; dịch vụ gọ
 ## Quy tắc
 
 - `/accounts/staff`: chỉ người có vai trò `leader` và có `tenant_id` mới gọi được.
-- `/accounts/tenants`: chỉ `sys_admin`. Tạo xã (`api.add_tenant`) rồi tạo lãnh đạo; tạo tài khoản lỗi thì xã vừa tạo
-  bị hủy (`api.remove_new_tenant`). Lãnh đạo của xã khác trả 404.
+- `/accounts/tenants`: chỉ `sys_admin`. Tạo đơn vị (`api.add_tenant`), bật các gói nghiệp vụ chọn trong `modules`
+  (`api.set_tenant_module`, chỉ gói đang được cài) rồi tạo lãnh đạo; lỗi thì đơn vị vừa tạo bị hủy
+  (`api.remove_new_tenant`). Lãnh đạo của đơn vị khác trả 404.
 - `/accounts/register` (qua `/public/accounts/register`, không token, cổng giới hạn số lần gọi): bắt buộc đồng ý xử lý
   dữ liệu cá nhân; lõi tạo hồ sơ công dân (`api.system_register_citizen`, khóa nội bộ) rồi tạo tài khoản vai trò
   `citizen` gắn `citizen_id`, `citizen_tenant`; tạo tài khoản lỗi thì hủy hồ sơ vừa tạo.
@@ -38,7 +39,7 @@ nằm trong `server.mjs` và được kiểm thử trong `core/tests/tenant-isol
 | DELETE | `/accounts/staff/{id}` | Xóa hẳn tài khoản (phải khóa trước); hồ sơ cá nhân và nhật ký vẫn giữ |
 | POST | `/accounts/first-password` | Không cần token. Cán bộ đổi mật khẩu tạm lần đầu ngay trên trang đăng nhập `{ username, currentPassword, newPassword }`; mật khẩu tạm được Keycloak kiểm tra; tối đa 5 lần/15 phút mỗi tài khoản |
 | POST | `/accounts/staff/{id}/reset-password` | Cấp mật khẩu tạm mới |
-| POST | `/accounts/tenants` | `sys_admin`. Tạo xã kèm lãnh đạo `{ code, name, leaderUsername, leaderFullName, leaderEmail? }`, trả `{ tenant, leader: { id, username, temporaryPassword } }` |
+| POST | `/accounts/tenants` | `sys_admin`. Tạo đơn vị kèm lãnh đạo `{ code, name, modules?, leaderUsername, leaderFullName, leaderEmail? }` (`modules` ví dụ `["xa"]`), trả `{ tenant, modules, leader: { id, username, temporaryPassword } }` |
 | GET | `/accounts/tenants/{code}/leaders` | `sys_admin`. Lãnh đạo của xã |
 | POST | `/accounts/tenants/{code}/leaders` | `sys_admin`. Thêm lãnh đạo `{ username, fullName, email? }`, trả mật khẩu tạm |
 | POST | `/accounts/tenants/{code}/leaders/{id}/reset-password` | `sys_admin`. Cấp mật khẩu tạm mới cho lãnh đạo |

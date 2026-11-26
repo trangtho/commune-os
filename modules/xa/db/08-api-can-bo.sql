@@ -15,7 +15,8 @@ DROP POLICY IF EXISTS staff_tenant_policy ON applications;
 CREATE POLICY staff_tenant_policy ON applications FOR SELECT TO "commune-app"
   USING (coalesce(receiving_tenant_id, tenant_id) =
          (SELECT t.id FROM tenants t
-           WHERE t.code = public.current_tenant_code() AND t.status = 'active'));
+           WHERE t.code = public.current_tenant_code() AND t.status = 'active'
+             AND public.tenant_has_module(t.id, 'xa')));
 
 -- ===== 2. View hồ sơ đầy đủ cho màn hình cán bộ =====
 -- tenant_code = xã tiếp nhận; home_tenant_code = xã của người nộp.

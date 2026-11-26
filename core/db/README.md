@@ -17,6 +17,7 @@ PostgreSQL 17. `init/` chỉ chứa phần **lõi dùng chung**, không có bả
 | `05-so-ghi-nhan.sql` | Sổ ghi nhận hash-chain theo đơn vị, `public.ledger_record` cho mọi gói |
 | `06-nhat-ky-tai-khoan.sql` | Nhật ký quản lý tài khoản |
 | `07-goi-nghiep-vu.sql` | Gói đã cài (`core_modules`, `api.modules`), móc đầu yêu cầu PostgREST (`rest_pre_request`, `register_request_hook`), `api.public_platform()` |
+| `08-goi-theo-don-vi.sql` | Gói bật cho từng đơn vị (`tenant_modules`, `api.tenant_modules`, `api.set_tenant_module`, `api.my_modules`); gói tự kiểm tra bằng `tenant_has_module()`, `require_module()` |
 | `90-mo-ta-api.sql` | Mô tả tiếng Việt cho schema `api` và API của lõi (chạy sau mọi gói) |
 
 Bảng, API, dữ liệu mẫu và kiểm thử SQL của từng nghiệp vụ nằm trong gói: [`modules/xa/db/`](../../modules/xa/db/)

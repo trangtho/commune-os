@@ -38,7 +38,10 @@ BEGIN
     ('staff_audit', 'Nhật ký quản lý tài khoản cán bộ', 'Tạo, khóa, mở, cấp lại mật khẩu, sửa, xóa; không chứa mật khẩu.'),
     ('log_staff_action', 'Ghi nhật ký quản lý tài khoản (chỉ dịch vụ tài khoản gọi)', 'Cần khóa nội bộ X-Workflow-Token.'),
     ('modules', 'Gói nghiệp vụ đã cài trên lõi', 'Tên, phiên bản, thời điểm cài và cập nhật (modules/<tên>/module.json).'),
-    ('public_platform', 'Thông tin nền tảng: các gói nghiệp vụ đã cài (công khai)', 'Gọi qua /public/rpc/public_platform; cổng API dùng để kiểm tra sức khỏe.')
+    ('public_platform', 'Thông tin nền tảng: các gói nghiệp vụ đã cài (công khai)', 'Gọi qua /public/rpc/public_platform; cổng API dùng để kiểm tra sức khỏe.'),
+    ('tenant_modules', 'Gói nghiệp vụ bật cho từng đơn vị', 'Quản trị hệ thống thấy mọi đơn vị; người của đơn vị chỉ thấy đơn vị mình. Gói chỉ phục vụ đơn vị đã bật nó.'),
+    ('my_modules', 'Gói nghiệp vụ của đơn vị người gọi', 'Ví dụ ["xa"]. Ứng dụng của một gói dùng để từ chối người của đơn vị không dùng gói đó.'),
+    ('set_tenant_module', 'Bật hoặc tắt một gói cho một đơn vị', 'Chỉ sys_admin; chỉ bật được gói đang được cài. Tắt gói không xóa dữ liệu của gói.')
   ) AS t(name, summary, detail)
   LOOP
     IF to_regclass('api.' || quote_ident(item.name)) IS NOT NULL THEN

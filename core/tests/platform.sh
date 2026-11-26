@@ -49,8 +49,8 @@ c3=$(code -H "Authorization: Bearer $QT" "$GW/rest/tenants")
 #    không thấy nhau; hủy được đơn vị vừa tạo.
 post() { curl -s -w '\t%{http_code}' -X POST -H "Authorization: Bearer $1" -H 'Content-Type: application/json' -d "$3" "$GW$2" |
   python3 -c 'import sys; b,_,c=sys.stdin.read().rpartition("\t"); print(c+"\t"+b)'; }
-T="dv-kt-$(date +%s)"; L="ld.$T"
-r=$(post "$QT" /accounts/tenants "{\"code\":\"$T\",\"name\":\"Đơn vị kiểm thử\",\"leaderUsername\":\"$L\",\"leaderFullName\":\"Kiểm Thử\"}")
+T="dv-kt-$(date +%s)"; L="ld.$T"; M1=$(echo "$MODULES" | cut -d, -f1)
+r=$(post "$QT" /accounts/tenants "{\"code\":\"$T\",\"name\":\"Đơn vị kiểm thử\",\"modules\":[\"$M1\"],\"leaderUsername\":\"$L\",\"leaderFullName\":\"Kiểm Thử\"}")
 tmp=$(echo "$r" | cut -f2- | jget 'd.get("leader",{}).get("temporaryPassword","")')
 curl -s -o /dev/null -X POST -H 'Content-Type: application/json' \
   -d "{\"username\":\"$L\",\"currentPassword\":\"$tmp\",\"newPassword\":\"KiemThu2026x\"}" "$GW/accounts/first-password"
@@ -60,6 +60,15 @@ seen=$(curl -s -H "Authorization: Bearer $LT" "$GW/rest/tenants?select=code" | j
 [ "$(echo "$r" | cut -f1)" = "201" ] && [ "$claim" = "$T" ] && [ "$seen" = "$T" ] &&
   ok "Tạo đơn vị kèm lãnh đạo qua API tài khoản; token mang đúng đơn vị; lãnh đạo chỉ thấy đơn vị mình" ||
   fail "Tạo đơn vị: $(echo "$r" | cut -f1), đơn vị trong token '$claim', thấy '$seen'"
+
+# 3b. Gói theo đơn vị: đơn vị chỉ dùng gói được bật lúc tạo; tắt được; không bật được gói chưa cài.
+mods() { curl -s -X POST -H "Authorization: Bearer $1" -H 'Content-Type: application/json' -d '{}' "$GW/rest/rpc/my_modules" | jget '",".join(d)'; }
+setm() { curl -s -o /dev/null -w '%{http_code}' -X POST -H "Authorization: Bearer $1" -H 'Content-Type: application/json' \
+  -d "{\"tenant_code\":\"$T\",\"module\":\"$2\",\"enabled\":$3}" "$GW/rest/rpc/set_tenant_module"; }
+m1=$(mods "$LT"); c1=$(setm "$QT" "$M1" false); m2=$(mods "$LT"); c2=$(setm "$QT" khong-co true); c3=$(setm "$LT" "$M1" true)
+[ "$m1" = "$M1" ] && [ "$c1" = "200" ] && [ "$m2" = "" ] && [ "$c2" = "400" ] && [ "$c3" = "403" ] &&
+  ok "Gói theo đơn vị: đơn vị mới dùng đúng gói chọn khi tạo ($M1); tắt được; gói chưa cài bị từ chối (400); lãnh đạo không tự bật gói (403)" ||
+  fail "Gói theo đơn vị: lúc tạo '$m1', tắt $c1 → '$m2', gói chưa cài $c2, lãnh đạo tự bật $c3"
 
 # 4. Sổ ghi nhận: chuỗi của mọi đơn vị nguyên vẹn; không sửa được qua API.
 bad=$(curl -s -X POST -H "Authorization: Bearer $QT" -H 'Content-Type: application/json' -d '{}' "$GW/rest/rpc/verify_ledger" |

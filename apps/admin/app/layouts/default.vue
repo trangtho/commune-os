@@ -10,7 +10,7 @@ const route = useRoute();
 
 const menu = [
   { to: "/", label: "Tổng quan", icon: LayoutDashboard },
-  { to: "/xa", label: "Danh sách xã", icon: Building2 },
+  { to: "/xa", label: "Đơn vị", icon: Building2 },
   { to: "/thu-tuc", label: "Danh mục thủ tục", icon: Package },
   { to: "/so-cai", label: "Kiểm tra hồ sơ đã ký", icon: ScrollText },
   { to: "/tinh-trang", label: "Tình trạng hệ thống", icon: Activity },

@@ -16,7 +16,8 @@
 DROP POLICY IF EXISTS staff_tenant_policy ON applications;
 CREATE POLICY staff_tenant_policy ON applications FOR SELECT TO "commune-app"
   USING (tenant_id = (SELECT t.id FROM tenants t
-                      WHERE t.code = public.current_tenant_code() AND t.status = 'active'));
+                      WHERE t.code = public.current_tenant_code() AND t.status = 'active'
+             AND public.tenant_has_module(t.id, 'xa')));
 
 DROP POLICY IF EXISTS staff_tenant_policy ON application_events;
 CREATE POLICY staff_tenant_policy ON application_events FOR SELECT TO "commune-app"

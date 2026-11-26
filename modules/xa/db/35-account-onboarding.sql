@@ -19,11 +19,11 @@ ALTER TABLE citizens ALTER COLUMN password_hash SET DEFAULT '';
 -- Hủy đơn vị vừa tạo (api.remove_new_tenant) thuộc lõi (core/db/init/02-don-vi.sql).
 
 -- ===== 3. Đăng ký công dân (chỉ dịch vụ tài khoản của lõi gọi, kèm X-Workflow-Token) =====
--- Xã đang hoạt động để người dân chọn khi đăng ký (công khai).
+-- Xã đang hoạt động (đơn vị đã bật gói xã) để người dân chọn khi đăng ký (công khai).
 CREATE OR REPLACE FUNCTION api.public_registration_tenants() RETURNS json
 LANGUAGE sql STABLE SECURITY DEFINER SET search_path = public AS $$
   SELECT coalesce(json_agg(json_build_object('code', code, 'name', name) ORDER BY name), '[]'::json)
-  FROM tenants WHERE status = 'active'
+  FROM tenants WHERE status = 'active' AND public.tenant_has_module(id, 'xa')   -- chỉ đơn vị dùng gói xã
 $$;
 
 -- Tạo hồ sơ công dân. Dịch vụ tài khoản đã kiểm tra dữ liệu và sự đồng ý; hàm kiểm tra lại các ràng buộc chính.
@@ -33,7 +33,8 @@ LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE v_tenant uuid; v_id uuid := gen_random_uuid();
 BEGIN
   IF NOT public.is_workflow_call() THEN RAISE EXCEPTION 'Chỉ dịch vụ của lõi được gọi hàm này' USING ERRCODE = 'PT403'; END IF;
-  SELECT id INTO v_tenant FROM tenants WHERE code = p_tenant_code AND status = 'active';
+  SELECT id INTO v_tenant FROM tenants WHERE code = p_tenant_code AND status = 'active'
+    AND public.tenant_has_module(id, 'xa');
   IF v_tenant IS NULL THEN PERFORM public.citizen_fail(422, 'Xã cư trú không hợp lệ hoặc đang tạm khóa'); END IF;
   IF coalesce(p_login_name, '') !~ '^[a-z0-9][a-z0-9._-]{2,49}$' THEN PERFORM public.citizen_fail(400, 'Tên đăng nhập không hợp lệ'); END IF;
   IF length(btrim(coalesce(p_display_name, ''))) NOT BETWEEN 2 AND 100 THEN PERFORM public.citizen_fail(400, 'Họ tên từ 2 đến 100 ký tự'); END IF;
