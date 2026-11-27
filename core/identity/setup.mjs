@@ -12,10 +12,14 @@
 // Tệp realm không có tài khoản người dùng nào; xã, lãnh đạo, cán bộ, công dân tạo qua API của lõi (make demo tạo mẫu).
 //   * thuộc tính khai báo trong user profile (chỉ thêm thuộc tính chưa có)
 //   * client liệt kê trong CONFIDENTIAL: luôn là client bí mật (có tài khoản dịch vụ) với secret lấy từ biến môi trường
+//   * vai trò của các gói đang bật (mục "roles" trong modules/<gói>/module.json), tên "<gói>:<vai trò>"; chỉ thêm,
+//     cập nhật mô tả, không xóa (vai trò của gói đã gỡ vẫn giữ để không mất phân quyền đã gán)
 // Biến ${TÊN} trong tệp realm được thay bằng biến môi trường cùng tên (giống Keycloak khi nạp realm).
 // Không thư viện ngoài (chỉ Node 22).
 
 import { readFile } from 'node:fs/promises'
+import { existsSync } from 'node:fs'
+import { join } from 'node:path'
 
 const KEYCLOAK_URL = (process.env.KEYCLOAK_URL || 'http://identity:8080').replace(/\/$/, '')
 const REALM = 'communeos'
@@ -148,6 +152,25 @@ async function main() {
   if (!roles.includes('sys_admin')) {
     await api('POST', `/users/${admin.id}/role-mappings/realm`, [sysAdminRole])
     console.log(`Gán vai trò sys_admin cho ${SYS_ADMIN_USERNAME}`)
+  }
+  // 6. Vai trò của các gói đang bật: gói khai báo, lõi tạo trong Keycloak; lãnh đạo đơn vị gán cho nhân viên qua
+  //    dịch vụ tài khoản (PUT /accounts/staff/:id/roles), chỉ vai trò của gói đơn vị đã bật.
+  const existing = new Map((await api('GET', '/roles?briefRepresentation=false&max=1000')).map((r) => [r.name, r]))
+  for (const m of String(process.env.COMMUNEOS_MODULES || 'xa').split(/[\s,]+/).filter(Boolean)) {
+    const file = join(process.env.MODULES_DIR || '/modules', m, 'module.json')
+    if (!existsSync(file)) continue
+    for (const r of JSON.parse(await readFile(file, 'utf8')).roles || []) {
+      if (!/^[a-z][a-z0-9-]{0,40}$/.test(r.name || '')) throw new Error(`${m}/module.json: tên vai trò "${r.name}" không hợp lệ`)
+      const name = `${m}:${r.name}`
+      const description = String(r.title || r.name) + (r.description ? ` – ${r.description}` : '')
+      const found = existing.get(name)
+      if (!found) {
+        await api('POST', '/roles', { name, description })
+        console.log(`Vai trò của gói ${m}: tạo ${name}`)
+      } else if (found.description !== description) {
+        await api('PUT', `/roles/${encodeURIComponent(name)}`, { ...found, description })
+      }
+    }
   }
   console.log('Cấu hình định danh đã đủ.')
 }

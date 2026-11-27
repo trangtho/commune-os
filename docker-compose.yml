@@ -92,8 +92,12 @@ services:
       # Tài khoản quản trị hệ thống duy nhất (make check-env kiểm tra độ mạnh mật khẩu).
       COMMUNEOS_ADMIN_USERNAME: ${COMMUNEOS_ADMIN_USERNAME}
       COMMUNEOS_ADMIN_PASSWORD: ${COMMUNEOS_ADMIN_PASSWORD}
+      # Vai trò của các gói đang bật (mục "roles" trong modules/<gói>/module.json).
+      COMMUNEOS_MODULES: ${COMMUNEOS_MODULES:-xa,doanh-nghiep}
+      MODULES_DIR: /modules
     volumes:
       - ./core/identity:/app:ro
+      - ./modules:/modules:ro
     depends_on:
       identity:
         condition: service_healthy

@@ -4,7 +4,8 @@
 -- Ví dụ gói nghiệp vụ doanh nghiệp chạy trên cùng lõi CommuneOS: đơn nghỉ phép.
 -- Không sửa bảng nào của lõi hay của gói nghiệp vụ xã; chỉ dùng phần dùng chung của lõi:
 --   * đơn vị (tenants) và token Keycloak: tenant_id = mã đơn vị, vai trò leader (giám đốc), officer (nhân viên);
---   * public.require_module('doanh-nghiep') (người của đơn vị đã bật gói này), public.require_leader(),
+--   * vai trò riêng của gói "doanh-nghiep:truong-phong" (module.json "roles"; lãnh đạo gán qua dịch vụ tài khoản);
+--   * public.require_module('doanh-nghiep') (người của đơn vị đã bật gói này), public.has_role(),
 --     public.tenant_has_module(), public.current_staff_id(), public.current_staff_name();
 --   * public.is_workflow_call(): chỉ dịch vụ điều phối (/workflow) được đổi trạng thái đơn;
 --   * public.ledger_record(): ghi sổ ghi nhận không sửa được, chuỗi riêng của từng đơn vị.
@@ -24,7 +25,7 @@ CREATE TABLE IF NOT EXISTS nghi_phep.don (
   from_date    date NOT NULL,
   to_date      date NOT NULL,
   reason       text NOT NULL CHECK (length(btrim(reason)) BETWEEN 3 AND 500),
-  status       text NOT NULL DEFAULT 'submitted' CHECK (status IN ('submitted', 'approved', 'rejected')),
+  status       text NOT NULL DEFAULT 'submitted',
   decided_by   text,
   decided_note text CHECK (decided_note IS NULL OR length(decided_note) <= 500),
   created_at   timestamptz NOT NULL DEFAULT now(),
@@ -32,22 +33,28 @@ CREATE TABLE IF NOT EXISTS nghi_phep.don (
   CHECK (to_date >= from_date AND to_date - from_date < 60)
 );
 CREATE INDEX IF NOT EXISTS don_tenant_status ON nghi_phep.don (tenant_id, status);
+-- Hai bước duyệt: trưởng phòng (vai trò của gói "doanh-nghiep:truong-phong") rồi giám đốc (leader).
+ALTER TABLE nghi_phep.don ADD COLUMN IF NOT EXISTS dept_approved_by text;
+ALTER TABLE nghi_phep.don ADD COLUMN IF NOT EXISTS dept_approved_at timestamptz;
+ALTER TABLE nghi_phep.don DROP CONSTRAINT IF EXISTS don_status_check;
+ALTER TABLE nghi_phep.don ADD CONSTRAINT don_status_check CHECK (status IN ('submitted', 'dept_approved', 'approved', 'rejected'));
 
 -- Cách ly ở cơ sở dữ liệu: chỉ thấy đơn của đơn vị mình (đơn vị đang hoạt động, đã bật gói doanh-nghiep);
--- nhân viên chỉ thấy đơn của chính mình, giám đốc thấy mọi đơn của đơn vị.
+-- nhân viên chỉ thấy đơn của chính mình; giám đốc và trưởng phòng (vai trò của gói) thấy mọi đơn của đơn vị.
 ALTER TABLE nghi_phep.don ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS don_doc ON nghi_phep.don;
 CREATE POLICY don_doc ON nghi_phep.don FOR SELECT
   USING (tenant_id = (SELECT t.id FROM public.tenants t
                       WHERE t.code = public.current_tenant_code() AND t.status = 'active'
                         AND public.tenant_has_module(t.id, 'doanh-nghiep'))
-         AND (public.has_role('leader') OR staff_id = public.current_staff_id()));
+         AND (public.has_role('leader') OR public.has_role('doanh-nghiep:truong-phong')
+              OR staff_id = public.current_staff_id()));
 
 DROP VIEW IF EXISTS api.leave_requests;
 CREATE VIEW api.leave_requests WITH (security_invoker = true) AS
 SELECT d.id, t.code AS tenant_code, d.staff_name, d.from_date, d.to_date,
-       (d.to_date - d.from_date + 1) AS days, d.reason, d.status, d.decided_by, d.decided_note,
-       d.created_at, d.decided_at
+       (d.to_date - d.from_date + 1) AS days, d.reason, d.status, d.dept_approved_by, d.dept_approved_at,
+       d.decided_by, d.decided_note, d.created_at, d.decided_at
 FROM nghi_phep.don d JOIN public.tenants t ON t.id = d.tenant_id;
 
 -- Nhân viên (hoặc giám đốc) nộp đơn. Trả về đơn vừa tạo.
@@ -72,8 +79,11 @@ BEGIN
   RETURN json_build_object('id', v_row.id, 'status', v_row.status, 'from_date', v_row.from_date, 'to_date', v_row.to_date);
 END $$;
 
--- Giám đốc duyệt hoặc không duyệt. Chỉ dịch vụ điều phối gọi được (POST /workflow/leave-requests/<mã>/actions),
--- nên mọi bước đều đi qua sơ đồ BPMN duyet-nghi-phep.
+-- Duyệt hai bước, theo sơ đồ BPMN duyet-nghi-phep. Chỉ dịch vụ điều phối gọi được
+-- (POST /workflow/leave-requests/<mã>/actions), nên mọi bước đều đi qua sơ đồ.
+--   submitted     → dept_approved | rejected : trưởng phòng (vai trò "doanh-nghiep:truong-phong") hoặc giám đốc
+--   dept_approved → approved | rejected      : giám đốc (leader)
+-- Không đồng ý phải ghi lý do; không ai tự duyệt đơn của mình.
 CREATE OR REPLACE FUNCTION api.set_leave_request_status(request_id text, status text, note text DEFAULT NULL)
 RETURNS json LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE
@@ -82,12 +92,12 @@ DECLARE
   v_note     text := nullif(btrim(coalesce(note, '')), '');
   v_expected text := nullif(current_setting('request.headers', true), '')::json ->> 'x-workflow-expected-status';
   v_actor    text := public.current_staff_name();
+  v_leader   boolean := public.has_role('leader');
 BEGIN
   IF NOT public.is_workflow_call() THEN
     RAISE EXCEPTION 'Duyệt đơn phải đi qua động cơ quy trình (/workflow)' USING ERRCODE = '42501';
   END IF;
   v_code := public.require_module('doanh-nghiep');
-  PERFORM public.require_leader();
   SELECT d.* INTO v_row FROM nghi_phep.don d JOIN tenants t ON t.id = d.tenant_id
    WHERE d.id = request_id AND t.code = v_code FOR UPDATE OF d;
   IF v_row.id IS NULL THEN
@@ -96,17 +106,34 @@ BEGIN
   IF v_expected IS NOT NULL AND v_expected <> v_row.status THEN
     RAISE EXCEPTION 'Trạng thái đơn đã thay đổi; vui lòng tải lại' USING ERRCODE = 'PT409';
   END IF;
-  IF v_row.status <> 'submitted' THEN
+  IF v_row.status = 'submitted' THEN
+    IF status NOT IN ('dept_approved', 'rejected') THEN
+      RAISE EXCEPTION 'Đơn đang chờ trưởng phòng duyệt' USING ERRCODE = 'PT409';
+    END IF;
+    IF NOT (public.has_role('doanh-nghiep:truong-phong') OR v_leader) THEN
+      RAISE EXCEPTION 'Chỉ trưởng phòng hoặc giám đốc duyệt bước này' USING ERRCODE = '42501';
+    END IF;
+  ELSIF v_row.status = 'dept_approved' THEN
+    IF status NOT IN ('approved', 'rejected') THEN
+      RAISE EXCEPTION 'Đơn đang chờ giám đốc duyệt' USING ERRCODE = 'PT409';
+    END IF;
+    IF NOT v_leader THEN
+      RAISE EXCEPTION 'Chỉ giám đốc duyệt bước này' USING ERRCODE = '42501';
+    END IF;
+  ELSE
     RAISE EXCEPTION 'Đơn đã được xử lý' USING ERRCODE = 'PT409';
-  END IF;
-  IF status NOT IN ('approved', 'rejected') THEN
-    RAISE EXCEPTION 'Trạng thái không hợp lệ: %', status USING ERRCODE = '22023';
   END IF;
   IF status = 'rejected' AND v_note IS NULL THEN
     RAISE EXCEPTION 'Không đồng ý thì phải ghi lý do' USING ERRCODE = '22023';
   END IF;
   IF v_row.staff_id = public.current_staff_id() THEN
     RAISE EXCEPTION 'Không tự duyệt đơn của chính mình' USING ERRCODE = '42501';
+  END IF;
+  IF status = 'dept_approved' THEN
+    UPDATE nghi_phep.don d SET status = 'dept_approved', dept_approved_by = v_actor, dept_approved_at = now()
+     WHERE d.id = v_row.id RETURNING * INTO v_row;
+    PERFORM public.ledger_record(v_row.tenant_id, v_row.id, v_row.status, v_actor, v_note, v_row.dept_approved_at);
+    RETURN json_build_object('id', v_row.id, 'status', v_row.status, 'dept_approved_by', v_row.dept_approved_by);
   END IF;
   UPDATE nghi_phep.don d SET status = set_leave_request_status.status, decided_by = v_actor,
          decided_note = v_note, decided_at = now()
@@ -120,7 +147,7 @@ COMMENT ON VIEW api.leave_requests IS
 COMMENT ON FUNCTION api.leave_request_create(date, date, text) IS
   'Ví dụ doanh nghiệp: nộp đơn nghỉ phép (from_date, to_date, reason). Duyệt qua POST /workflow/leave-requests/<mã>/actions.';
 COMMENT ON FUNCTION api.set_leave_request_status(text, text, text) IS
-  'Ví dụ doanh nghiệp: đổi trạng thái đơn; chỉ dịch vụ điều phối gọi được, người gọi phải là giám đốc (leader).';
+  'Ví dụ doanh nghiệp: đổi trạng thái đơn; chỉ dịch vụ điều phối gọi được. Bước 1 trưởng phòng (doanh-nghiep:truong-phong) hoặc giám đốc, bước 2 giám đốc.';
 
 REVOKE ALL ON FUNCTION api.leave_request_create(date, date, text),
   api.set_leave_request_status(text, text, text) FROM PUBLIC;
