@@ -20,7 +20,10 @@ Lấy token: bấm **Authorize** ở đặc tả "Dịch vụ lõi", mục `keyc
 (`client_id` = `commune-app`). Token này được tự gắn vào lời gọi của cả hai đặc tả. Token công dân dùng
 `client_id` = `citizen-app` và `client_secret` = `CITIZEN_KEYCLOAK_SECRET` trong `.env`.
 
-Khi sửa hoặc thêm đường dẫn của dịch vụ Node.js trong `core/`, sửa `core-services.yaml` cho khớp.
+Khi sửa hoặc thêm đường dẫn của dịch vụ Node.js trong `core/`, sửa `core-services.yaml` cho khớp. Đường dẫn riêng của
+một gói (khai báo `workflows`, `files`, `publicRpc` của gói) ghi trong `modules/<gói>/api-docs.yaml`: khi container khởi
+động, `50-communeos.sh` chép đặc tả của các gói đang bật (`COMMUNEOS_MODULES`) và trang tài liệu tự hiện thêm mục chọn
+cho từng gói (ví dụ "CommuneOS – Gói xã").
 Khi thêm hàm, bảng ảo vào schema `api`, thêm dòng mô tả vào tệp mô tả của gói (gói xã: `modules/xa/db/25-api-comments.sql`;
 gói doanh nghiệp: `COMMENT ON` trong `db/nghi-phep.sql`) hoặc của lõi (`core/db/init/90-mo-ta-api.sql`).
 

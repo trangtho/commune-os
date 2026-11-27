@@ -9,16 +9,15 @@
 //   POST /files/:loai/:ma/attachments?name=<tên tệp>                 thân = nội dung tệp
 //   GET  /files/:loai/:ma/attachments                               danh sách tệp của đối tượng
 //   GET  /files/attachments/:id                                     tải tệp (kiểm tra mã băm)
-//   API đặc thù do module khai báo (serviceHandlers.files), sau kiểm tra token.
+//   Đường dẫn tệp riêng của gói: mục "files" của module.json (ví dụ giấy tờ hồ sơ của gói xã), xem fileRoute().
 // Đường dẫn nội bộ (chỉ trong mạng docker, cổng không chuyển tới; cần X-Service-Token):
 //   PUT    /internal/objects            lưu một tệp, trả { key, sha256 }
 //   GET    /internal/objects/:key       đọc tệp
 //   DELETE /internal/objects/:key       xóa tệp
 //   GET    /health, /files/health (qua cổng)   dịch vụ và kho đối tượng
-// Quyền xem/ghi do PostgreSQL quyết định (RLS theo xã), dịch vụ này chỉ chuyển token của người dùng.
+// Quyền xem/ghi do PostgreSQL quyết định (RLS theo đơn vị), dịch vụ này chỉ chuyển token của người dùng.
 
 import { createServer } from 'node:http'
-import { loadServiceHandlers, dispatchHandlers } from '../module-loader.mjs'
 import { createHash, createHmac, randomUUID, timingSafeEqual } from 'node:crypto'
 import { connect } from 'node:net'
 import { existsSync, readFileSync } from 'node:fs'
@@ -38,8 +37,6 @@ const REST_URL = env('REST_URL', 'http://rest:3000').replace(/\/$/, '')
 const WORKFLOW_TOKEN = env('WORKFLOW_TOKEN')
 const FILES_SERVICE_TOKEN = env('FILES_SERVICE_TOKEN')
 const CLAMAV_HOST = process.env.CLAMAV_HOST || ''          // để trống = không quét mã độc
-const CLAMAV_REQUIRED = process.env.CLAMAV_REQUIRED === 'true'
-if (CLAMAV_REQUIRED && !CLAMAV_HOST) throw new Error('CLAMAV_REQUIRED=true nhưng thiếu CLAMAV_HOST')
 const CLAMAV_PORT = Number(process.env.CLAMAV_PORT || 3310)
 const PORT = Number(process.env.PORT || 3000)
 const MAX_BYTES = 5 * 1024 * 1024
@@ -59,7 +56,7 @@ class HttpError extends Error {
 const NAME_RE = /^[a-z][a-z0-9_-]{0,62}$/
 const ATTACHABLE = new Map()
 const MODULES_DIR = process.env.MODULES_DIR || '/modules'
-for (const m of (process.env.COMMUNEOS_MODULES ?? '').split(/[\s,]+/).filter(Boolean)) {
+for (const m of (process.env.COMMUNEOS_MODULES || 'xa').split(/[\s,]+/).filter(Boolean)) {
   const file = join(MODULES_DIR, m, 'module.json')
   if (!existsSync(file)) { console.log(`Không đọc được ${file}; bỏ qua tệp đính kèm của gói ${m}`); continue }
   for (const a of JSON.parse(readFileSync(file, 'utf8')).attachments || []) {
@@ -68,6 +65,29 @@ for (const m of (process.env.COMMUNEOS_MODULES ?? '').split(/[\s,]+/).filter(Boo
     ATTACHABLE.set(a.resource, { module: m, label: a.label || 'Đối tượng', view: a.view, uploadStatuses: a.uploadStatuses || null })
   }
 }
+// Đường dẫn tệp riêng do gói khai báo (mục "files"): tải lên gọi hàm ghi của gói, tải về gọi hàm đọc của gói;
+// dịch vụ này chỉ lưu, kiểm tra, trả tệp. Ví dụ:
+//   { "method": "POST", "path": "items/{id}/documents", "rpc": "item_document_add",
+//     "query": { "code": { "pattern": "^[a-z0-9-]{1,100}$", "required": true }, "name": { "max": 180, "default": "tep" } },
+//     "args": { "item_id": "{id}", "document_code": "{code}", "original_name": "{name}" } }
+//   { "method": "GET", "path": "item-documents/{id:uuid}", "rpc": "item_document_object", "args": { "document_id": "{id}" } }
+// (gói xã khai báo giấy tờ hồ sơ, giấy tờ cán bộ, giấy tờ trong mã chuyển hồ sơ theo cách này: modules/xa/module.json)
+// Tải lên: hàm của gói nhận thêm mime_type, size_bytes, sha256, storage_key. Tải về: hàm trả một dòng có storage_key,
+// mime_type, original_name (hoặc title), sha256 (có thì kiểm tra lại mã băm). {tham số:uuid} phải là UUID.
+const FILE_ROUTES = []
+for (const m of (process.env.COMMUNEOS_MODULES || 'xa').split(/[\s,]+/).filter(Boolean)) {
+  const file = join(MODULES_DIR, m, 'module.json')
+  if (!existsSync(file)) continue
+  for (const r of JSON.parse(readFileSync(file, 'utf8')).files || []) {
+    const segs = String(r.path || '').split('/')
+    if (!['GET', 'POST'].includes(r.method) || !NAME_RE.test(r.rpc || '') || !segs.length ||
+        !segs.every((x) => /^[a-z][a-z0-9-]*$/.test(x) || /^\{[a-zA-Z]+(:uuid)?\}$/.test(x))) {
+      throw new Error(`${m}/module.json: "files" khai báo sai (${r.method} ${r.path})`)
+    }
+    FILE_ROUTES.push({ ...r, module: m, segs })
+  }
+}
+if (FILE_ROUTES.length) console.log(`Đường dẫn tệp của gói: ${FILE_ROUTES.map((r) => `${r.method} /files/${r.path}`).join(', ')}`)
 if (ATTACHABLE.size) console.log(`Tệp đính kèm: ${[...ATTACHABLE.keys()].map((r) => `/files/${r}/<mã>/attachments`).join(', ')}`)
 
 // ---------- Kho đối tượng S3 (chữ ký AWS Signature V4) ----------
@@ -195,6 +215,70 @@ async function visibleItem(kind, id, authorization) {
   return row
 }
 
+// Khớp đường dẫn với khai báo "files" của gói; trả { def, params } hoặc null.
+function matchRoute(method, segs) {
+  for (const def of FILE_ROUTES) {
+    if (def.method !== method || def.segs.length !== segs.length) continue
+    const params = {}
+    let ok = true
+    for (let i = 0; i < segs.length && ok; i++) {
+      const p = /^\{([a-zA-Z]+)(:uuid)?\}$/.exec(def.segs[i])
+      if (!p) { ok = def.segs[i] === segs[i]; continue }
+      const v = decodeURIComponent(segs[i])
+      if (p[2] && !UUID_RE.test(v)) throw new HttpError(404, 'Không tìm thấy tệp')
+      if (!v || v.length > 200) { ok = false; continue }
+      params[p[1]] = v
+    }
+    if (ok) return { def, params }
+  }
+  return null
+}
+
+// Thay {tên} trong args của khai báo bằng tham số đường dẫn và tham số truy vấn đã kiểm tra.
+function routeArgs(def, params, url) {
+  const values = { ...params }
+  for (const [name, spec] of Object.entries(def.query || {})) {
+    let v = url.searchParams.get(name)
+    if (v === null || v === '') {
+      if (spec?.required) throw new HttpError(400, `Thiếu tham số ${name}`)
+      v = spec?.default ?? null
+    }
+    if (v !== null) {
+      if (spec?.pattern && !new RegExp(spec.pattern).test(v)) throw new HttpError(400, `Tham số ${name} không hợp lệ`)
+      if (spec?.max) v = v.slice(0, spec.max)
+    }
+    values[name] = v
+  }
+  return Object.fromEntries(Object.entries(def.args || {}).map(([k, t]) => {
+    const m = /^\{([a-zA-Z_]+)\}$/.exec(String(t))
+    return [k, m ? (values[m[1]] ?? null) : t]
+  }))
+}
+
+async function fileRoute(def, params, url, req, res, auth) {
+  const args = routeArgs(def, params, url)
+  if (def.method === 'POST') {
+    const type = String(req.headers['content-type'] || '').split(';')[0].trim()
+    const stored = await storeObject(type, await readBody(req))
+    try {
+      const r = await rpc(def.rpc, { ...args, mime_type: type, size_bytes: stored.size, sha256: stored.sha256, storage_key: stored.key }, auth)
+      return json(res, 201, r && typeof r === 'object' && !Array.isArray(r) ? { ...r, sha256: r.sha256 ?? stored.sha256 } : r)
+    } catch (e) {
+      await s3('DELETE', stored.key).catch(() => {})   // không để lại tệp mồ côi
+      throw e
+    }
+  }
+  const out = await rpc(def.rpc, args, auth)
+  const meta = Array.isArray(out) ? out[0] : out
+  if (!meta?.storage_key) throw new HttpError(404, 'Không tìm thấy tệp hoặc không có quyền xem')
+  const data = await readObject(meta.storage_key)
+  if (meta.sha256 && sha256hex(data) !== meta.sha256) {
+    throw new HttpError(409, 'Tệp trong kho không khớp mã băm đã ghi: có thể đã bị thay đổi')
+  }
+  const name = meta.original_name || `${meta.title || 'tep'}.${meta.storage_key.split('.').pop()}`
+  return sendFile(res, data, { ...meta, original_name: name })
+}
+
 // ---------- HTTP ----------
 async function readBody(req) {
   const chunks = []; let size = 0
@@ -228,10 +312,6 @@ function serviceAllowed(req) {
   const expected = Buffer.from(FILES_SERVICE_TOKEN)
   return given.length === expected.length && timingSafeEqual(given, expected)
 }
-
-const moduleHandlers = await loadServiceHandlers('files', {
-  HttpError, UUID_RE, storeObject, readBody, rpc, json, s3, readObject, sha256hex, sendFile,
-})
 
 async function handle(req, res) {
   const url = new URL(req.url, 'http://files')
@@ -293,7 +373,9 @@ async function handle(req, res) {
       return sendFile(res, data, meta)
     }
 
-    if (await dispatchHandlers(moduleHandlers, { req, res, url, parts, auth })) return
+    // --- Đường dẫn tệp riêng do gói khai báo ---
+    const route = matchRoute(req.method, parts.slice(1))
+    if (route) return fileRoute(route.def, route.params, url, req, res, auth)
     throw new HttpError(404, 'Không có đường dẫn này')
   }
 

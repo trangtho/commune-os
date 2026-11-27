@@ -93,10 +93,32 @@ routes:
       type: roundrobin
       nodes:
         "accounts:3000": 1
-  # API công khai của nền tảng và danh sách RPC do module khai báo.
+  # Người dân tự đăng ký tài khoản (chưa có token). Dịch vụ tài khoản kiểm tra dữ liệu, sự đồng ý và giới hạn thêm
+  # theo địa chỉ IP người dùng (X-Forwarded-For do Kênh người dân chuyển tiếp).
+  - id: accounts-register
+    uri: /public/accounts/register
+    methods: ["POST"]
+    plugins:
+      limit-count:
+        count: 20
+        time_window: 60
+        key_type: var
+        key: remote_addr
+        rejected_code: 429
+      proxy-rewrite:
+        uri: /accounts/register
+        headers:
+          remove: ["Authorization"]
+    upstream:
+      type: roundrobin
+      nodes:
+        "accounts:3000": 1
+  # API công khai cho khách chưa đăng nhập: chỉ các hàm do lõi và các gói khai báo (mục "publicRpc" của module.json,
+  # bảng core_public_rpc). Cơ sở dữ liệu chặn mọi hàm khác ngay đầu yêu cầu (rest_pre_request, 404), nên ở đây chỉ cần
+  # một luật chung. Ví dụ hàm của lõi: public_platform (cổng dùng để kiểm tra sức khỏe).
+  # Không nhận token (bỏ header Authorization), PostgREST dùng vai trò web_anon; có giới hạn số lần gọi.
   - id: public-rpc
-    uris:
-      - "/public/rpc/public_platform"
+    uri: /public/rpc/*
     methods: ["GET", "POST"]
     plugins:
       limit-count:

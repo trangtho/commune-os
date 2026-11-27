@@ -2,11 +2,11 @@
 // SPDX-License-Identifier: Apache-2.0
 //
 // Dịch vụ tài khoản cán bộ của lõi. Không giao diện, không thư viện ngoài (chỉ Node 22).
-// Tài khoản vẫn nằm ở Keycloak; dịch vụ này cho LÃNH ĐẠO XÃ quản lý CÁN BỘ XỬ LÝ của xã mình
+// Tài khoản vẫn nằm ở Keycloak; dịch vụ này cho LÃNH ĐẠO ĐƠN VỊ (xã, công ty...) quản lý CÁN BỘ XỬ LÝ của đơn vị mình
 // qua Keycloak Admin API, bằng tài khoản dịch vụ "accounts-service".
 //
 // Qua cổng APISIX /accounts/* (cần token Keycloak của người gọi):
-//   GET   /accounts/staff                          danh sách cán bộ của xã
+//   GET   /accounts/staff                          danh sách cán bộ của đơn vị
 //   POST  /accounts/staff                          tạo cán bộ xử lý   { username, firstName, lastName, email? }
 //   PATCH /accounts/staff/:id/status               khóa / mở          { enabled: true|false }
 //   PUT   /accounts/staff/:id/roles                vai trò của gói    { roles: ["doanh-nghiep:truong-phong"] }
@@ -17,30 +17,33 @@
 // Quản trị hệ thống (vai trò sys_admin):
 //   POST  /accounts/tenants                        tạo đơn vị kèm lãnh đạo { code, name, modules?, leaderUsername, leaderFullName, leaderEmail? }
 //                                                  → { tenant, modules, leader: { id, username, temporaryPassword } }
-//   GET   /accounts/tenants/:code/leaders          lãnh đạo của xã
+//   GET   /accounts/tenants/:code/leaders          lãnh đạo của đơn vị
 //   POST  /accounts/tenants/:code/leaders          thêm lãnh đạo         { username, fullName, email? }
 //   POST  /accounts/tenants/:code/leaders/:id/reset-password   cấp mật khẩu tạm mới
 //   PATCH /accounts/tenants/:code/leaders/:id/status           khóa / mở { enabled }
 //
-//   POST  /accounts/me/password                    người đăng nhập tự đổi mật khẩu (công dân hoặc cán bộ)
+//   POST  /accounts/me/password                    người đăng nhập tự đổi mật khẩu (cán bộ hoặc người dùng bên ngoài)
 //                                                  { currentPassword, newPassword }
 //
 // Không cần token (cổng APISIX có route riêng, không kiểm tra token):
-//   Các đường dẫn bổ sung do module tin cậy khai báo (serviceHandlers.accounts).
+//   POST  /accounts/register                       người dùng bên ngoài tự đăng ký (qua /public/accounts/register), theo
+//                                                  mục "registration" của gói (gói xã: công dân)
+//                                                  { fullName, username, email?, phone?, tenantCode, password, consent }
 //   POST  /accounts/first-password                 cán bộ đổi mật khẩu tạm lần đầu
 //                                                  { username, currentPassword, newPassword }
 //   GET   /health, /accounts/health (qua cổng)  dịch vụ và quyền vào Keycloak Admin API
 //
 // Quy tắc (kiểm tra ở đây, vì tài khoản dịch vụ có quyền trên cả realm):
 //   * Chỉ người có vai trò leader và có tenant_id mới gọi được.
-//   * Chỉ tác động lên cán bộ cùng xã; khác xã trả 404 (không lộ là tài khoản tồn tại).
-//   * Chỉ tạo được vai trò officer; xã luôn là xã của người gọi.
+//   * Chỉ tác động lên cán bộ cùng đơn vị; khác đơn vị trả 404 (không lộ là tài khoản tồn tại).
+//   * Chỉ tạo được vai trò officer; đơn vị luôn là đơn vị của người gọi.
 //   * Không tác động lên chính mình, lãnh đạo khác hay sys_admin (403).
 // Mỗi thao tác được ghi vào nhật ký staff_audit qua API dữ liệu (không ghi mật khẩu).
 
 import { createServer } from 'node:http'
-import { loadServiceHandlers, dispatchHandlers } from '../module-loader.mjs'
 import { createPublicKey, randomInt, verify } from 'node:crypto'
+import { existsSync, readFileSync } from 'node:fs'
+import { join } from 'node:path'
 
 const env = (name, fallback) => {
   const v = process.env[name] ?? fallback
@@ -99,7 +102,7 @@ async function caller(req) {
   const { claims, token } = await verifiedClaims(req, [TOKEN_AZP])
   const roles = claims.realm_access?.roles || []
   if (!roles.includes('leader') || !claims.tenant_id) {
-    throw new HttpError(403, 'Chỉ lãnh đạo xã được quản lý cán bộ')
+    throw new HttpError(403, 'Chỉ lãnh đạo đơn vị được quản lý cán bộ')
   }
   return { id: claims.sub, tenant: claims.tenant_id, name: claims.name || claims.preferred_username, token }
 }
@@ -182,7 +185,7 @@ async function audit(me, action, targetUsername) {
 // Cán bộ mới (hoặc vừa được cấp lại mật khẩu) phải đặt mật khẩu mới trước khi dùng.
 // Kiểm tra mật khẩu tạm bằng chính Keycloak: đăng nhập đúng mật khẩu nhưng còn việc bắt buộc thì Keycloak báo
 // "Account is not fully set up"; sai mật khẩu thì báo lỗi khác. Chỉ khi đúng mới đặt mật khẩu mới.
-// Giới hạn mỗi 15 phút: 5 lần cho một tên đăng nhập, 30 lần cho một địa chỉ IP (cả trụ sở xã dùng chung IP).
+// Giới hạn mỗi 15 phút: 5 lần cho một tên đăng nhập, 30 lần cho một địa chỉ IP (cả trụ sở đơn vị dùng chung IP).
 const LOGIN_CLIENT = env('LOGIN_CLIENT_ID', 'commune-app')
 const attempts = new Map()
 function limited(key, max) {
@@ -213,12 +216,12 @@ async function firstPassword(req, res) {
   const body = await r.json().catch(() => ({}))
   if (r.ok) throw new HttpError(409, 'Tài khoản không cần đổi mật khẩu tạm, hãy đăng nhập bình thường')
   const desc = String(body.error_description || '')
-  if (/disabled/i.test(desc)) throw new HttpError(403, 'Tài khoản đang bị khóa. Liên hệ lãnh đạo xã.')
+  if (/disabled/i.test(desc)) throw new HttpError(403, 'Tài khoản đang bị khóa. Liên hệ lãnh đạo đơn vị.')
   if (!/not fully set up/i.test(desc)) throw new HttpError(401, 'Tên đăng nhập hoặc mật khẩu tạm không đúng')
 
   const [user] = await kcJson('GET', `/users?username=${encodeURIComponent(username)}&exact=true&briefRepresentation=false`)
   if (!user || !tenantOf(user) || !(user.requiredActions || []).includes('UPDATE_PASSWORD')) {
-    throw new HttpError(409, 'Tài khoản cần hoàn tất thông tin khác. Liên hệ lãnh đạo xã hoặc quản trị hệ thống.')
+    throw new HttpError(409, 'Tài khoản cần hoàn tất thông tin khác. Liên hệ lãnh đạo đơn vị hoặc quản trị hệ thống.')
   }
   const set = await fetch(`${ADMIN}/users/${user.id}/reset-password`, {
     method: 'PUT',
@@ -239,16 +242,34 @@ async function firstPassword(req, res) {
   return json(res, 200, { username, changed: true })
 }
 
+// ---------- Người dùng bên ngoài của các gói (mục "registration" trong module.json) ----------
+// Gói khai báo: client Keycloak riêng (client bí mật, secret trong biến clientSecretEnv), vai trò, hàm tạo / hủy hồ sơ
+// người dùng của gói (gọi kèm khóa nội bộ, nhận p_tenant_code, p_login_name, p_display_name, p_email, p_phone, trả
+// idField và tenant_code), thuộc tính gắn vào tài khoản Keycloak. Gói xã: công dân (citizen-app, vai trò citizen).
+const REGISTRATIONS = []
+for (const m of String(process.env.COMMUNEOS_MODULES || 'xa').split(/[\s,]+/).filter(Boolean)) {
+  const file = join(process.env.MODULES_DIR || '/modules', m, 'module.json')
+  if (!existsSync(file)) continue
+  const r = JSON.parse(readFileSync(file, 'utf8')).registration
+  if (!r) continue
+  const fn = /^[a-z_][a-z0-9_]{0,62}$/
+  if (!/^[a-z][a-z0-9-]{1,62}$/.test(r.client || '') || !fn.test(r.rpc || '') || !fn.test(r.undoRpc || '') ||
+      !fn.test(r.undoArg || '') || !fn.test(r.idField || '') || !/^[a-z][a-z0-9_-]{0,40}$/.test(r.role || '')) {
+    throw new Error(`${m}/module.json: "registration" khai báo sai`)
+  }
+  REGISTRATIONS.push({ ...r, module: m, secret: process.env[r.clientSecretEnv] || '' })
+}
+const registrationOfClient = (clientId) => REGISTRATIONS.find((r) => r.client === clientId)
+
 // ---------- Tự đổi mật khẩu (cần token) ----------
 // Mật khẩu hiện tại được kiểm tra bằng chính Keycloak, qua đúng client đã cấp token cho người gọi.
-// Công dân dùng citizen-app (phải có vai trò citizen); cán bộ dùng commune-app.
-const CITIZEN_CLIENT = env('CITIZEN_CLIENT_ID', 'citizen-app')
-const CITIZEN_CLIENT_SECRET = process.env.CITIZEN_CLIENT_SECRET || ''
+// Người của đơn vị dùng commune-app; người dùng bên ngoài dùng client của gói (phải có vai trò gói khai báo).
 async function mePassword(req, res) {
-  const { claims } = await verifiedClaims(req, [CITIZEN_CLIENT, LOGIN_CLIENT])
+  const { claims } = await verifiedClaims(req, [...REGISTRATIONS.map((r) => r.client), LOGIN_CLIENT])
   const roles = claims.realm_access?.roles || []
-  if (claims.azp === CITIZEN_CLIENT && !roles.includes('citizen')) throw new HttpError(403, 'Tài khoản không phải công dân')
-  if (claims.azp === LOGIN_CLIENT && !claims.tenant_id && !roles.includes('sys_admin')) throw new HttpError(403, 'Tài khoản chưa được gán xã')
+  const external = registrationOfClient(claims.azp)
+  if (external && !roles.includes(external.role)) throw new HttpError(403, 'Tài khoản không có vai trò người dùng của gói')
+  if (claims.azp === LOGIN_CLIENT && !claims.tenant_id && !roles.includes('sys_admin')) throw new HttpError(403, 'Tài khoản chưa được gán đơn vị')
   const b = await readJson(req)
   const current = String(b.currentPassword || '')
   const next = String(b.newPassword || '')
@@ -263,7 +284,7 @@ async function mePassword(req, res) {
     headers: { 'content-type': 'application/x-www-form-urlencoded' },
     body: new URLSearchParams({
       grant_type: 'password', client_id: claims.azp, username: claims.preferred_username, password: current,
-      ...(claims.azp === CITIZEN_CLIENT ? { client_secret: CITIZEN_CLIENT_SECRET } : {}),
+      ...(external ? { client_secret: external.secret } : {}),
     }),
   })
   if (!r.ok) throw new HttpError(403, 'Mật khẩu hiện tại không đúng')
@@ -281,17 +302,17 @@ async function mePassword(req, res) {
   return json(res, 200, { changed: true })
 }
 
-// ---------- Quản trị hệ thống: tạo xã kèm tài khoản lãnh đạo, quản lý lãnh đạo xã ----------
-// Tài khoản quản trị duy nhất đặt trong .env (core/identity/setup.mjs). Mỗi xã có ít nhất một lãnh đạo; lãnh đạo
+// ---------- Quản trị hệ thống: tạo đơn vị kèm tài khoản lãnh đạo, quản lý lãnh đạo đơn vị ----------
+// Tài khoản quản trị duy nhất đặt trong .env (core/identity/setup.mjs). Mỗi đơn vị có ít nhất một lãnh đạo; lãnh đạo
 // tự tạo cán bộ xử lý (/accounts/staff). Mật khẩu tạm chỉ trả một lần, phải đổi khi đăng nhập lần đầu.
 async function sysAdmin(req) {
   const { claims, token } = await verifiedClaims(req, [TOKEN_AZP])
-  if (!(claims.realm_access?.roles || []).includes('sys_admin')) throw new HttpError(403, 'Chỉ quản trị hệ thống được quản lý xã')
+  if (!(claims.realm_access?.roles || []).includes('sys_admin')) throw new HttpError(403, 'Chỉ quản trị hệ thống được quản lý đơn vị')
   return { id: claims.sub, name: claims.name || claims.preferred_username, token }
 }
 
 // Gọi hàm của lõi qua PostgREST (mạng nội bộ): bằng token của người gọi, hoặc bằng khóa nội bộ khi không có người
-// đăng nhập (đăng ký công dân). Lỗi nghiệp vụ của lõi giữ nguyên mã HTTP và lời nhắn.
+// đăng nhập (người dùng bên ngoài tự đăng ký). Lỗi nghiệp vụ của lõi giữ nguyên mã HTTP và lời nhắn.
 async function coreRpc(fn, body, { token, workflow } = {}) {
   const r = await fetch(`${REST_URL}/rpc/${fn}`, {
     method: 'POST',
@@ -313,7 +334,7 @@ const USERNAME_RE = /^[a-z0-9][a-z0-9._-]{2,49}$/
 const EMAIL_RE = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
 // "Nguyễn Văn An" → họ "Nguyễn Văn", tên "An" (Keycloak lưu họ, tên riêng).
 // Keycloak (person-name-prohibited-characters) không nhận các ký tự như ( ) < > & ; nên bỏ khỏi họ, tên lưu ở Keycloak;
-// họ tên đầy đủ vẫn lưu nguyên ở hồ sơ công dân.
+// họ tên đầy đủ vẫn lưu nguyên ở hồ sơ người dùng của gói.
 function splitName(fullName) {
   const parts = String(fullName || '').replace(/[<>&"$%!#?§;*~/\\|^=[\]{}()]/g, ' ').trim().split(/\s+/).filter(Boolean)
   if (!parts.length || parts.join(' ').length > 100) throw new HttpError(400, 'Nhập họ và tên (tối đa 100 ký tự)')
@@ -359,9 +380,9 @@ async function leadersOf(code) {
 }
 
 async function tenantLeader(code, userId) {
-  if (!/^[0-9a-f-]{36}$/.test(userId)) throw new HttpError(404, 'Không tìm thấy lãnh đạo xã')
+  if (!/^[0-9a-f-]{36}$/.test(userId)) throw new HttpError(404, 'Không tìm thấy lãnh đạo đơn vị')
   const user = await kcJson('GET', `/users/${userId}`)
-  if (tenantOf(user) !== code || !(await realmRoles(user.id)).includes('leader')) throw new HttpError(404, 'Không tìm thấy lãnh đạo xã')
+  if (tenantOf(user) !== code || !(await realmRoles(user.id)).includes('leader')) throw new HttpError(404, 'Không tìm thấy lãnh đạo đơn vị')
   return user
 }
 
@@ -397,7 +418,7 @@ async function tenantsRoute(req, res, parts) {
       return json(res, 201, { tenant, modules, leader: { id, username: leader.username, temporaryPassword: password } })
     } catch (e) {
       await coreRpc('remove_new_tenant', { p_code: tenant.code }, { token: admin.token })
-        .catch((x) => console.error(`Không hủy được xã ${tenant.code}: ${x.message}`))
+        .catch((x) => console.error(`Không hủy được đơn vị ${tenant.code}: ${x.message}`))
       throw e
     }
   }
@@ -405,10 +426,10 @@ async function tenantsRoute(req, res, parts) {
   if (!/^[a-z0-9]+(-[a-z0-9]+)*$/.test(code) || parts[3] !== 'leaders') throw new HttpError(404, 'Không có đường dẫn này')
   // GET /accounts/tenants/:code/leaders
   if (req.method === 'GET' && parts.length === 4) return json(res, 200, await leadersOf(code))
-  // POST /accounts/tenants/:code/leaders — thêm lãnh đạo cho xã đã có
+  // POST /accounts/tenants/:code/leaders — thêm lãnh đạo cho đơn vị đã có
   if (req.method === 'POST' && parts.length === 4) {
     const r = await fetch(`${REST_URL}/tenants?code=eq.${encodeURIComponent(code)}&select=code`, { headers: { authorization: `Bearer ${admin.token}` } })
-    if (!r.ok || !(await r.json()).length) throw new HttpError(404, 'Không tìm thấy xã')
+    if (!r.ok || !(await r.json()).length) throw new HttpError(404, 'Không tìm thấy đơn vị')
     const leader = leaderInput(await readJson(req))
     const password = temporaryPassword()
     const id = await createAccount({ ...leader, attributes: { tenant_id: [code] }, role: 'leader', password, temporary: true })
@@ -432,6 +453,46 @@ async function tenantsRoute(req, res, parts) {
   throw new HttpError(404, 'Không có đường dẫn này')
 }
 
+// ---------- Người dùng bên ngoài tự đăng ký (công khai: /public/accounts/register, cổng giới hạn số lần gọi) ----------
+// Theo mục "registration" của gói: gói tạo hồ sơ người dùng (hàm rpc, khóa nội bộ), rồi tạo tài khoản Keycloak có vai trò
+// và thuộc tính gói khai báo; tạo tài khoản lỗi thì hủy hồ sơ vừa tạo (undoRpc). Không lưu mật khẩu ở đâu ngoài Keycloak.
+// Nhiều gói cùng cho đăng ký thì phải gửi "module".
+async function registerExternal(req, res) {
+  const ip = String(req.headers['x-forwarded-for'] || req.socket.remoteAddress || '').split(',')[0].trim()
+  if (limited(`reg:${ip}`, 30)) throw new HttpError(429, 'Đăng ký quá nhiều lần, vui lòng thử lại sau 15 phút')
+  const b = await readJson(req)
+  const reg = b.module ? REGISTRATIONS.find((r) => r.module === b.module) : REGISTRATIONS.length === 1 ? REGISTRATIONS[0] : null
+  if (!reg) throw new HttpError(REGISTRATIONS.length ? 400 : 404, REGISTRATIONS.length ? 'Thiếu hoặc sai gói đăng ký (module)' : 'Không có gói nào cho tự đăng ký')
+  if (b.consent !== true) throw new HttpError(400, 'Cần đồng ý cho phép xử lý dữ liệu cá nhân (Nghị định 13/2023/NĐ-CP) để đăng ký')
+  const username = String(b.username || '').trim().toLowerCase()
+  const email = String(b.email || '').trim().toLowerCase()
+  const phone = String(b.phone || '').replace(/[\s.-]/g, '')
+  const tenantCode = String(b.tenantCode || '').trim()
+  const password = String(b.password || '')
+  const fullName = String(b.fullName || '').trim().replace(/\s+/g, ' ')
+  if (!USERNAME_RE.test(username)) throw new HttpError(400, 'Tên đăng nhập 3–50 ký tự: chữ thường không dấu, số, dấu chấm, gạch')
+  if (!email && !phone) throw new HttpError(400, 'Nhập email hoặc số điện thoại')
+  if (email && !EMAIL_RE.test(email)) throw new HttpError(400, 'Email không hợp lệ')
+  if (phone && !/^(\+84|0)[0-9]{9,10}$/.test(phone)) throw new HttpError(400, 'Số điện thoại không hợp lệ')
+  checkPassword(password)
+  if (password.toLowerCase().includes(username)) throw new HttpError(400, 'Mật khẩu không được chứa tên đăng nhập')
+  const name = splitName(fullName)
+  const existing = await kcJson('GET', `/users?username=${encodeURIComponent(username)}&exact=true`)
+  if (existing.length) throw new HttpError(409, 'Tên đăng nhập đã được dùng')
+  const created = await coreRpc(reg.rpc, { p_tenant_code: tenantCode, p_login_name: username,
+    p_display_name: fullName, p_email: email || null, p_phone: phone || null }, { workflow: true })
+  try {
+    const attributes = Object.fromEntries(Object.entries(reg.attributes || {}).map(([attr, field]) => [attr, [String(created[field] ?? '')]]))
+    await createAccount({ username, ...name, email, role: reg.role, password, temporary: false, attributes })
+  } catch (e) {
+    await coreRpc(reg.undoRpc, { [reg.undoArg]: created[reg.idField] }, { workflow: true }).catch(() => {})
+    throw e
+  }
+  console.log(`Người dùng tự đăng ký (gói ${reg.module}): đơn vị ${created.tenant_code}`)
+  return json(res, 201, { username, tenantCode: created.tenant_code,
+    notice: reg.notice || 'Đã tạo tài khoản. Bạn có thể đăng nhập bằng tên đăng nhập và mật khẩu vừa đặt.' })
+}
+
 // ---------- HTTP ----------
 async function readJson(req) {
   let raw = ''
@@ -446,10 +507,6 @@ const json = (res, status, body) => {
   res.end(JSON.stringify(body))
 }
 
-const moduleHandlers = await loadServiceHandlers('accounts', {
-  limited, HttpError, readJson, USERNAME_RE, EMAIL_RE, checkPassword, splitName, kcJson, coreRpc, createAccount, json,
-})
-
 async function handle(req, res) {
   const url = new URL(req.url, 'http://accounts')
   const parts = url.pathname.split('/').filter(Boolean)
@@ -462,11 +519,9 @@ async function handle(req, res) {
   }
   if (req.method === 'POST' && url.pathname === '/accounts/first-password') return firstPassword(req, res)
   if (req.method === 'POST' && url.pathname === '/accounts/me/password') return mePassword(req, res)
+  if (req.method === 'POST' && url.pathname === '/accounts/register') return registerExternal(req, res)
   if (parts[0] === 'accounts' && parts[1] === 'tenants') return tenantsRoute(req, res, parts)
-  if (parts[0] !== 'accounts' || parts[1] !== 'staff') {
-    if (await dispatchHandlers(moduleHandlers, { req, res, url, parts })) return
-    throw new HttpError(404, 'Không có đường dẫn này')
-  }
+  if (parts[0] !== 'accounts' || parts[1] !== 'staff') throw new HttpError(404, 'Không có đường dẫn này')
   const me = await caller(req)
 
   // GET /accounts/staff

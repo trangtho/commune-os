@@ -15,8 +15,8 @@ make restore BACKUP=backups/20261122-215327    # GHI ĐÈ dữ liệu hiện t�
 | Tệp | Nội dung |
 | --- | --- |
 | `communeos.dump`, `keycloak.dump`, `flowable.dump` | Ba cơ sở dữ liệu, `pg_dump` dạng custom: nhất quán khi hệ thống đang chạy |
-| `storage-data.tgz` | Kho đối tượng SeaweedFS (giấy tờ hồ sơ). Kho dừng vài giây trong lúc sao lưu |
-| `citizen-uploads.tgz` | Tệp cũ của Kênh người dân từ trước khi có kho đối tượng |
+| `storage-data.tgz` | Kho đối tượng SeaweedFS (tệp của mọi gói). Kho dừng vài giây trong lúc sao lưu |
+| `<dịch vụ>-app-storage.tgz` | Thư mục tệp riêng của ứng dụng (volume gắn vào `/app/storage`, quy ước chung; ví dụ tệp cũ của Kênh người dân từ trước khi có kho đối tượng). Bản sao lưu cũ có tên `citizen-uploads.tgz` vẫn khôi phục được |
 | `MANIFEST.txt`, `SHA256SUMS` | Thời điểm, commit mã nguồn, ảnh `db`; mã băm SHA-256 của từng tệp |
 
 Không gồm mô hình AI (`make up` tải lại) và tệp `.env` (giữ riêng; mật khẩu vai trò cơ sở dữ liệu được

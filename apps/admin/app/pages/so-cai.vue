@@ -5,9 +5,9 @@ SPDX-License-Identifier: Apache-2.0
 <script setup lang="ts">
 import { ShieldAlert, ShieldCheck } from "lucide-vue-next";
 
-// Sổ ghi nhận: mỗi thao tác trên hồ sơ là 1 dòng, nối với dòng trước bằng mã băm.
+// Sổ ghi nhận của lõi: mỗi thao tác (trên hồ sơ, đơn, tệp đính kèm... của mọi gói) là 1 dòng, nối với dòng trước bằng mã băm.
 // Trang này gọi API lõi:
-//   POST /rest/rpc/verify_ledger   kiểm tra chuỗi của từng xã
+//   POST /rest/rpc/verify_ledger   kiểm tra chuỗi của từng đơn vị
 //   GET  /rest/ledger              các dòng mới nhất
 interface VerifyRow {
   tenant_code: string;
@@ -27,7 +27,7 @@ interface LedgerRow {
 }
 
 const ACTIONS: Record<string, string> = {
-  submitted: "Nộp hồ sơ",
+  submitted: "Nộp",
   assigned: "Phân công cán bộ",
   document_upload: "Tải lên giấy tờ",
   document_delete: "Xóa giấy tờ",
@@ -37,10 +37,13 @@ const ACTIONS: Record<string, string> = {
   completed: "Hoàn thành",
   rejected: "Từ chối",
   withdrawn: "Rút hồ sơ",
+  attachment: "Đính kèm tệp",
+  dept_approved: "Trưởng phòng duyệt",
+  approved: "Đồng ý",
 };
 
 const { api } = useApi();
-// Hiện tên xã thay cho mã (mã vẫn ghi kèm để đối chiếu).
+// Hiện tên đơn vị thay cho mã (mã vẫn ghi kèm để đối chiếu).
 const { tenants, load: loadTenants } = useTenants();
 const tenantName = (code: string) => tenants.value.find((t) => t.code === code)?.name ?? code;
 const results = ref<VerifyRow[]>([]);
@@ -76,11 +79,11 @@ onMounted(() => {
   <section>
     <div class="flex flex-wrap items-start justify-between gap-4">
       <div>
-        <h1 class="text-2xl font-bold">Kiểm tra hồ sơ đã ký</h1>
+        <h1 class="text-2xl font-bold">Sổ ghi nhận</h1>
         <p class="mt-2 max-w-2xl text-slate-600">
-          Mỗi thao tác trên hồ sơ được ghi thành một dòng và nối với dòng trước
-          bằng mã kiểm tra. Nếu ai đó sửa hoặc xóa một dòng, chuỗi sẽ gãy và
-          trang này báo ngay.
+          Mỗi thao tác (trên hồ sơ, đơn, tệp đính kèm... của mọi gói nghiệp vụ) được ghi thành một dòng và nối với
+          dòng trước của cùng đơn vị bằng mã kiểm tra. Nếu ai đó sửa hoặc xóa một dòng, chuỗi sẽ gãy và trang này
+          báo ngay.
         </p>
       </div>
       <button
@@ -138,8 +141,8 @@ onMounted(() => {
         <thead class="border-b border-slate-200 bg-slate-50 text-slate-600">
           <tr>
             <th scope="col" class="px-4 py-3 font-semibold">Số dòng</th>
-            <th scope="col" class="px-4 py-3 font-semibold">Xã</th>
-            <th scope="col" class="px-4 py-3 font-semibold">Mã hồ sơ</th>
+            <th scope="col" class="px-4 py-3 font-semibold">Đơn vị</th>
+            <th scope="col" class="px-4 py-3 font-semibold">Mã đối tượng</th>
             <th scope="col" class="px-4 py-3 font-semibold">Thao tác</th>
             <th scope="col" class="px-4 py-3 font-semibold">Người thực hiện</th>
             <th scope="col" class="px-4 py-3 font-semibold">Thời điểm</th>
@@ -173,8 +176,7 @@ onMounted(() => {
       </table>
     </div>
     <p class="mt-3 text-sm text-slate-500">
-      Sổ chỉ lưu mã hồ sơ, thao tác và người thực hiện; không lưu nội dung hồ
-      sơ.
+      Sổ chỉ lưu mã đối tượng, thao tác, người thực hiện và mã băm của ghi chú; không lưu nội dung.
     </p>
   </section>
 </template>

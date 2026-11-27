@@ -71,7 +71,7 @@ Ví dụ chưa có ứng dụng riêng; dùng các giao diện sẵn có của l
 2. **Bảng quản trị** http://localhost:3001 (tài khoản quản trị trong `.env`):
    - Đơn vị: có "Công ty A" (`cong-ty-a`) với gói `doanh-nghiep`, cạnh các xã dùng gói `xa`; mở chi tiết để tắt,
      bật gói;
-   - Kiểm tra hồ sơ đã ký (sổ ghi nhận): kiểm tra chuỗi, Công ty A nguyên vẹn; các dòng có mã đơn `NP-...` với bước `submitted`, `dept_approved`, `approved`.
+   - Sổ ghi nhận: kiểm tra chuỗi, Công ty A nguyên vẹn; các dòng có mã đơn `NP-...` với bước `submitted`, `dept_approved`, `approved`.
 3. **Màn hình cán bộ xã** http://localhost:3002: đăng nhập `giamdoc.cong-ty-a` bị từ chối ("Đơn vị của bạn không dùng
    gói nghiệp vụ xã"), vì màn hình này là ứng dụng của gói xã.
 

@@ -6,7 +6,7 @@
 // duy nhất tới mô hình. Không gọi bất kỳ API AI bên ngoài nào.
 //
 // Qua cổng APISIX:
-//   POST /ai/ask            (cần token Keycloak)  { question, procedureId?, select? }
+//   POST /ai/ask            (cần token Keycloak)  { question, procedureId?, select? }   procedureId: đối tượng ưu tiên
 //   POST /public/ai/ask     (khách, không token, giới hạn chặt hơn)
 //   GET  /public/ai/ready   (khách) đã có đủ mô hình chưa, không lộ chi tiết
 //   GET  /ai/status         (chỉ sys_admin) mô hình, chỉ mục vector, thời gian phản hồi
@@ -26,8 +26,8 @@
 
 import { createServer } from 'node:http'
 import { createHash, createPublicKey, verify } from 'node:crypto'
-import { loadManifests } from '../module-loader.mjs'
-import { buildPrincipalRules, principal, resourceId } from './principals.mjs'
+import { existsSync, readFileSync } from 'node:fs'
+import { join } from 'node:path'
 
 const env = (name, fallback) => {
   const v = process.env[name] ?? fallback
@@ -55,16 +55,24 @@ class HttpError extends Error {
 // Mỗi nguồn là 4 hàm api.* cùng chữ ký: search (tìm kiếm lai), pending/store (tạo vector), status (tình trạng chỉ mục).
 const FN_RE = /^[a-z_][a-z0-9_]{0,62}$/
 const PROVIDERS = [{ name: 'lõi', search: 'core_knowledge_search', pending: 'core_knowledge_pending', store: 'core_knowledge_store', status: 'core_knowledge_status' }]
-const entries = loadManifests()
-const principalRules = buildPrincipalRules(entries)
-for (const {manifest} of entries) {
-  const m = manifest.name
-  const p = manifest.knowledgeProvider
+for (const m of (process.env.COMMUNEOS_MODULES || 'xa').split(/[\s,]+/).filter(Boolean)) {
+  const file = join(process.env.MODULES_DIR || '/modules', m, 'module.json')
+  if (!existsSync(file)) { console.warn(`[ai] Không đọc được ${file}; bỏ qua nguồn tri thức của gói ${m}`); continue }
+  const p = JSON.parse(readFileSync(file, 'utf8')).knowledgeProvider
   if (!p) continue
   if (!['search', 'pending', 'store', 'status'].every((k) => FN_RE.test(p[k] || ''))) throw new Error(`${m}/module.json: "knowledgeProvider" khai báo sai`)
   PROVIDERS.push({ name: m, search: p.search, pending: p.pending, store: p.store, status: p.status })
 }
 console.log(`[ai] Nguồn tri thức: ${PROVIDERS.map((p) => p.name).join(', ')}`)
+
+// Người dùng bên ngoài của các gói (mục "registration": client, vai trò, claim mã người dùng và claim đơn vị trong token).
+const EXTERNAL = []
+for (const m of (process.env.COMMUNEOS_MODULES || 'xa').split(/[\s,]+/).filter(Boolean)) {
+  const file = join(process.env.MODULES_DIR || '/modules', m, 'module.json')
+  if (!existsSync(file)) continue
+  const r = JSON.parse(readFileSync(file, 'utf8')).registration
+  if (r?.client && r.role && r.idClaim && r.tenantClaim) EXTERNAL.push(r)
+}
 
 // ---------- Token người gọi (lớp thứ hai, sau APISIX) ----------
 let jwks = { at: 0, keys: [] }
@@ -90,9 +98,12 @@ async function caller(req) {
   if (header.alg !== 'RS256') throw new HttpError(401, 'Token không hợp lệ')
   const ok = verify('RSA-SHA256', Buffer.from(`${h}.${p}`), await publicKey(header.kid), Buffer.from(s || '', 'base64url'))
   if (!ok || !claims.exp || claims.exp * 1000 < Date.now()) throw new HttpError(401, 'Token không hợp lệ hoặc đã hết hạn')
-  const me = principal(claims, principalRules)
-  if (!me) throw new HttpError(403, 'Tài khoản không được dùng trợ lý AI')
-  return me
+  const roles = claims.realm_access?.roles || []
+  const external = EXTERNAL.find((r) => claims.azp === r.client && roles.includes(r.role) && claims[r.idClaim])
+  const staff = claims.azp === 'commune-app' && (claims.tenant_id || roles.includes('sys_admin'))
+  if (!external && !staff) throw new HttpError(403, 'Tài khoản không được dùng trợ lý AI')
+  // Phạm vi tri thức lấy từ token đã ký: đơn vị của người hỏi; người của đơn vị thấy thêm tài liệu nội bộ.
+  return { sub: claims.sub, roles, kind: external ? 'external' : 'staff', tenant: external ? (claims[external.tenantClaim] || '') : (claims.tenant_id || '') }
 }
 
 // ---------- Giới hạn số lần gọi (theo người dùng hoặc địa chỉ IP) ----------
@@ -126,8 +137,8 @@ export function personalLookup(text) {
     || /\b(của|cua)\s+(công dân|cong dan|người dân|nguoi dan|người khác|nguoi khac|ông|ong|bà|ba|anh|chị|chi|cán bộ|can bo)\b/.test(t)
     || /(danh sách|thông tin|số điện thoại|địa chỉ|căn cước|ngày sinh)\s+(các\s+)?(công dân|người dân|người nộp)/.test(t)
 }
-const REFUSAL = 'Trợ lý chỉ trả lời về thủ tục và hướng dẫn chung, không tra cứu thông tin cá nhân hay hồ sơ cụ thể. '
-  + 'Hồ sơ của bạn xem ở mục Hồ sơ của tôi; cán bộ xem hồ sơ trên màn hình nghiệp vụ theo phân quyền của xã.'
+const REFUSAL = 'Trợ lý chỉ trả lời theo tài liệu, thủ tục và hướng dẫn chung, không tra cứu thông tin cá nhân hay hồ sơ cụ thể. '
+  + 'Dữ liệu của bạn xem trên ứng dụng; người của đơn vị xem dữ liệu nghiệp vụ trên màn hình nghiệp vụ theo phân quyền.'
 
 // ---------- Ollama và PostgREST ----------
 async function ollama(path, body, timeout) {
@@ -223,11 +234,11 @@ const recordError = (where, e) => {
   console.error(`[ai] ${where}: ${stats.lastError.message}`)
 }
 
-// who: 'guest' | 'citizen' | 'staff'; tenant: mã xã từ token ('' với khách và quản trị hệ thống).
+// who: 'guest' | 'external' | 'staff'; tenant: mã đơn vị từ token ('' với khách và quản trị hệ thống).
 async function ask(body, who, tenant = '') {
   const question = typeof body.question === 'string' ? body.question.trim() : ''
   if (question.length < 2 || question.length > 500) throw new HttpError(400, 'Câu hỏi phải từ 2 đến 500 ký tự')
-  const resource = resourceId(body)
+  const procedureId = typeof body.procedureId === 'string' && /^[a-z0-9-]{2,80}$/.test(body.procedureId) ? body.procedureId : ''
   const started = Date.now()
   const timings = {}
   const { text, masked } = maskPersonalData(question)
@@ -247,10 +258,10 @@ async function ask(body, who, tenant = '') {
 
   const t1 = Date.now()
   const args = {
-    p_query: text, p_embedding: vector ? `[${vector.join(',')}]` : null, p_procedure_id: resource, p_limit: 8,
+    p_query: text, p_embedding: vector ? `[${vector.join(',')}]` : null, p_procedure_id: procedureId, p_limit: 8,
     p_min_similarity: MIN_SIMILARITY,
     // Công dân, khách không bao giờ thấy tài liệu nội bộ; người đăng nhập chỉ thấy tri thức của gói đơn vị mình bật.
-    p_audience: who === 'staff' ? 'staff' : 'citizen', p_tenant_code: tenant || '',
+    p_audience: who === 'staff' ? 'staff' : 'public', p_tenant_code: tenant || '',
   }
   // Tìm song song trên mọi nguồn (điểm cùng thang: tổng nghịch đảo thứ hạng), gộp lấy 8 đoạn tốt nhất.
   // Một nguồn lỗi thì vẫn trả kết quả của các nguồn còn lại.

@@ -11,21 +11,32 @@ Mọi thay đổi đáng chú ý của dự án được ghi tại đây.
 
 ## [Chưa phát hành]
 
-### Thêm (mở rộng nền tảng đa nghiệp vụ)
+### Thay đổi (lõi không còn mã, cấu hình nào của gói xã, 2026-11-30)
 
-- Gateway sinh danh sách RPC và route tài khoản công khai từ manifest, giữ chính sách rate limit và upstream trong lõi.
-- Tách client, role và thuộc tính định danh công dân vào module xã; setup bổ sung cấu hình, không tự xóa tài khoản cũ.
-- AI nạp quy tắc principal từ module, hỗ trợ resourceId tương thích với procedureId.
-- Portal doanh nghiệp tùy chọn, SDK scaffold/validate, kiểm thử kiến trúc mở rộng và báo cáo đo API.
-- Module IT/OT mô phỏng tùy chọn, tổng hợp nhiệt độ theo ngày, xuất JSONL có checksum.
-- Tùy chọn CLAMAV_REQUIRED từ chối khởi động khi thiếu máy quét; bổ sung hướng dẫn nghiệm thu và phát hành.
+- Dịch vụ tệp: đường dẫn giấy tờ hồ sơ, giấy tờ cán bộ, giấy tờ trong mã chuyển hồ sơ chuyển thành khai báo `files`
+  trong `modules/xa/module.json` (đường dẫn, tham số, hàm ghi, hàm đọc); mã dịch vụ chỉ còn bộ thực thi chung.
+  Đường dẫn và hành vi giữ nguyên.
+- Hàm công khai cho khách: gói khai báo `publicRpc`; lõi ghi `core_public_rpc` và `rest_pre_request` chặn khách gọi hàm
+  khác ngay ở cơ sở dữ liệu (404). Cổng API dùng một luật chung `/public/rpc/*` thay cho danh sách tên hàm của gói xã.
+- Người dùng bên ngoài tự đăng ký, tự đổi mật khẩu, hỏi trợ lý AI theo khai báo `registration` của gói (client, vai trò,
+  hàm tạo/hủy hồ sơ, thuộc tính, claim); dịch vụ tài khoản và `ai-gateway` không còn viết sẵn "công dân".
+- Realm Keycloak của lõi bỏ client `citizen-app`, vai trò `citizen`, thuộc tính công dân; chúng chuyển sang
+  `modules/xa/identity/realm.json` (khai báo `identity`), `identity-setup` nạp khi gói được bật.
+- Tài liệu API: đặc tả lõi chỉ còn đường dẫn của lõi; đường dẫn riêng của gói xã sang `modules/xa/api-docs.yaml`, trang
+  `/docs/` tự hiện đặc tả của các gói đang bật.
+- Kiểm thử của gói xã (`tenant-isolation.sh`, `portal-smoke.mjs`) chuyển sang `modules/xa/tests/`.
+- Bảng quản trị: menu, trang tổng quan theo gói đã cài (danh mục thủ tục chỉ hiện khi có gói xã); "Kiểm tra hồ sơ đã ký"
+  thành "Sổ ghi nhận" (ghi cả đơn, tệp đính kèm của mọi gói); kiểm tra sức khỏe bằng hàm công khai của lõi.
+- Sao lưu, khôi phục: không liệt kê tên dịch vụ; thư mục tệp riêng của ứng dụng theo quy ước volume `/app/storage`
+  (bản sao lưu cũ `citizen-uploads.tgz` vẫn khôi phục được).
+- Thông báo của dịch vụ tài khoản, trợ lý AI gọi "đơn vị" thay cho "xã".
+- `make test-architecture` thêm bài: mã các dịch vụ lõi, cấu hình cổng, realm, đặc tả API của lõi không nhắc tới gói xã.
+- CI job "Chỉ lõi" dựng thêm bảng quản trị và kiểm tra: bảng quản trị chạy được, hàm công khai của gói xã trả 404, trang
+  tài liệu không có đặc tả gói nào.
 
+### Sửa lỗi (2026-11-30)
 
-### Thay đổi (hoàn thiện ranh giới lõi và gói nghiệp vụ)
-
-- Cho phép khởi động lõi với danh sách module rỗng; thêm `make platform-up` và CI riêng cho lõi trống.
-- Tách handler đăng ký công dân và giấy tờ đặc thù sang `modules/xa/handlers`, nạp từ manifest, giữ nguyên API.
-- Healthcheck quản trị dùng registry nền tảng thay cho danh mục thủ tục; chỉ chạy request hook của module đang cài.
+- Đặc tả API còn hướng dẫn lấy token bằng mật khẩu `12345`.
 
 ### Thêm (vai trò theo gói nghiệp vụ, 2026-11-29)
 
@@ -35,8 +46,6 @@ Mọi thay đổi đáng chú ý của dự án được ghi tại đây.
   gói đơn vị đã bật, không đụng vai trò của lõi; ghi nhật ký `set_roles`. Danh sách cán bộ trả thêm `moduleRoles`.
 - Gói doanh nghiệp: vai trò `doanh-nghiep:truong-phong`; duyệt đơn nghỉ phép hai bước (trưởng phòng rồi giám đốc) theo
   sơ đồ BPMN, trưởng phòng xem được đơn của đơn vị; kiểm thử thêm 2 mục.
-- Hợp nhất khai báo vai trò với bộ nạp manifest của Identity; giữ chế độ lõi không gói, kiểm tra vai trò qua SDK.
-- Portal doanh nghiệp minh họa lấy hành động từ Workflow API, hỗ trợ quy trình duyệt hai cấp.
 
 ### Thêm (trợ lý AI dùng chung cho mọi gói, 2026-11-29)
 

@@ -30,9 +30,13 @@ Dịch vụ định danh của lõi, dùng Keycloak. Realm xuất ra JSON để 
 Keycloak chỉ nạp tệp realm khi realm chưa tồn tại. Dịch vụ `identity-setup` (`setup.mjs`, chạy một lần
 mỗi khi `make up`) đọc tệp realm và bổ sung những mục còn thiếu qua Admin API, không ghi đè mục đã có:
 thuộc tính user profile, chính sách mật khẩu, các vai trò và client liệt kê trong biến `IMPORT` của `setup.mjs`,
+cấu hình Keycloak riêng của các gói đang bật (mục `identity` trong `module.json`, ví dụ `modules/xa/identity/realm.json`:
+vai trò, client, thuộc tính user profile, client bí mật kèm tên biến chứa secret),
 và tài khoản quản trị hệ thống từ `.env`.
 Client trong biến `CONFIDENTIAL` luôn được đặt là client bí mật với secret lấy từ biến môi trường.
-Khi thêm vai trò hoặc client vào tệp realm, thêm tên vào `IMPORT`.
+Khi thêm vai trò hoặc client vào tệp realm của lõi, thêm tên vào `IMPORT`. Realm của lõi không có mục nào của gói
+nghiệp vụ: client `citizen-app`, vai trò `citizen`, thuộc tính `citizen_id`, `citizen_tenant` của Kênh người dân nằm ở
+`modules/xa/identity/realm.json`.
 
 Vai trò của các gói đang bật (mục `roles` trong `modules/<gói>/module.json`) cũng do `identity-setup` tạo, tên
 `<gói>:<vai trò>` (ví dụ `doanh-nghiep:truong-phong`); chỉ thêm và cập nhật mô tả, không xóa vai trò đã có. Lãnh đạo

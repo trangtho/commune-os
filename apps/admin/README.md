@@ -15,7 +15,7 @@ Không dành cho cán bộ xã hay người dân.
 - Danh sách xã: tìm kiếm, xem số hồ sơ và số thủ tục đang mở, thêm xã, khóa / mở khóa xã.
 - Chi tiết xã: tổng quan, sổ ghi nhận, mở / tắt thủ tục theo lĩnh vực hoặc hàng loạt.
 - Danh mục thủ tục: xem, nạp gói thủ tục từ `pack.yaml`, chọn xã được mở.
-- Kiểm tra hồ sơ đã ký (`/so-cai`): xem sổ ghi nhận và kiểm tra chuỗi băm.
+- Sổ ghi nhận (`/so-cai`): xem sổ ghi nhận của mọi đơn vị, mọi gói và kiểm tra chuỗi băm.
 - Tình trạng hệ thống (`/tinh-trang`): kiểm tra từng dịch vụ lõi qua cổng (định danh, cổng API và dữ liệu, quy trình,
   lưu trữ tệp, tài khoản cán bộ, AI, sổ ghi nhận), kèm thời gian phản hồi; tự kiểm tra lại mỗi 30 giây. Chỉ đọc.
 

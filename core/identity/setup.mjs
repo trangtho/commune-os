@@ -4,22 +4,24 @@
 // Bổ sung cấu hình còn thiếu vào realm communeos đã có sẵn (chạy một lần rồi dừng).
 // Keycloak chỉ nạp tệp realm khi realm chưa tồn tại; máy đã cài từ bản trước sẽ thiếu các mục mới.
 // Tệp này đọc realm/communeos-realm.json và thêm những mục chưa có, KHÔNG ghi đè mục đã có:
-//   * vai trò, client từ cấu hình Identity của các module (qua partialImport, ifResourceExists=SKIP)
+//   * vai trò, client liệt kê trong IMPORT (qua partialImport, ifResourceExists=SKIP)
 //   * chính sách mật khẩu của realm (tối thiểu 8 ký tự, có chữ và số)
 //   * tài khoản quản trị hệ thống duy nhất, từ COMMUNEOS_ADMIN_USERNAME, COMMUNEOS_ADMIN_PASSWORD trong .env
 //     (chưa có thì tạo; đã có thì đặt lại mật khẩu theo .env và bảo đảm vai trò sys_admin: đổi mật khẩu quản trị
 //     bằng cách sửa .env rồi make up)
-// Tệp realm không có tài khoản người dùng nào; xã, lãnh đạo, cán bộ, công dân tạo qua API của lõi (make demo tạo mẫu).
+// Tệp realm không có tài khoản người dùng nào; đơn vị, lãnh đạo, cán bộ, người dùng của gói tạo qua API của lõi (make demo tạo mẫu).
 //   * thuộc tính khai báo trong user profile (chỉ thêm thuộc tính chưa có)
-//   * client bí mật khai báo trong cấu hình Identity: có tài khoản dịch vụ và secret lấy từ biến môi trường
+//   * client liệt kê trong CONFIDENTIAL: luôn là client bí mật (có tài khoản dịch vụ) với secret lấy từ biến môi trường
+//   * cấu hình Keycloak riêng của các gói đang bật (mục "identity" trong module.json, ví dụ modules/xa/identity/realm.json:
+//     vai trò, client, thuộc tính user profile, client bí mật), bổ sung giống mục của realm lõi
 //   * vai trò của các gói đang bật (mục "roles" trong modules/<gói>/module.json), tên "<gói>:<vai trò>"; chỉ thêm,
 //     cập nhật mô tả, không xóa (vai trò của gói đã gỡ vẫn giữ để không mất phân quyền đã gán)
 // Biến ${TÊN} trong tệp realm được thay bằng biến môi trường cùng tên (giống Keycloak khi nạp realm).
 // Không thư viện ngoài (chỉ Node 22).
 
 import { readFile } from 'node:fs/promises'
-import { loadManifests } from '../module-loader.mjs'
-import { identityConfig } from './module-config.mjs'
+import { existsSync } from 'node:fs'
+import { join } from 'node:path'
 
 const KEYCLOAK_URL = (process.env.KEYCLOAK_URL || 'http://identity:8080').replace(/\/$/, '')
 const REALM = 'communeos'
@@ -27,8 +29,22 @@ const ADMIN_USER = process.env.KEYCLOAK_ADMIN
 const ADMIN_PASSWORD = process.env.KEYCLOAK_ADMIN_PASSWORD
 const REALM_FILE = process.env.REALM_FILE || '/app/realm/communeos-realm.json'
 
+// Những mục của realm lõi được bổ sung khi thiếu. Thêm mục mới vào đây khi sửa tệp realm.
+const IMPORT = {
+  realmRoles: [],
+  clients: [],
+}
 const SYS_ADMIN_USERNAME = String(process.env.COMMUNEOS_ADMIN_USERNAME || '').trim().toLowerCase()
 const SYS_ADMIN_PASSWORD = String(process.env.COMMUNEOS_ADMIN_PASSWORD || '')
+// Client bí mật và biến môi trường chứa secret.
+const CONFIDENTIAL = {
+  'accounts-service': 'KEYCLOAK_ACCOUNTS_SECRET',
+}
+const MODULES = String(process.env.COMMUNEOS_MODULES || 'xa').split(/[\s,]+/).filter(Boolean)
+const MODULES_DIR = process.env.MODULES_DIR || '/modules'
+// Biến ${TÊN} trong tệp realm được thay bằng biến môi trường cùng tên.
+const substitute = (raw) => raw.replace(/\$\{([A-Z0-9_]+)\}/g, (all, name) => (process.env[name] ? JSON.stringify(process.env[name]).slice(1, -1) : all))
+
 if (!ADMIN_USER || !ADMIN_PASSWORD) {
   console.error('Thiếu KEYCLOAK_ADMIN hoặc KEYCLOAK_ADMIN_PASSWORD')
   process.exit(1)
@@ -64,14 +80,18 @@ async function waitToken() {
 
 async function main() {
   const raw = await readFile(REALM_FILE, 'utf8')
-  const realm = JSON.parse(raw.replace(/\$\{([A-Z0-9_]+)\}/g, (all, name) => (process.env[name] ? JSON.stringify(process.env[name]).slice(1, -1) : all)))
-  const config = identityConfig(realm, loadManifests())
-  // Replace only confidential-client secrets, not arbitrary placeholders in module data.
-  for (const [id, variable] of Object.entries(config.confidential)) {
-    if (!process.env[variable]) throw new Error(`Thiếu ${variable}`)
-    const client = config.clients.find(c => c.clientId === id)
-    if (client) client.secret = process.env[variable]
+  const realm = JSON.parse(substitute(raw))
+  // Cấu hình Keycloak riêng của các gói đang bật.
+  const fragments = []
+  for (const m of MODULES) {
+    const file = join(MODULES_DIR, m, 'module.json')
+    if (!existsSync(file)) continue
+    const rel = JSON.parse(await readFile(file, 'utf8')).identity
+    if (!rel) continue
+    if (/^\/|\.\./.test(rel)) throw new Error(`${m}/module.json: "identity" không hợp lệ`)
+    fragments.push({ module: m, ...JSON.parse(substitute(await readFile(join(MODULES_DIR, m, rel), 'utf8'))) })
   }
+  for (const f of fragments) Object.assign(CONFIDENTIAL, f.confidentialClients || {})
   const token = await waitToken()
   const api = async (method, path, body) => {
     const r = await fetch(`${KEYCLOAK_URL}/admin/realms/${REALM}${path}`, {
@@ -85,10 +105,13 @@ async function main() {
   }
 
   // 1. Thuộc tính trong user profile: thêm thuộc tính có trong tệp mà realm đang thiếu.
-  const fileProfile = { attributes: config.attributes }
+  const fileProfile = JSON.parse(
+    realm.components['org.keycloak.userprofile.UserProfileProvider'][0].config['kc.user.profile.config'][0],
+  )
   const profile = await api('GET', '/users/profile')
   const have = new Set(profile.attributes.map((a) => a.name))
-  const missing = fileProfile.attributes.filter((a) => !have.has(a.name))
+  const wanted = [...fileProfile.attributes, ...fragments.flatMap((f) => f.userProfileAttributes || [])]
+  const missing = wanted.filter((a) => !have.has(a.name))
   if (missing.length) {
     profile.attributes.push(...missing)
     await api('PUT', '/users/profile', profile)
@@ -96,22 +119,23 @@ async function main() {
   console.log(`User profile: thêm ${missing.length} thuộc tính${missing.length ? ` (${missing.map((a) => a.name).join(', ')})` : ''}`)
 
   // 2. Vai trò, client, người dùng: partialImport bỏ qua mục đã tồn tại.
+  const pick = (list, key, names) => (list || []).filter((x) => names.includes(x[key]))
   const result = await api('POST', '/partialImport', {
     ifResourceExists: 'SKIP',
-    roles: { realm: config.roles.filter(x => !realm.roles.realm.some(b => b.name === x.name)) },
-    clients: config.clients.filter(x => !realm.clients.some(b => b.clientId === x.clientId)),
+    roles: { realm: [...pick(realm.roles.realm, 'name', IMPORT.realmRoles), ...fragments.flatMap((f) => f.roles?.realm || [])] },
+    clients: [...pick(realm.clients, 'clientId', IMPORT.clients), ...fragments.flatMap((f) => f.clients || [])],
   })
   console.log(`partialImport: thêm ${result.added}, bỏ qua ${result.skipped} (đã có)`)
 
   // 3. Client bí mật: realm cài từ bản trước có thể còn là client công khai hoặc secret cũ.
-  for (const [clientId, variable] of Object.entries(config.confidential)) {
+  for (const [clientId, variable] of Object.entries(CONFIDENTIAL)) {
     const secret = process.env[variable]
     if (!secret) throw new Error(`Thiếu ${variable}`)
     const [client] = await api('GET', `/clients?clientId=${encodeURIComponent(clientId)}`)
-    if (!client) throw new Error(`Thiếu client ${clientId}`)
+    if (!client) continue
     const current = client.publicClient ? null : (await api('GET', `/clients/${client.id}/client-secret`))?.value
-    // Tài khoản dịch vụ: máy chủ Kênh người dân gọi lõi thay mặt chính nó (liên kết đăng nhập OIDC bên ngoài),
-    // không cần khóa dùng chung riêng (core/db/init/34-citizen-direct-access.sql, public.is_citizen_service()).
+    // Tài khoản dịch vụ: máy chủ ứng dụng giữ client bí mật gọi lõi thay mặt chính nó (gói xã dùng để liên kết đăng nhập
+    // OIDC bên ngoài), không cần khóa dùng chung riêng.
     if (client.publicClient || current !== secret || !client.serviceAccountsEnabled) {
       await api('PUT', `/clients/${client.id}`, { ...client, publicClient: false, clientAuthenticatorType: 'client-secret', secret,
         serviceAccountsEnabled: true })
@@ -148,18 +172,22 @@ async function main() {
   }
   // 6. Vai trò của các gói đang bật: gói khai báo, lõi tạo trong Keycloak; lãnh đạo đơn vị gán cho nhân viên qua
   //    dịch vụ tài khoản (PUT /accounts/staff/:id/roles), chỉ vai trò của gói đơn vị đã bật.
-  if (config.moduleRoles.length) {
-    await api('POST', '/partialImport', {
-      ifResourceExists: 'SKIP', roles: { realm: config.moduleRoles },
-    })
-    for (const { name, description } of config.moduleRoles) {
-      const path = `/roles/${encodeURIComponent(name)}`
-      const found = await api('GET', path)
-      if (found.description !== description) {
-        await api('PUT', path, { ...found, description })
+  const existing = new Map((await api('GET', '/roles?briefRepresentation=false&max=1000')).map((r) => [r.name, r]))
+  for (const m of String(process.env.COMMUNEOS_MODULES || 'xa').split(/[\s,]+/).filter(Boolean)) {
+    const file = join(process.env.MODULES_DIR || '/modules', m, 'module.json')
+    if (!existsSync(file)) continue
+    for (const r of JSON.parse(await readFile(file, 'utf8')).roles || []) {
+      if (!/^[a-z][a-z0-9-]{0,40}$/.test(r.name || '')) throw new Error(`${m}/module.json: tên vai trò "${r.name}" không hợp lệ`)
+      const name = `${m}:${r.name}`
+      const description = String(r.title || r.name) + (r.description ? ` – ${r.description}` : '')
+      const found = existing.get(name)
+      if (!found) {
+        await api('POST', '/roles', { name, description })
+        console.log(`Vai trò của gói ${m}: tạo ${name}`)
+      } else if (found.description !== description) {
+        await api('PUT', `/roles/${encodeURIComponent(name)}`, { ...found, description })
       }
     }
-    console.log(`Đã đồng bộ ${config.moduleRoles.length} vai trò nghiệp vụ.`)
   }
   console.log('Cấu hình định danh đã đủ.')
 }

@@ -46,10 +46,58 @@
     "db/37-bat-goi-xa.sql",
     "db/25-api-comments.sql"
   ],
-  "serviceHandlers": {
-    "accounts": "handlers/accounts.mjs",
-    "files": "handlers/files.mjs"
+  "identity": "identity/realm.json",
+  "registration": {
+    "client": "citizen-app",
+    "clientSecretEnv": "CITIZEN_KEYCLOAK_SECRET",
+    "role": "citizen",
+    "rpc": "system_register_citizen",
+    "undoRpc": "system_unregister_citizen",
+    "undoArg": "p_citizen_id",
+    "idField": "citizen_id",
+    "attributes": { "citizen_id": "citizen_id", "citizen_tenant": "tenant_code" },
+    "idClaim": "citizen_id",
+    "tenantClaim": "citizen_tenant",
+    "notice": "Đã tạo tài khoản. Bạn có thể đăng nhập Kênh người dân bằng tên đăng nhập và mật khẩu vừa đặt."
   },
+  "publicRpc": [
+    "procedure_catalog",
+    "procedure_detail",
+    "public_knowledge",
+    "public_knowledge_search",
+    "public_knowledge_status",
+    "public_provenance",
+    "public_procedure_versions",
+    "public_procedure_guide_source",
+    "public_procedure_channels",
+    "public_guidance_rules",
+    "public_recommendation_catalog",
+    "public_journey_catalog",
+    "public_localities",
+    "public_counter_session",
+    "public_counter_session_start",
+    "public_counter_session_end",
+    "public_result_verification",
+    "public_registration_tenants"
+  ],
+  "files": [
+    {
+      "method": "POST", "path": "dossiers/{id}/documents", "rpc": "register_document",
+      "query": { "code": { "pattern": "^[a-z0-9-]{1,100}$", "required": true }, "name": { "max": 180, "default": "tep-dinh-kem" } },
+      "args": { "dossier_id": "{id}", "document_code": "{code}", "original_name": "{name}" }
+    },
+    { "method": "GET", "path": "documents/{id:uuid}", "rpc": "document_object", "args": { "document_id": "{id}" } },
+    {
+      "method": "POST", "path": "staff-documents", "rpc": "request_document_add",
+      "query": { "doc_type": { "pattern": "^[a-z-]{2,30}$", "required": true }, "title": { "max": 160, "default": "" }, "note": { "max": 1000 } },
+      "args": { "doc_type": "{doc_type}", "title": "{title}", "note": "{note}" }
+    },
+    { "method": "GET", "path": "staff-documents/{id:uuid}", "rpc": "staff_document_object", "args": { "document_id": "{id}" } },
+    {
+      "method": "GET", "path": "handoffs/{handoffId:uuid}/documents/{documentId:uuid}", "rpc": "citizen_handoff_document",
+      "args": { "p_handoff_id": "{handoffId}", "p_document_id": "{documentId}" }
+    }
+  ],
   "knowledgeProvider": {
     "search": "knowledge_search",
     "pending": "ai_pending_chunks",
@@ -64,61 +112,12 @@
       "view": "dossiers",
       "statusRpc": "set_dossier_status",
       "idParam": "dossier_id",
-      "final": [
-        "completed",
-        "rejected"
-      ],
-      "variables": {
-        "tenant": "tenant_code",
-        "procedure": "procedure_id"
-      }
+      "final": ["completed", "rejected"],
+      "variables": { "tenant": "tenant_code", "procedure": "procedure_id" }
     }
   ],
   "jobs": [
-    {
-      "name": "nhắc việc",
-      "rpc": "system_dispatch_citizen_reminders",
-      "everyMinutes": 60,
-      "enabledBy": "CITIZEN_REMINDERS_ENABLED"
-    },
-    {
-      "name": "rà soát lưu trữ",
-      "rpc": "system_scan_citizen_retention",
-      "everyMinutes": 1440,
-      "enabledBy": "CITIZEN_RETENTION_SCAN_ENABLED"
-    }
-  ],
-  "gateway": {
-    "publicRpc": [
-      "procedure_catalog",
-      "procedure_detail",
-      "public_knowledge",
-      "public_knowledge_search",
-      "public_knowledge_status",
-      "public_provenance",
-      "public_procedure_versions",
-      "public_procedure_guide_source",
-      "public_procedure_channels",
-      "public_guidance_rules",
-      "public_recommendation_catalog",
-      "public_journey_catalog",
-      "public_localities",
-      "public_counter_session",
-      "public_counter_session_start",
-      "public_counter_session_end",
-      "public_result_verification",
-      "public_registration_tenants"
-    ],
-    "publicAccounts": [
-      "register"
-    ]
-  },
-  "identity": "identity/realm-extension.json",
-  "aiPrincipal": {
-    "clientId": "citizen-app",
-    "requiredRole": "citizen",
-    "subjectClaim": "citizen_id",
-    "tenantClaim": "citizen_tenant",
-    "audience": "citizen"
-  }
+    { "name": "nhắc việc", "rpc": "system_dispatch_citizen_reminders", "everyMinutes": 60, "enabledBy": "CITIZEN_REMINDERS_ENABLED" },
+    { "name": "rà soát lưu trữ", "rpc": "system_scan_citizen_retention", "everyMinutes": 1440, "enabledBy": "CITIZEN_RETENTION_SCAN_ENABLED" }
+  ]
 }

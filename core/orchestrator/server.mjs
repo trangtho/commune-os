@@ -139,27 +139,27 @@ async function completeTask(taskId, action, actor) {
 
 // Bảo đảm đối tượng có một phiên quy trình và phiên đó khớp trạng thái trong cơ sở dữ liệu.
 // Trả về { task, allowed } hoặc { task: null, allowed: [] } khi đã kết thúc.
-async function syncInstance(resource, dossier, actor) {
-  if (resource.final.includes(dossier.status)) return { task: null, allowed: [] }
-  let task = await currentTask(resource, dossier.id)
+async function syncInstance(resource, item, actor) {
+  if (resource.final.includes(item.status)) return { task: null, allowed: [] }
+  let task = await currentTask(resource, item.id)
   if (!task) {
     await flowable('/runtime/process-instances', {
       method: 'POST',
       body: JSON.stringify({
-        processDefinitionKey: resource.processKey, tenantId: TENANT, businessKey: dossier.id,
-        variables: Object.entries(resource.variables).map(([name, col]) => ({ name, value: dossier[col] ?? null })),
+        processDefinitionKey: resource.processKey, tenantId: TENANT, businessKey: item.id,
+        variables: Object.entries(resource.variables).map(([name, col]) => ({ name, value: item[col] ?? null })),
       }),
     })
-    task = await currentTask(resource, dossier.id)
+    task = await currentTask(resource, item.id)
   }
   let allowed = (await allowedByTask(task.processDefinitionId))[task.taskDefinitionKey] || []
   // Dữ liệu cũ, hoặc kênh khác vừa đổi trạng thái (người dân bổ sung xong): đưa động cơ tới đúng bước của cơ sở dữ liệu.
-  if (task.taskDefinitionKey !== dossier.status) {
-    if (!allowed.includes(dossier.status)) {
-      throw new HttpError(409, `Quy trình (${task.taskDefinitionKey}) và trạng thái (${dossier.status}) không khớp`)
+  if (task.taskDefinitionKey !== item.status) {
+    if (!allowed.includes(item.status)) {
+      throw new HttpError(409, `Quy trình (${task.taskDefinitionKey}) và trạng thái (${item.status}) không khớp`)
     }
-    await completeTask(task.id, dossier.status, actor)
-    task = await currentTask(resource, dossier.id)
+    await completeTask(task.id, item.status, actor)
+    task = await currentTask(resource, item.id)
     allowed = (await allowedByTask(task.processDefinitionId))[task.taskDefinitionKey] || []
   }
   return { task, allowed }
@@ -211,11 +211,11 @@ async function handle(req) {
   if (!auth?.startsWith('Bearer ')) throw new HttpError(401, 'Thiếu token')
   const id = decodeURIComponent(match[2])
   const actor = actorName(auth)
-  const dossier = await loadItem(resource, id, auth)
-  const { task, allowed } = await syncInstance(resource, dossier, actor)
+  const item = await loadItem(resource, id, auth)
+  const { task, allowed } = await syncInstance(resource, item, actor)
 
   if (req.method === 'GET') {
-    return { id, status: dossier.status, step: task?.name || null, actions: allowed }
+    return { id, status: item.status, step: task?.name || null, actions: allowed }
   }
   if (req.method !== 'POST') throw new HttpError(405, 'Chỉ hỗ trợ GET và POST')
 
@@ -224,17 +224,17 @@ async function handle(req) {
   let input
   try { input = JSON.parse(body || '{}') } catch { throw new HttpError(400, 'Nội dung gửi lên không phải JSON hợp lệ') }
   const { action, note, expectedStatus } = input
-  if (expectedStatus !== undefined && expectedStatus !== dossier.status) {
+  if (expectedStatus !== undefined && expectedStatus !== item.status) {
     throw new HttpError(409, `Trạng thái ${resource.label.toLowerCase()} đã thay đổi; vui lòng tải lại`)
   }
   if (!task) throw new HttpError(409, `${resource.label} đã kết thúc, không xử lý tiếp được`)
   if (!allowed.includes(action)) {
     throw new HttpError(409, `Ở bước "${task.name}" không được chuyển sang "${action}". Được phép: ${allowed.join(', ')}`)
   }
-  // Ghi cơ sở dữ liệu trước (nó còn kiểm tra xã, vai trò, lý do); thành công mới cho quy trình đi tiếp.
+  // Ghi cơ sở dữ liệu trước (nó còn kiểm tra đơn vị, vai trò, lý do); thành công mới cho quy trình đi tiếp.
   const result = await rest(`/rpc/${resource.statusRpc}`, auth, {
     method: 'POST',
-    headers: { 'X-Workflow-Token': WORKFLOW_TOKEN, 'X-Workflow-Expected-Status': dossier.status },
+    headers: { 'X-Workflow-Token': WORKFLOW_TOKEN, 'X-Workflow-Expected-Status': item.status },
     body: JSON.stringify({ [resource.idParam]: id, status: action, note: note || null }),
   })
   await completeTask(task.id, action, actor)

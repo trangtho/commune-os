@@ -37,7 +37,9 @@ test('staff functions take tenant and staff identity from the signed Keycloak to
  assert.match(manifest,/26-citizen-staff-api\.sql/)
  assert.match(migration,/citizen_staff_handoff_document/)
  assert.match(staffApi,/FUNCTION api\.citizen_handoff_document/)
- assert.match(filesService,/rpc\('citizen_handoff_document'/)
+ // Dịch vụ tệp của lõi không biết gói xã: đường dẫn tải giấy tờ trong mã chuyển hồ sơ do gói xã khai báo ("files").
+ assert.match(manifest,/"path": "handoffs\/\{handoffId:uuid\}\/documents\/\{documentId:uuid\}", "rpc": "citizen_handoff_document"/)
+ assert.doesNotMatch(filesService,/citizen_handoff_document/)
  assert.match(migration,/redeemed_at>now\(\)-interval '2 hours'/)
 })
 test('support tickets have account scoped access, immutable staff status for citizens, and conversation history',()=>{

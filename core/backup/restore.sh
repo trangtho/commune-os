@@ -23,7 +23,7 @@ if [ "${CONFIRM:-}" != "co" ]; then
 fi
 
 # Dừng mọi dịch vụ đọc ghi dữ liệu, chỉ để db chạy.
-WRITERS="citizen commune admin gateway ai-gateway accounts files orchestrator workflow-engine rest identity"
+WRITERS=$($COMPOSE ps --services | grep -vx db || true)
 $COMPOSE stop $WRITERS >/dev/null 2>&1 || true
 $COMPOSE up -d db >/dev/null
 until $COMPOSE exec -T db pg_isready -q; do sleep 1; done
@@ -51,6 +51,11 @@ restore_volume() { # restore_volume <dịch vụ> <thư mục trong container> <
   echo "  Đã khôi phục volume $vol"
 }
 restore_volume storage /data storage-data.tgz
+# Thư mục tệp riêng của ứng dụng (<dịch vụ>-app-storage.tgz); bản sao lưu cũ dùng tên citizen-uploads.tgz.
+for f in "$SRC"/*-app-storage.tgz; do
+  [ -e "$f" ] || continue
+  name=$(basename "$f"); restore_volume "${name%-app-storage.tgz}" /app/storage "$name"
+done
 restore_volume citizen /app/storage citizen-uploads.tgz
 
 echo "Áp lại lược đồ mới nhất (db-setup) và khởi động lại..."

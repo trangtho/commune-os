@@ -5,7 +5,7 @@
 # Sao lưu CommuneOS vào backups/<ngày-giờ>/ (gọi bằng: make backup).
 #   communeos.dump, keycloak.dump, flowable.dump  pg_dump dạng custom, nhất quán khi hệ thống đang chạy
 #   storage-data.tgz                               kho đối tượng SeaweedFS (giấy tờ hồ sơ)
-#   citizen-uploads.tgz                            tệp cũ của Kênh người dân (trước khi có kho đối tượng)
+#   <dịch vụ>-app-storage.tgz                      thư mục tệp riêng của ứng dụng (volume gắn vào /app/storage, nếu có)
 #   MANIFEST.txt, SHA256SUMS                       thông tin bản sao lưu và mã băm để kiểm tra khi khôi phục
 # Không sao lưu mô hình AI (tải lại được) và tệp .env (giữ riêng, chứa mật khẩu).
 # Bản sao lưu chứa dữ liệu cá nhân: cất ở nơi an toàn, không đưa lên kho mã (backups/ đã có trong .gitignore).
@@ -43,8 +43,12 @@ if [ -n "$STORAGE" ]; then
   archive "$STORAGE" storage-data.tgz || { $COMPOSE start storage >/dev/null; exit 1; }
   $COMPOSE start storage >/dev/null
 fi
-UPLOADS=$(volume_of citizen /app/storage)
-[ -n "$UPLOADS" ] && archive "$UPLOADS" citizen-uploads.tgz
+# Ứng dụng có thư mục tệp riêng (quy ước: volume gắn vào /app/storage), ví dụ tệp cũ của một ứng dụng trước khi có kho
+# đối tượng. Không liệt kê tên dịch vụ: dò mọi dịch vụ của dự án.
+for svc in $($COMPOSE ps -a --services); do
+  vol=$(volume_of "$svc" /app/storage)
+  [ -n "$vol" ] && archive "$vol" "$svc-app-storage.tgz"
+done
 
 {
   echo "CommuneOS - bản sao lưu"

@@ -85,8 +85,6 @@ services:
     command: ["node", "/app/setup.mjs"]
     environment:
       KEYCLOAK_URL: http://identity:8080
-      COMMUNEOS_MODULES: ${COMMUNEOS_MODULES-xa,doanh-nghiep}
-      MODULES_DIR: /modules
       KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN}
       KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD}
       CITIZEN_KEYCLOAK_SECRET: ${CITIZEN_KEYCLOAK_SECRET}
@@ -94,25 +92,15 @@ services:
       # Tài khoản quản trị hệ thống duy nhất (make check-env kiểm tra độ mạnh mật khẩu).
       COMMUNEOS_ADMIN_USERNAME: ${COMMUNEOS_ADMIN_USERNAME}
       COMMUNEOS_ADMIN_PASSWORD: ${COMMUNEOS_ADMIN_PASSWORD}
+      # Vai trò của các gói đang bật (mục "roles" trong modules/<gói>/module.json).
+      COMMUNEOS_MODULES: ${COMMUNEOS_MODULES:-xa,doanh-nghiep}
+      MODULES_DIR: /modules
     volumes:
       - ./core/identity:/app:ro
-      - ./core/module-loader.mjs:/module-loader.mjs:ro
       - ./modules:/modules:ro
     depends_on:
       identity:
         condition: service_healthy
-
-  gateway-setup:
-    image: node:22-alpine
-    restart: "no"
-    command: ["node", "/core/gateway/generate-config.mjs", "/core/gateway/apisix.yaml", "/generated/apisix.yaml"]
-    environment:
-      COMMUNEOS_MODULES: ${COMMUNEOS_MODULES-xa,doanh-nghiep}
-      MODULES_DIR: /modules
-    volumes:
-      - ./core:/core:ro
-      - ./modules:/modules:ro
-      - gateway-config:/generated
 
   gateway:
     image: apache/apisix:3.20.0-debian
@@ -121,17 +109,11 @@ services:
       APISIX_STAND_ALONE: "true"
     volumes:
       - ./core/gateway/config.yaml:/usr/local/apisix/conf/config.yaml
-      - gateway-config:/generated:ro
-    entrypoint: ["/bin/sh", "-ec", "cp /generated/apisix.yaml /usr/local/apisix/conf/apisix.yaml; exec /docker-entrypoint.sh docker-start"]
+      - ./core/gateway/apisix.yaml:/usr/local/apisix/conf/apisix.yaml
     depends_on:
-      gateway-setup:
-        condition: service_completed_successfully
-      identity-setup:
-        condition: service_completed_successfully
-      rest:
-        condition: service_started
-      api-docs:
-        condition: service_started
+      - identity
+      - rest
+      - api-docs
     # Sẵn sàng khi gọi được một API công khai qua cổng tới PostgREST và PostgreSQL (ảnh PostgREST không có shell
     # để tự kiểm tra, nên kiểm tra cả chuỗi ở đây).
     healthcheck:
@@ -170,7 +152,7 @@ services:
       POSTGRES_APP_PASSWORD: ${POSTGRES_APP_PASSWORD}
       POSTGRES_REST_PASSWORD: ${POSTGRES_REST_PASSWORD}
       WORKFLOW_TOKEN: ${WORKFLOW_TOKEN}
-      COMMUNEOS_MODULES: ${COMMUNEOS_MODULES-xa,doanh-nghiep}
+      COMMUNEOS_MODULES: ${COMMUNEOS_MODULES:-xa,doanh-nghiep}
     volumes:
       - ./core/db:/setup/core:ro
       - ./modules:/setup/modules:ro
@@ -265,7 +247,7 @@ services:
       CITIZEN_REMINDERS_ENABLED: ${CITIZEN_REMINDERS_ENABLED:-false}
       CITIZEN_RETENTION_SCAN_ENABLED: ${CITIZEN_RETENTION_SCAN_ENABLED:-false}
       # Gói nghiệp vụ (cùng danh sách với db-setup): quy trình, sơ đồ BPMN, việc định kỳ khai báo trong module.json.
-      COMMUNEOS_MODULES: ${COMMUNEOS_MODULES-xa,doanh-nghiep}
+      COMMUNEOS_MODULES: ${COMMUNEOS_MODULES:-xa,doanh-nghiep}
       MODULES_DIR: /modules
     volumes:
       - ./core/orchestrator:/app:ro
@@ -291,14 +273,15 @@ services:
     environment:
       KEYCLOAK_URL: http://identity:8080
       ACCOUNTS_CLIENT_SECRET: ${KEYCLOAK_ACCOUNTS_SECRET}
-      CITIZEN_CLIENT_SECRET: ${CITIZEN_KEYCLOAK_SECRET}
-      COMMUNEOS_MODULES: ${COMMUNEOS_MODULES-xa,doanh-nghiep}
-      MODULES_DIR: /modules
       REST_URL: http://rest:3000
       WORKFLOW_TOKEN: ${WORKFLOW_TOKEN}
+      # Người dùng bên ngoài của các gói (mục "registration" trong module.json); secret client của gói đọc theo tên biến
+      # gói khai báo (gói xã: CITIZEN_KEYCLOAK_SECRET).
+      COMMUNEOS_MODULES: ${COMMUNEOS_MODULES:-xa,doanh-nghiep}
+      MODULES_DIR: /modules
+      CITIZEN_KEYCLOAK_SECRET: ${CITIZEN_KEYCLOAK_SECRET}
     volumes:
       - ./core/accounts:/app:ro
-      - ./core/module-loader.mjs:/module-loader.mjs:ro
       - ./modules:/modules:ro
     depends_on:
       identity:
@@ -344,13 +327,11 @@ services:
       WORKFLOW_TOKEN: ${WORKFLOW_TOKEN}
       FILES_SERVICE_TOKEN: ${FILES_SERVICE_TOKEN}
       CLAMAV_HOST: ${CLAMAV_HOST:-}
-      CLAMAV_REQUIRED: ${CLAMAV_REQUIRED:-false}
       # Loại đối tượng được đính kèm tệp: mục "attachments" trong modules/<gói>/module.json của các gói đang bật.
-      COMMUNEOS_MODULES: ${COMMUNEOS_MODULES-xa,doanh-nghiep}
+      COMMUNEOS_MODULES: ${COMMUNEOS_MODULES:-xa,doanh-nghiep}
       MODULES_DIR: /modules
     volumes:
       - ./core/files:/app:ro
-      - ./core/module-loader.mjs:/module-loader.mjs:ro
       - ./modules:/modules:ro
     depends_on:
       storage:
@@ -420,9 +401,12 @@ services:
     restart: unless-stopped
     environment:
       BASE_URL: /docs
+      # Đặc tả của các gói đang bật (modules/<gói>/api-docs.yaml) hiện thêm trên trang tài liệu.
+      COMMUNEOS_MODULES: ${COMMUNEOS_MODULES:-xa,doanh-nghiep}
     volumes:
       - ./core/api-docs:/communeos:ro
       - ./core/api-docs/50-communeos.sh:/docker-entrypoint.d/50-communeos.sh:ro
+      - ./modules:/modules:ro
     healthcheck:
       test: ["CMD-SHELL", "curl -fsS -o /dev/null http://127.0.0.1:8080/docs/ || exit 1"]
       interval: 10s
@@ -443,11 +427,10 @@ services:
       AI_CHAT_MODEL: ${AI_CHAT_MODEL:-qwen3:1.7b}
       AI_EMBED_MODEL: ${AI_EMBED_MODEL:-bge-m3}
       # Nguồn tri thức riêng của gói: mục "knowledgeProvider" trong modules/<gói>/module.json của các gói đang bật.
-      COMMUNEOS_MODULES: ${COMMUNEOS_MODULES-xa,doanh-nghiep}
+      COMMUNEOS_MODULES: ${COMMUNEOS_MODULES:-xa,doanh-nghiep}
       MODULES_DIR: /modules
     volumes:
       - ./core/ai:/app:ro
-      - ./core/module-loader.mjs:/module-loader.mjs:ro
       - ./modules:/modules:ro
     networks:
       - default
@@ -612,30 +595,6 @@ services:
     ports:
       - "${PORTAL_BIND_ADDRESS:-127.0.0.1}:${ADMIN_PORT:-3001}:3000"
 
-  enterprise:
-    image: node:22-alpine
-    profiles: ["enterprise"]
-    restart: unless-stopped
-    working_dir: /app
-    command: ["node", "server.mjs"]
-    environment:
-      KEYCLOAK_URL: http://identity:8080
-      GATEWAY_URL: http://gateway:9080
-      ENTERPRISE_PUBLIC_ORIGIN: ${ENTERPRISE_PUBLIC_ORIGIN:-http://localhost:3003}
-      PORTAL_ALLOW_LOCAL_HTTP: ${PORTAL_ALLOW_LOCAL_HTTP:-false}
-    volumes:
-      - ./apps/enterprise:/app:ro
-    ports:
-      - "127.0.0.1:${ENTERPRISE_PORT:-3003}:3000"
-    depends_on:
-      gateway:
-        condition: service_healthy
-    healthcheck:
-      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:3000/health || exit 1"]
-      interval: 10s
-      timeout: 5s
-      retries: 10
-
 networks:
   # Mạng riêng của AI, không có đường ra Internet.
   ai-internal:
@@ -645,6 +604,5 @@ volumes:
   ai-models:
   db-data:
   rest-keys:
-  gateway-config:
   citizen-uploads:
   storage-data:
