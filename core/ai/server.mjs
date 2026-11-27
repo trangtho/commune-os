@@ -12,10 +12,12 @@
 //   GET  /ai/status         (chỉ sys_admin) mô hình, chỉ mục vector, thời gian phản hồi
 //   GET  /health
 //
-// Phạm vi: chỉ thủ tục xã của người hỏi đang mở (xã lấy từ token); hướng dẫn nghiệp vụ chỉ cho cán bộ.
-// Không truy cập hồ sơ, giấy tờ, thông báo hay bất kỳ dữ liệu cá nhân nào.
-// /ai/ask: che số định danh, số điện thoại, email trong câu hỏi → tạo vector câu hỏi → tìm kiếm lai
-// trên chỉ mục tri thức (thủ tục đã công bố, câu hỏi thường gặp) → nguồn được tách thành câu đánh số,
+// Nguồn tri thức: kho tri thức dùng chung của lõi (tài liệu của các gói và của từng đơn vị, core/db/init/10-tri-thuc.sql)
+// và nguồn riêng của các gói đang bật (mục "knowledgeProvider" của module.json; gói xã: thủ tục, câu hỏi thường gặp,
+// hướng dẫn nghiệp vụ). Phạm vi lấy từ token: chỉ gói đơn vị của người hỏi đã bật; tài liệu nội bộ chỉ cho người của
+// đơn vị. Không truy cập hồ sơ, giấy tờ, thông báo hay bất kỳ dữ liệu cá nhân nào.
+// /ai/ask: che số định danh, số điện thoại, email trong câu hỏi → tạo vector câu hỏi → tìm kiếm lai trên mọi nguồn,
+// gộp theo điểm → nguồn được tách thành câu đánh số,
 // mô hình ngôn ngữ CHỈ trả số thứ tự câu trả lời được câu hỏi; trích dẫn lấy nguyên văn từ nguồn theo số đó,
 // nên mô hình không thể tự viết nội dung. Mô hình cũng phải sinh rất ít chữ, chạy được trên CPU.
 // Không trả lời bằng nội dung tự sinh. Không lưu câu hỏi; nhật ký chỉ ghi độ dài và thời gian.
@@ -24,6 +26,8 @@
 
 import { createServer } from 'node:http'
 import { createHash, createPublicKey, verify } from 'node:crypto'
+import { existsSync, readFileSync } from 'node:fs'
+import { join } from 'node:path'
 
 const env = (name, fallback) => {
   const v = process.env[name] ?? fallback
@@ -46,6 +50,20 @@ const EMBED_DIM = 1024
 class HttpError extends Error {
   constructor(status, message) { super(message); this.status = status }
 }
+
+// ---------- Nguồn tri thức: kho chung của lõi + nguồn riêng của các gói đang bật ----------
+// Mỗi nguồn là 4 hàm api.* cùng chữ ký: search (tìm kiếm lai), pending/store (tạo vector), status (tình trạng chỉ mục).
+const FN_RE = /^[a-z_][a-z0-9_]{0,62}$/
+const PROVIDERS = [{ name: 'lõi', search: 'core_knowledge_search', pending: 'core_knowledge_pending', store: 'core_knowledge_store', status: 'core_knowledge_status' }]
+for (const m of (process.env.COMMUNEOS_MODULES || 'xa').split(/[\s,]+/).filter(Boolean)) {
+  const file = join(process.env.MODULES_DIR || '/modules', m, 'module.json')
+  if (!existsSync(file)) { console.warn(`[ai] Không đọc được ${file}; bỏ qua nguồn tri thức của gói ${m}`); continue }
+  const p = JSON.parse(readFileSync(file, 'utf8')).knowledgeProvider
+  if (!p) continue
+  if (!['search', 'pending', 'store', 'status'].every((k) => FN_RE.test(p[k] || ''))) throw new Error(`${m}/module.json: "knowledgeProvider" khai báo sai`)
+  PROVIDERS.push({ name: m, search: p.search, pending: p.pending, store: p.store, status: p.status })
+}
+console.log(`[ai] Nguồn tri thức: ${PROVIDERS.map((p) => p.name).join(', ')}`)
 
 // ---------- Token người gọi (lớp thứ hai, sau APISIX) ----------
 let jwks = { at: 0, keys: [] }
@@ -230,12 +248,16 @@ async function ask(body, who, tenant = '') {
   } catch (e) { recordError('embed', e) }
 
   const t1 = Date.now()
-  const chunks = await rpc('knowledge_search', {
+  const args = {
     p_query: text, p_embedding: vector ? `[${vector.join(',')}]` : null, p_procedure_id: procedureId, p_limit: 8,
     p_min_similarity: MIN_SIMILARITY,
-    // Công dân, khách không bao giờ thấy hướng dẫn nghiệp vụ nội bộ; người đăng nhập chỉ thấy thủ tục xã mình mở.
+    // Công dân, khách không bao giờ thấy tài liệu nội bộ; người đăng nhập chỉ thấy tri thức của gói đơn vị mình bật.
     p_audience: who === 'staff' ? 'staff' : 'citizen', p_tenant_code: tenant || '',
-  })
+  }
+  // Tìm song song trên mọi nguồn (điểm cùng thang: tổng nghịch đảo thứ hạng), gộp lấy 8 đoạn tốt nhất.
+  // Một nguồn lỗi thì vẫn trả kết quả của các nguồn còn lại.
+  const found = await Promise.all(PROVIDERS.map((p) => rpc(p.search, args, true).catch((e) => { recordError(`search ${p.name}`, e); return [] })))
+  const chunks = found.flat().sort((a, b) => (b.score - a.score) || ((b.similarity || 0) - (a.similarity || 0))).slice(0, 8)
   timings.searchMs = Date.now() - t1
 
   let selections = []
@@ -268,13 +290,18 @@ async function indexOnce() {
   indexing = true
   try {
     for (let round = 0; round < 20; round++) {
-      const pending = await rpc('ai_pending_chunks', { p_model: EMBED_MODEL, p_limit: 16 }, true)
-      if (!pending.length) break
-      const vectors = await embed(pending.map((p) => p.text.slice(0, 4000)))
-      const items = pending.map((p, i) => ({ id: p.id, hash: p.hash, embedding: vectors[i] }))
-      const r = await rpc('ai_store_embeddings', { p_model: EMBED_MODEL, p_items: items }, true)
-      index.lastStored = r.stored
-      console.log(`[ai] Đã tạo vector cho ${r.stored} đoạn tri thức`)
+      let stored = 0
+      for (const p of PROVIDERS) {
+        const pending = await rpc(p.pending, { p_model: EMBED_MODEL, p_limit: 16 }, true)
+        if (!pending.length) continue
+        const vectors = await embed(pending.map((x) => x.text.slice(0, 4000)))
+        const items = pending.map((x, i) => ({ id: x.id, hash: x.hash, embedding: vectors[i] }))
+        const r = await rpc(p.store, { p_model: EMBED_MODEL, p_items: items }, true)
+        stored += r.stored
+        console.log(`[ai] Đã tạo vector cho ${r.stored} đoạn tri thức (${p.name})`)
+      }
+      index.lastStored = stored
+      if (!stored) break
     }
     index.lastError = null
   } catch (e) {
@@ -308,7 +335,10 @@ async function status() {
   } catch { reachable = false }
   const has = (name) => installed.some((m) => m.name === name || m.name === `${name}:latest`)
   let vectors = null
-  try { vectors = await rpc('ai_index_status', { p_model: EMBED_MODEL }, true) } catch (e) { vectors = { error: String(e.message).slice(0, 120) } }
+  vectors = {}
+  for (const p of PROVIDERS) {
+    try { vectors[p.name] = await rpc(p.status, { p_model: EMBED_MODEL }, true) } catch (e) { vectors[p.name] = { error: String(e.message).slice(0, 120) } }
+  }
   return {
     ollama: { reachable, installed, loaded },
     models: { chat: { name: CHAT_MODEL, installed: has(CHAT_MODEL) }, embed: { name: EMBED_MODEL, installed: has(EMBED_MODEL) } },

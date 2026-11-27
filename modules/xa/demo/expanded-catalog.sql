@@ -62,3 +62,7 @@ SELECT p.id,1,CURRENT_DATE,'unverified_demo',
 FROM procedures p WHERE NOT EXISTS (
   SELECT 1 FROM citizen_procedure_versions v WHERE v.procedure_id=p.id
 ) AND p.id LIKE 'demo-%';
+
+-- Danh mục mô phỏng chỉ để hiển thị, chưa có nội dung thật: không đưa vào kho tri thức của trợ lý AI
+-- (modules/xa/db/02-ai-knowledge.sql, cột ai_indexed), để trợ lý không trích nội dung chưa xác minh.
+UPDATE procedures SET ai_indexed = false WHERE id LIKE 'demo-%' AND ai_indexed;

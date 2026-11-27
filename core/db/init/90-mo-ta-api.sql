@@ -44,7 +44,14 @@ BEGIN
     ('set_tenant_module', 'Bật hoặc tắt một gói cho một đơn vị', 'Chỉ sys_admin; chỉ bật được gói đang được cài. Tắt gói không xóa dữ liệu của gói.'),
     ('attachment_register', 'Ghi tệp đính kèm của một đối tượng (chỉ dịch vụ tệp của lõi gọi, cần X-Workflow-Token)', 'Ứng dụng tải tệp lên qua POST /files/<loại>/<mã>/attachments. Mỗi tệp ghi một dòng vào sổ ghi nhận.'),
     ('attachment_list', 'Danh sách tệp đính kèm của một đối tượng (chỉ dịch vụ tệp của lõi gọi)', 'Ứng dụng gọi GET /files/<loại>/<mã>/attachments.'),
-    ('attachment_object', 'Siêu dữ liệu một tệp đính kèm (chỉ dịch vụ tệp của lõi gọi)', 'Ứng dụng tải tệp qua GET /files/attachments/<id>.')
+    ('attachment_object', 'Siêu dữ liệu một tệp đính kèm (chỉ dịch vụ tệp của lõi gọi)', 'Ứng dụng tải tệp qua GET /files/attachments/<id>.'),
+    ('knowledge_documents', 'Tài liệu trong kho tri thức của trợ lý AI mà đơn vị dùng được', 'scope: goi (tài liệu chung của gói đơn vị đã bật) hoặc don-vi (tài liệu riêng của đơn vị). Mỗi dòng là một mục "## ..." của tài liệu.'),
+    ('knowledge_add', 'Lãnh đạo nạp tài liệu riêng của đơn vị vào kho tri thức', 'module: gói đơn vị đã bật; content: Markdown, mỗi "## ..." là một mục; audience: staff (mặc định) hoặc public.'),
+    ('knowledge_remove', 'Lãnh đạo gỡ một tài liệu riêng của đơn vị', 'document: mã tài liệu trả về từ knowledge_add. Không gỡ được tài liệu chung của gói.'),
+    ('core_knowledge_search', 'Tìm kiếm lai toàn văn và ngữ nghĩa trên kho tri thức của lõi (chỉ ai-gateway gọi, cần X-Workflow-Token)', 'Ứng dụng hỏi trợ lý qua POST /ai/ask.'),
+    ('core_knowledge_pending', 'Đoạn tri thức của lõi chưa có vector (chỉ ai-gateway gọi)', NULL),
+    ('core_knowledge_store', 'Lưu vector cho đoạn tri thức của lõi (chỉ ai-gateway gọi)', NULL),
+    ('core_knowledge_status', 'Tình trạng chỉ mục vector của kho tri thức lõi (chỉ ai-gateway gọi)', NULL)
   ) AS t(name, summary, detail)
   LOOP
     IF to_regclass('api.' || quote_ident(item.name)) IS NOT NULL THEN

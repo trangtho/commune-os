@@ -11,6 +11,22 @@ Mọi thay đổi đáng chú ý của dự án được ghi tại đây.
 
 ## [Chưa phát hành]
 
+### Thêm (trợ lý AI dùng chung cho mọi gói, 2026-11-29)
+
+- Kho tri thức dùng chung của lõi (`core/db/init/10-tri-thuc.sql`): gói mang tài liệu Markdown (mục `knowledge` của
+  `module.json`, nạp khi cài gói, mỗi `## ...` là một đoạn); lãnh đạo đơn vị nạp, gỡ tài liệu riêng
+  (`knowledge_add`, `knowledge_remove`); `GET /rest/knowledge_documents`. Tìm kiếm lai, tạo vector chỉ `ai-gateway` gọi.
+- `ai-gateway` tìm song song trên mọi nguồn tri thức (kho của lõi và `knowledgeProvider` của các gói đang bật), gộp
+  theo điểm; không còn gọi cứng hàm của gói xã. Phạm vi: chỉ gói đơn vị người hỏi đã bật; tài liệu nội bộ chỉ cho người
+  của đơn vị. `GET /ai/status` báo chỉ mục của từng nguồn.
+- Gói doanh nghiệp mang quy chế nghỉ phép mẫu; nhân viên Công ty A hỏi trợ lý thì được trích đúng quy chế.
+
+### Sửa lỗi (2026-11-29)
+
+- Trợ lý AI trích 36 thủ tục mô phỏng của `make demo` (nội dung "chưa xác minh" giống nhau lấn kết quả tìm kiếm, 2 bài
+  kiểm thử AI lỗi): thủ tục có cột mới `ai_indexed`; danh mục mô phỏng đặt `false`, không vào kho tri thức.
+- Đơn vị không bật gói xã vẫn nhận câu hỏi thường gặp, hướng dẫn nghiệp vụ của gói xã qua trợ lý.
+
 ### Thêm (tệp đính kèm dùng chung cho mọi gói, 2026-11-28)
 
 - Dịch vụ tệp của lõi đính kèm được tệp cho đối tượng của bất kỳ gói nào: gói khai báo `attachments` trong

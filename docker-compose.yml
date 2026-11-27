@@ -414,8 +414,12 @@ services:
       WORKFLOW_TOKEN: ${WORKFLOW_TOKEN}
       AI_CHAT_MODEL: ${AI_CHAT_MODEL:-qwen3:1.7b}
       AI_EMBED_MODEL: ${AI_EMBED_MODEL:-bge-m3}
+      # Nguồn tri thức riêng của gói: mục "knowledgeProvider" trong modules/<gói>/module.json của các gói đang bật.
+      COMMUNEOS_MODULES: ${COMMUNEOS_MODULES:-xa,doanh-nghiep}
+      MODULES_DIR: /modules
     volumes:
       - ./core/ai:/app:ro
+      - ./modules:/modules:ro
     networks:
       - default
       - ai-internal

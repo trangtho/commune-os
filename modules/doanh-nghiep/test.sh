@@ -194,4 +194,38 @@ bad=$(code_of "$(call POST "$QT" /rest/rpc/set_tenant_module "{\"tenant_code\":\
   ok "Tắt gói cho Công ty A: không thấy đơn, không nộp được (403); bật lại thấy lại đơn; không bật được gói chưa cài (400)" ||
   fail "Tắt/bật gói: tắt $off (thấy $n_off đơn, nộp $c_off), bật $on (thấy $n_on đơn), gói chưa cài $bad"
 
+# 9. Kho tri thức dùng chung của lõi (trợ lý AI): tài liệu của gói (kb/quy-che-nghi-phep.md, nạp khi cài gói) và tài
+#    liệu riêng do giám đốc nạp; chỉ người của đơn vị dùng gói thấy; không gọi thẳng được hàm tìm kiếm của trợ lý.
+kdocs() { call GET "$1" "/rest/knowledge_documents?select=module,scope,title" | cut -f2- | python3 -c "import json,sys
+try: d=json.load(sys.stdin); print(sum(1 for x in d if x['module']=='doanh-nghiep' and x['scope']=='$2'))
+except Exception: print(-1)"; }
+r=$(call POST "$LG" /rest/rpc/knowledge_add '{"module":"doanh-nghiep","title":"Quy định làm thêm giờ của Công ty A","content":"## Đăng ký làm thêm giờ\nNhân viên đăng ký làm thêm giờ với giám đốc trước 16 giờ cùng ngày; làm thêm giờ ngày thường được trả 150% lương giờ."}')
+DOC=$(body_of "$r" | jfield document)
+g=$(kdocs "$NV" goi); u=$(kdocs "$NV" don-vi)
+c_nv=$(code_of "$(call POST "$NV" /rest/rpc/knowledge_add '{"module":"doanh-nghiep","title":"Thử","content":"Nhân viên không được nạp tài liệu"}')")
+c_direct=$(code_of "$(call POST "$LG" /rest/rpc/core_knowledge_search '{"p_query":"nghỉ phép","p_tenant_code":"cong-ty-a","p_audience":"staff"}')")
+xa_seen=0; [ -n "$TA" ] && xa_seen=$(kdocs "$TA" goi)
+[ "$(code_of "$r")" = "200" ] && [ "$g" -ge 4 ] && [ "$u" -ge 1 ] && [ "$c_nv" = "403" ] && [ "$c_direct" = "403" ] && [ "$xa_seen" = "0" ] &&
+  ok "Kho tri thức của lõi: quy chế của gói ($g mục) và tài liệu giám đốc nạp ($u mục); nhân viên không nạp được (403); xã A không thấy; không gọi thẳng được hàm tìm kiếm (403)" ||
+  fail "Kho tri thức: nạp $(code_of "$r"), mục của gói $g, của đơn vị $u, nhân viên nạp $c_nv, gọi thẳng $c_direct, xã A thấy $xa_seen"
+
+# 9b. Trợ lý AI (chỉ khi dịch vụ AI chạy, có mô hình): trả lời từ đúng tài liệu của Công ty A, không lẫn sang đơn vị khác.
+if [ "$(curl -s "$GW/public/ai/ready" | python3 -c 'import json,sys; print(json.load(sys.stdin).get("ready", False))' 2>/dev/null)" = "True" ]; then
+  srcs() { curl -s -m 120 -X POST -H "Authorization: Bearer $1" -H 'Content-Type: application/json' -d "{\"question\":\"$2\",\"select\":false}" "$GW/ai/ask" |
+    python3 -c 'import json,sys
+try: print(",".join((c.get("source_type") or "")+":"+(c.get("field") or "") for c in json.load(sys.stdin).get("chunks",[])))
+except Exception: print("LOI")'; }
+  a1=$(srcs "$NV" "Nghỉ ốm hai ngày cần nộp giấy tờ gì"); a2=$(srcs "$NV" "Làm thêm giờ ngày thường được trả bao nhiêu")
+  a3=""; [ -n "$TA" ] && a3=$(srcs "$TA" "Nghỉ ốm hai ngày cần nộp giấy tờ gì")
+  case "$a1" in module_doc:doanh-nghiep*) t1=1 ;; *) t1=0 ;; esac
+  case "$a2" in *tenant_doc:doanh-nghiep*) t2=1 ;; *) t2=0 ;; esac
+  case "$a3" in *doanh-nghiep*) t3=0 ;; *) t3=1 ;; esac
+  [ "$t1" = "1" ] && [ "$t2" = "1" ] && [ "$t3" = "1" ] &&
+    ok "Trợ lý AI: nhân viên Công ty A hỏi quy chế thì trích quy chế của gói, hỏi quy định riêng thì trích tài liệu của Công ty A; cán bộ xã A không thấy" ||
+    fail "Trợ lý AI: nghỉ ốm '$a1', làm thêm giờ '$a2', xã A '$a3'"
+else
+  echo "  BỎ QUA  Trợ lý AI chưa chạy hoặc chưa có mô hình (kho tri thức vẫn được kiểm tra ở trên)"
+fi
+[ -n "$DOC" ] && call POST "$LG" /rest/rpc/knowledge_remove "{\"document\":\"$DOC\"}" >/dev/null
+
 [ "$FAIL" = "0" ] && echo "KẾT QUẢ: ĐẠT" || { echo "KẾT QUẢ: CÓ LỖI"; exit 1; }

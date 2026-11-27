@@ -19,6 +19,7 @@ PostgreSQL 17. `init/` chỉ chứa phần **lõi dùng chung**, không có bả
 | `07-goi-nghiep-vu.sql` | Gói đã cài (`core_modules`, `api.modules`), móc đầu yêu cầu PostgREST (`rest_pre_request`, `register_request_hook`), `api.public_platform()` |
 | `08-goi-theo-don-vi.sql` | Gói bật cho từng đơn vị (`tenant_modules`, `api.tenant_modules`, `api.set_tenant_module`, `api.my_modules`); gói tự kiểm tra bằng `tenant_has_module()`, `require_module()` |
 | `09-tep-dinh-kem.sql` | Tệp đính kèm dùng chung (`core_attachments`, `attachment_register`, `attachment_list`, `attachment_object`; chỉ dịch vụ tệp gọi) |
+| `10-tri-thuc.sql` | Kho tri thức dùng chung cho trợ lý AI (`core_knowledge`, `knowledge_documents`, `knowledge_add`, `knowledge_remove`; tìm kiếm, tạo vector chỉ cho `ai-gateway`); `knowledge_load_module_doc` nạp tài liệu của gói |
 | `90-mo-ta-api.sql` | Mô tả tiếng Việt cho schema `api` và API của lõi (chạy sau mọi gói) |
 
 Bảng, API, dữ liệu mẫu và kiểm thử SQL của từng nghiệp vụ nằm trong gói: [`modules/xa/db/`](../../modules/xa/db/)
@@ -31,7 +32,8 @@ Bảng, API, dữ liệu mẫu và kiểm thử SQL của từng nghiệp vụ n
 
 1. Các tệp `init/0*` đến `init/8*` theo thứ tự tên tệp.
 2. Từng gói trong `COMMUNEOS_MODULES` (mặc định `xa,doanh-nghiep`): các tệp trong mục `db` của
-   `modules/<gói>/module.json`, đúng thứ tự khai báo; xong thì ghi tên, phiên bản vào `core_modules`.
+   `modules/<gói>/module.json`, đúng thứ tự khai báo; tài liệu trong mục `knowledge` vào kho tri thức; xong thì ghi
+   tên, phiên bản vào `core_modules`.
 3. Các tệp `init/9*`.
 
 Thêm tệp SQL cho một gói: đặt trong `modules/<gói>/db/` rồi thêm vào mục `db` của `module.json`. Thêm tệp cho lõi:
