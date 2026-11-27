@@ -41,11 +41,11 @@ jobs:
           sed -i "s/^COMMUNEOS_MODULES=.*/COMMUNEOS_MODULES=doanh-nghiep/" .env
           make check-env
 
-      - name: Dựng lõi (không ứng dụng của xã)
+      - name: Dựng lõi và bảng quản trị nền tảng (không ứng dụng của gói xã)
         run: >-
-          docker compose up -d
+          docker compose up -d --build
           db db-setup identity identity-setup rest-keys rest gateway api-docs workflow-engine orchestrator
-          storage files accounts
+          storage files accounts admin
 
       - name: Chờ mọi dịch vụ sẵn sàng (healthcheck)
         run: sh core/tests/wait-ready.sh 600
@@ -55,6 +55,12 @@ jobs:
 
       - name: Gói doanh nghiệp chạy trên lõi không có gói xã
         run: make example-enterprise
+
+      - name: Bảng quản trị, cổng công khai, trang tài liệu không phụ thuộc gói xã
+        run: |
+          curl -fsS http://localhost:3001/api/health
+          test "$(curl -s -o /dev/null -w '%{http_code}' -X POST -H 'Content-Type: application/json' -d '{}' http://localhost:9080/public/rpc/procedure_catalog)" = 404
+          test "$(curl -s http://localhost:9080/docs/modules.json)" = "[]"
 
       - name: In log khi lỗi
         if: failure()
@@ -82,7 +88,7 @@ jobs:
       - name: Kiểm tra cú pháp docker-compose và script
         run: |
           docker compose config -q
-          for f in core/tests/tenant-isolation.sh core/tests/platform.sh core/tests/wait-ready.sh core/identity/check-admin-env.sh \
+          for f in modules/xa/tests/tenant-isolation.sh core/tests/platform.sh core/tests/wait-ready.sh core/identity/check-admin-env.sh \
                    core/db/migrate.sh core/db/init/*.sh modules/doanh-nghiep/test.sh apps/citizen/e2e/run.sh; do
             sh -n "$f"
           done
@@ -111,7 +117,7 @@ jobs:
       - name: Kiểm thử kiến trúc và phiên đăng nhập ba kênh
         run: |
           node --experimental-strip-types --test core/tests/architecture.test.mjs
-          node core/tests/portal-smoke.mjs
+          node modules/xa/tests/portal-smoke.mjs
           npm --prefix apps/commune test
 
       - name: Kiểm thử qua cổng API (cách ly xã, quy trình, tệp, tài khoản, công dân)

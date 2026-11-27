@@ -273,11 +273,16 @@ services:
     environment:
       KEYCLOAK_URL: http://identity:8080
       ACCOUNTS_CLIENT_SECRET: ${KEYCLOAK_ACCOUNTS_SECRET}
-      CITIZEN_CLIENT_SECRET: ${CITIZEN_KEYCLOAK_SECRET}
       REST_URL: http://rest:3000
       WORKFLOW_TOKEN: ${WORKFLOW_TOKEN}
+      # Người dùng bên ngoài của các gói (mục "registration" trong module.json); secret client của gói đọc theo tên biến
+      # gói khai báo (gói xã: CITIZEN_KEYCLOAK_SECRET).
+      COMMUNEOS_MODULES: ${COMMUNEOS_MODULES:-xa,doanh-nghiep}
+      MODULES_DIR: /modules
+      CITIZEN_KEYCLOAK_SECRET: ${CITIZEN_KEYCLOAK_SECRET}
     volumes:
       - ./core/accounts:/app:ro
+      - ./modules:/modules:ro
     depends_on:
       identity:
         condition: service_healthy
@@ -396,9 +401,12 @@ services:
     restart: unless-stopped
     environment:
       BASE_URL: /docs
+      # Đặc tả của các gói đang bật (modules/<gói>/api-docs.yaml) hiện thêm trên trang tài liệu.
+      COMMUNEOS_MODULES: ${COMMUNEOS_MODULES:-xa,doanh-nghiep}
     volumes:
       - ./core/api-docs:/communeos:ro
       - ./core/api-docs/50-communeos.sh:/docker-entrypoint.d/50-communeos.sh:ro
+      - ./modules:/modules:ro
     healthcheck:
       test: ["CMD-SHELL", "curl -fsS -o /dev/null http://127.0.0.1:8080/docs/ || exit 1"]
       interval: 10s

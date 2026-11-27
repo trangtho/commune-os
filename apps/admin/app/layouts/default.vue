@@ -7,14 +7,17 @@ import { Activity, Building2, LayoutDashboard, LogOut, Package, ScrollText } fro
 
 const { username, logout } = useAuth();
 const route = useRoute();
+// Danh mục thủ tục là chức năng của gói xã: chỉ hiện khi lõi có cài gói xã.
+const { xaInstalled, load: loadModules } = useModules();
+onMounted(loadModules);
 
-const menu = [
+const menu = computed(() => [
   { to: "/", label: "Tổng quan", icon: LayoutDashboard },
   { to: "/xa", label: "Đơn vị", icon: Building2 },
-  { to: "/thu-tuc", label: "Danh mục thủ tục", icon: Package },
-  { to: "/so-cai", label: "Kiểm tra hồ sơ đã ký", icon: ScrollText },
+  ...(xaInstalled.value ? [{ to: "/thu-tuc", label: "Danh mục thủ tục", icon: Package }] : []),
+  { to: "/so-cai", label: "Sổ ghi nhận", icon: ScrollText },
   { to: "/tinh-trang", label: "Tình trạng hệ thống", icon: Activity },
-];
+]);
 const isActive = (to: string) => (to === "/" ? route.path === "/" : route.path === to || route.path.startsWith(`${to}/`));
 </script>
 

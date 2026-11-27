@@ -43,7 +43,7 @@ seed: .env ## Nạp lại danh mục thủ tục mẫu (idempotent)
 	$(COMPOSE) exec -T db sh -c 'psql -v ON_ERROR_STOP=1 -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"' < modules/xa/db/seed.sql
 
 test: demo ## Kiểm thử cách ly xã qua gateway (cần docker compose up; tự chạy make demo trước)
-	sh core/tests/tenant-isolation.sh
+	sh modules/xa/tests/tenant-isolation.sh
 
 .PHONY: test-architecture test-commune portal-smoke workflow-expected-status-test example-enterprise test-platform
 
@@ -57,7 +57,7 @@ test-commune: ## Kiểm thử đơn vị Kênh cán bộ
 	docker run --rm -v "$(CURDIR)":/w -w /w/apps/commune node:22-alpine npm test
 
 portal-smoke: ## Kiểm thử đăng nhập demo ba kênh (Node 22 trên máy chủ, make demo trước)
-	node core/tests/portal-smoke.mjs
+	node modules/xa/tests/portal-smoke.mjs
 
 example-enterprise: ## Gói doanh nghiệp (modules/doanh-nghiep) trên cùng lõi: Công ty A duyệt đơn nghỉ phép qua cổng API
 	sh modules/doanh-nghiep/test.sh

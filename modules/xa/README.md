@@ -14,6 +14,9 @@ tệp, tài khoản), xem [docs/LOI_DUNG_CHUNG.md](../../docs/LOI_DUNG_CHUNG.md)
 | [`module.json`](module.json) | Khai báo gói: thứ tự tệp SQL, quy trình hồ sơ (`/workflow/dossiers`), việc định kỳ |
 | `db/` | Công dân, thủ tục, hồ sơ, giấy tờ, thông báo, cán bộ xã, API của Kênh người dân (`*.sql`); danh mục thủ tục mẫu (`seed.sql`) |
 | `db/tests/` | Kiểm thử SQL của gói (chạy trong transaction rồi `ROLLBACK`), `make test-sql` |
+| [`tests/`](tests/README.md) | Kiểm thử qua lõi: cách ly xã, quy trình, tệp, tài khoản, công dân, AI (`make test`); ba ứng dụng (`make portal-smoke`) |
+| [`api-docs.yaml`](api-docs.yaml) | Đặc tả OpenAPI các đường dẫn riêng của gói trên dịch vụ của lõi (hiện trên trang `/docs/`) |
+| `identity/realm.json` | Cấu hình Keycloak riêng của gói: client `citizen-app`, vai trò `citizen`, thuộc tính công dân |
 | `bpmn/` | Quy trình xử lý hồ sơ `xu-ly-ho-so` |
 | `demo/` | Dữ liệu mẫu tạo qua API của lõi: 2 xã, lãnh đạo, cán bộ, công dân, hồ sơ (`make demo`) |
 | [`packs/`](packs/README.md) | Gói thủ tục (`pack.yaml`) nạp qua bảng quản trị |

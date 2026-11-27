@@ -9,16 +9,13 @@
 //   POST /files/:loai/:ma/attachments?name=<tên tệp>                 thân = nội dung tệp
 //   GET  /files/:loai/:ma/attachments                               danh sách tệp của đối tượng
 //   GET  /files/attachments/:id                                     tải tệp (kiểm tra mã băm)
-//   Giấy tờ riêng của gói xã:
-//   POST /files/dossiers/:id/documents?code=<loại>&name=<tên tệp>   thân = nội dung tệp
-//   GET  /files/documents/:id                                       tải giấy tờ (kiểm tra mã băm)
-//   GET  /files/handoffs/:id/documents/:id                          giấy tờ trong mã chuyển hồ sơ tại quầy
+//   Đường dẫn tệp riêng của gói: mục "files" của module.json (ví dụ giấy tờ hồ sơ của gói xã), xem fileRoute().
 // Đường dẫn nội bộ (chỉ trong mạng docker, cổng không chuyển tới; cần X-Service-Token):
 //   PUT    /internal/objects            lưu một tệp, trả { key, sha256 }
 //   GET    /internal/objects/:key       đọc tệp
 //   DELETE /internal/objects/:key       xóa tệp
 //   GET    /health, /files/health (qua cổng)   dịch vụ và kho đối tượng
-// Quyền xem/ghi do PostgreSQL quyết định (RLS theo xã), dịch vụ này chỉ chuyển token của người dùng.
+// Quyền xem/ghi do PostgreSQL quyết định (RLS theo đơn vị), dịch vụ này chỉ chuyển token của người dùng.
 
 import { createServer } from 'node:http'
 import { createHash, createHmac, randomUUID, timingSafeEqual } from 'node:crypto'
@@ -68,6 +65,29 @@ for (const m of (process.env.COMMUNEOS_MODULES || 'xa').split(/[\s,]+/).filter(B
     ATTACHABLE.set(a.resource, { module: m, label: a.label || 'Đối tượng', view: a.view, uploadStatuses: a.uploadStatuses || null })
   }
 }
+// Đường dẫn tệp riêng do gói khai báo (mục "files"): tải lên gọi hàm ghi của gói, tải về gọi hàm đọc của gói;
+// dịch vụ này chỉ lưu, kiểm tra, trả tệp. Ví dụ:
+//   { "method": "POST", "path": "items/{id}/documents", "rpc": "item_document_add",
+//     "query": { "code": { "pattern": "^[a-z0-9-]{1,100}$", "required": true }, "name": { "max": 180, "default": "tep" } },
+//     "args": { "item_id": "{id}", "document_code": "{code}", "original_name": "{name}" } }
+//   { "method": "GET", "path": "item-documents/{id:uuid}", "rpc": "item_document_object", "args": { "document_id": "{id}" } }
+// (gói xã khai báo giấy tờ hồ sơ, giấy tờ cán bộ, giấy tờ trong mã chuyển hồ sơ theo cách này: modules/xa/module.json)
+// Tải lên: hàm của gói nhận thêm mime_type, size_bytes, sha256, storage_key. Tải về: hàm trả một dòng có storage_key,
+// mime_type, original_name (hoặc title), sha256 (có thì kiểm tra lại mã băm). {tham số:uuid} phải là UUID.
+const FILE_ROUTES = []
+for (const m of (process.env.COMMUNEOS_MODULES || 'xa').split(/[\s,]+/).filter(Boolean)) {
+  const file = join(MODULES_DIR, m, 'module.json')
+  if (!existsSync(file)) continue
+  for (const r of JSON.parse(readFileSync(file, 'utf8')).files || []) {
+    const segs = String(r.path || '').split('/')
+    if (!['GET', 'POST'].includes(r.method) || !NAME_RE.test(r.rpc || '') || !segs.length ||
+        !segs.every((x) => /^[a-z][a-z0-9-]*$/.test(x) || /^\{[a-zA-Z]+(:uuid)?\}$/.test(x))) {
+      throw new Error(`${m}/module.json: "files" khai báo sai (${r.method} ${r.path})`)
+    }
+    FILE_ROUTES.push({ ...r, module: m, segs })
+  }
+}
+if (FILE_ROUTES.length) console.log(`Đường dẫn tệp của gói: ${FILE_ROUTES.map((r) => `${r.method} /files/${r.path}`).join(', ')}`)
 if (ATTACHABLE.size) console.log(`Tệp đính kèm: ${[...ATTACHABLE.keys()].map((r) => `/files/${r}/<mã>/attachments`).join(', ')}`)
 
 // ---------- Kho đối tượng S3 (chữ ký AWS Signature V4) ----------
@@ -195,6 +215,70 @@ async function visibleItem(kind, id, authorization) {
   return row
 }
 
+// Khớp đường dẫn với khai báo "files" của gói; trả { def, params } hoặc null.
+function matchRoute(method, segs) {
+  for (const def of FILE_ROUTES) {
+    if (def.method !== method || def.segs.length !== segs.length) continue
+    const params = {}
+    let ok = true
+    for (let i = 0; i < segs.length && ok; i++) {
+      const p = /^\{([a-zA-Z]+)(:uuid)?\}$/.exec(def.segs[i])
+      if (!p) { ok = def.segs[i] === segs[i]; continue }
+      const v = decodeURIComponent(segs[i])
+      if (p[2] && !UUID_RE.test(v)) throw new HttpError(404, 'Không tìm thấy tệp')
+      if (!v || v.length > 200) { ok = false; continue }
+      params[p[1]] = v
+    }
+    if (ok) return { def, params }
+  }
+  return null
+}
+
+// Thay {tên} trong args của khai báo bằng tham số đường dẫn và tham số truy vấn đã kiểm tra.
+function routeArgs(def, params, url) {
+  const values = { ...params }
+  for (const [name, spec] of Object.entries(def.query || {})) {
+    let v = url.searchParams.get(name)
+    if (v === null || v === '') {
+      if (spec?.required) throw new HttpError(400, `Thiếu tham số ${name}`)
+      v = spec?.default ?? null
+    }
+    if (v !== null) {
+      if (spec?.pattern && !new RegExp(spec.pattern).test(v)) throw new HttpError(400, `Tham số ${name} không hợp lệ`)
+      if (spec?.max) v = v.slice(0, spec.max)
+    }
+    values[name] = v
+  }
+  return Object.fromEntries(Object.entries(def.args || {}).map(([k, t]) => {
+    const m = /^\{([a-zA-Z_]+)\}$/.exec(String(t))
+    return [k, m ? (values[m[1]] ?? null) : t]
+  }))
+}
+
+async function fileRoute(def, params, url, req, res, auth) {
+  const args = routeArgs(def, params, url)
+  if (def.method === 'POST') {
+    const type = String(req.headers['content-type'] || '').split(';')[0].trim()
+    const stored = await storeObject(type, await readBody(req))
+    try {
+      const r = await rpc(def.rpc, { ...args, mime_type: type, size_bytes: stored.size, sha256: stored.sha256, storage_key: stored.key }, auth)
+      return json(res, 201, r && typeof r === 'object' && !Array.isArray(r) ? { ...r, sha256: r.sha256 ?? stored.sha256 } : r)
+    } catch (e) {
+      await s3('DELETE', stored.key).catch(() => {})   // không để lại tệp mồ côi
+      throw e
+    }
+  }
+  const out = await rpc(def.rpc, args, auth)
+  const meta = Array.isArray(out) ? out[0] : out
+  if (!meta?.storage_key) throw new HttpError(404, 'Không tìm thấy tệp hoặc không có quyền xem')
+  const data = await readObject(meta.storage_key)
+  if (meta.sha256 && sha256hex(data) !== meta.sha256) {
+    throw new HttpError(409, 'Tệp trong kho không khớp mã băm đã ghi: có thể đã bị thay đổi')
+  }
+  const name = meta.original_name || `${meta.title || 'tep'}.${meta.storage_key.split('.').pop()}`
+  return sendFile(res, data, { ...meta, original_name: name })
+}
+
 // ---------- HTTP ----------
 async function readBody(req) {
   const chunks = []; let size = 0
@@ -289,77 +373,9 @@ async function handle(req, res) {
       return sendFile(res, data, meta)
     }
 
-    // --- Giấy tờ riêng của gói xã ---
-    // POST /files/dossiers/:id/documents
-    if (req.method === 'POST' && parts.length === 4 && parts[1] === 'dossiers' && parts[3] === 'documents') {
-      const code = String(url.searchParams.get('code') || '')
-      const name = String(url.searchParams.get('name') || 'tep-dinh-kem').slice(0, 180)
-      if (!/^[a-z0-9-]{1,100}$/.test(code)) throw new HttpError(400, 'Thiếu hoặc sai loại giấy tờ (code)')
-      const type = String(req.headers['content-type'] || '').split(';')[0].trim()
-      const stored = await storeObject(type, await readBody(req))
-      try {
-        const doc = await rpc('register_document', {
-          dossier_id: decodeURIComponent(parts[2]), document_code: code, original_name: name,
-          mime_type: type, size_bytes: stored.size, sha256: stored.sha256, storage_key: stored.key,
-        }, auth)
-        return json(res, 201, doc)
-      } catch (e) {
-        await s3('DELETE', stored.key).catch(() => {})   // không để lại tệp mồ côi
-        throw e
-      }
-    }
-
-    // GET /files/documents/:id
-    if (req.method === 'GET' && parts.length === 3 && parts[1] === 'documents') {
-      if (!UUID_RE.test(parts[2])) throw new HttpError(404, 'Không tìm thấy giấy tờ')
-      const [meta] = await rpc('document_object', { document_id: parts[2] }, auth)
-      if (!meta) throw new HttpError(404, 'Không tìm thấy giấy tờ hoặc không có quyền xem')
-      const data = await readObject(meta.storage_key)
-      if (meta.sha256 && sha256hex(data) !== meta.sha256) {
-        throw new HttpError(409, 'Tệp trong kho không khớp mã băm đã ghi: có thể đã bị thay đổi')
-      }
-      return sendFile(res, data, meta)
-    }
-    // POST /files/staff-documents?doc_type=&title= — cán bộ nộp giấy tờ cá nhân, chờ lãnh đạo duyệt
-    if (req.method === 'POST' && parts.length === 2 && parts[1] === 'staff-documents') {
-      const docType = String(url.searchParams.get('doc_type') || '')
-      const title = String(url.searchParams.get('title') || '').slice(0, 160)
-      const note = url.searchParams.get('note')
-      if (!/^[a-z-]{2,30}$/.test(docType)) throw new HttpError(400, 'Thiếu hoặc sai loại giấy tờ (doc_type)')
-      const type = String(req.headers['content-type'] || '').split(';')[0].trim()
-      const stored = await storeObject(type, await readBody(req))
-      try {
-        const r = await rpc('request_document_add', {
-          doc_type: docType, title, storage_key: stored.key, mime_type: type,
-          size_bytes: stored.size, sha256: stored.sha256, note: note ? note.slice(0, 1000) : null,
-        }, auth)
-        return json(res, 201, { ...r, sha256: stored.sha256 })
-      } catch (e) {
-        await s3('DELETE', stored.key).catch(() => {})
-        throw e
-      }
-    }
-
-    // GET /files/staff-documents/:id — chủ giấy tờ hoặc lãnh đạo cùng xã
-    if (req.method === 'GET' && parts.length === 3 && parts[1] === 'staff-documents') {
-      if (!UUID_RE.test(parts[2])) throw new HttpError(404, 'Không tìm thấy giấy tờ')
-      const [meta] = await rpc('staff_document_object', { document_id: parts[2] }, auth)
-      if (!meta) throw new HttpError(404, 'Không tìm thấy giấy tờ hoặc không có quyền xem')
-      const data = await readObject(meta.storage_key)
-      if (sha256hex(data) !== meta.sha256) {
-        throw new HttpError(409, 'Tệp trong kho không khớp mã băm đã ghi: có thể đã bị thay đổi')
-      }
-      const ext = meta.storage_key.split('.').pop()
-      return sendFile(res, data, { ...meta, original_name: `${meta.title}.${ext}` })
-    }
-    // GET /files/handoffs/:handoffId/documents/:documentId — cán bộ xã tiếp nhận tải giấy tờ trong mã chuyển hồ sơ
-    // tại quầy đã dùng (api.redeem_citizen_handoff); PostgreSQL kiểm tra xã, hạn và người dùng mã.
-    if (req.method === 'GET' && parts.length === 5 && parts[1] === 'handoffs' && parts[3] === 'documents') {
-      if (!UUID_RE.test(parts[2]) || !UUID_RE.test(parts[4])) throw new HttpError(404, 'Không tìm thấy giấy tờ')
-      const [meta] = await rpc('citizen_handoff_document', { p_handoff_id: parts[2], p_document_id: parts[4] }, auth)
-      if (!meta) throw new HttpError(404, 'Không có quyền truy cập tài liệu này')
-      return sendFile(res, await readObject(meta.storage_key), meta)
-    }
+    // --- Đường dẫn tệp riêng do gói khai báo ---
+    const route = matchRoute(req.method, parts.slice(1))
+    if (route) return fileRoute(route.def, route.params, url, req, res, auth)
     throw new HttpError(404, 'Không có đường dẫn này')
   }
 
