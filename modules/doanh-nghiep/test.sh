@@ -5,7 +5,8 @@
 # Ví dụ doanh nghiệp trên cùng lõi: "Công ty A" duyệt đơn nghỉ phép.
 # Mọi bước đi đường thật Keycloak → APISIX → (orchestrator → Flowable) → PostgREST → PostgreSQL, như gói nghiệp vụ xã.
 # Cần: make up, curl, python3; chạy qua make example-enterprise. Có gói xã và make demo thì kiểm tra thêm cách ly với xã A.
-# Lần đầu tạo đơn vị cong-ty-a, giám đốc giamdoc.cong-ty-a, nhân viên nhanvien.cong-ty-a qua API của lõi
+# Lần đầu tạo đơn vị cong-ty-a, giám đốc giamdoc.cong-ty-a, nhân viên nhanvien.cong-ty-a, trưởng phòng
+# truongphong.cong-ty-a (vai trò của gói "doanh-nghiep:truong-phong") qua API của lõi
 # (mật khẩu DEMO_PASSWORD, mặc định Demo@2026!); các lần sau dùng lại.
 set -u
 
@@ -71,6 +72,29 @@ else
   echo "KẾT QUẢ: CÓ LỖI"; exit 1
 fi
 
+# 1b. Vai trò của gói (module.json "roles"): giám đốc tạo trưởng phòng, gán vai trò "doanh-nghiep:truong-phong" qua dịch vụ
+#     tài khoản; không gán được vai trò của gói đơn vị không bật hay vai trò lạ; nhân viên không gán được.
+TPU=truongphong.cong-ty-a
+TP=$(token "$TPU" "$PASS")
+if [ -z "$TP" ]; then
+  r=$(call POST "$LG" /accounts/staff "{\"username\":\"$TPU\",\"firstName\":\"Trưởng phòng\",\"lastName\":\"Công ty A\"}")
+  tmp=$(body_of "$r" | jfield temporaryPassword)
+  [ -n "$tmp" ] && first_password "$TPU" "$tmp"
+fi
+TPID=$(call GET "$LG" /accounts/staff | cut -f2- | python3 -c "import json,sys
+try: print(next(u['id'] for u in json.load(sys.stdin) if u['username']=='$TPU'))
+except Exception: print('')")
+setroles() { code_of "$(call PUT "$1" "/accounts/staff/$TPID/roles" "{\"roles\":$2}")"; }
+c_xa=$(setroles "$LG" '["xa:can-bo"]'); c_nv=$(setroles "$NV" '["doanh-nghiep:truong-phong"]'); c_ok=$(setroles "$LG" '["doanh-nghiep:truong-phong"]')
+TP=$(token "$TPU" "$PASS")
+has_tp=$(echo "$TP" | cut -d. -f2 | python3 -c 'import base64,json,sys; s=sys.stdin.read().strip(); print("doanh-nghiep:truong-phong" in json.loads(base64.urlsafe_b64decode(s+"="*(-len(s)%4))).get("realm_access",{}).get("roles",[]))' 2>/dev/null)
+nroles=$(call GET "$LG" /rest/module_roles | cut -f2- | python3 -c 'import json,sys
+try: print(",".join(r["role"] for r in json.load(sys.stdin)))
+except Exception: print("LOI")')
+[ -n "$TPID" ] && [ "$c_xa" = "400" ] && [ "$c_nv" = "403" ] && [ "$c_ok" = "200" ] && [ "$has_tp" = "True" ] && [ "$nroles" = "doanh-nghiep:truong-phong" ] &&
+  ok "Vai trò của gói: giám đốc gán doanh-nghiep:truong-phong cho trưởng phòng, token mang vai trò; vai trò gói khác bị từ chối (400); nhân viên không gán được (403)" ||
+  fail "Vai trò của gói: tài khoản '$TPID', gói khác $c_xa, nhân viên gán $c_nv, gán $c_ok, token có vai trò '$has_tp', vai trò gán được '$nroles'"
+
 # 2. Nhân viên nộp đơn (API dữ liệu /rest, RLS theo đơn vị).
 r=$(call POST "$NV" /rest/rpc/leave_request_create '{"from_date":"2026-12-21","to_date":"2026-12-23","reason":"Về quê có việc gia đình"}')
 ID=$(body_of "$r" | jfield id)
@@ -82,10 +106,10 @@ r=$(call GET "$NV" "/workflow/leave-requests/$ID/actions")
 acts=$(body_of "$r" | python3 -c 'import json,sys
 try: d=json.load(sys.stdin); print(d.get("step"), ",".join(sorted(d.get("actions",[]))))
 except Exception: print("")')
-[ "$acts" = "Chờ giám đốc duyệt approved,rejected" ] && ok "Sơ đồ BPMN duyệt nghỉ phép trả đúng bước và các nhánh (approved, rejected)" ||
+[ "$acts" = "Chờ trưởng phòng duyệt dept_approved,rejected" ] && ok "Sơ đồ BPMN duyệt nghỉ phép trả đúng bước đầu và các nhánh (dept_approved, rejected)" ||
   fail "GET /workflow/leave-requests/<mã>/actions trả $(code_of "$r") '$acts'. Chưa make up lại sau khi thêm gói?"
 
-code=$(code_of "$(call POST "$NV" "/workflow/leave-requests/$ID/actions" '{"action":"approved"}')")
+code=$(code_of "$(call POST "$NV" "/workflow/leave-requests/$ID/actions" '{"action":"dept_approved"}')")
 [ "$code" = "403" ] && ok "Nhân viên không tự duyệt được đơn (403)" || fail "Nhân viên duyệt đơn phải 403, nhận $code"
 
 code=$(code_of "$(call POST "$LG" /rest/rpc/set_leave_request_status "{\"request_id\":\"$ID\",\"status\":\"approved\"}")")
@@ -135,16 +159,27 @@ if [ -n "$TA" ]; then
     fail "Tệp của Công ty A với cán bộ xã A: tải $c1, danh sách $c2"
 fi
 
-# 5. Giám đốc duyệt qua quy trình; kết thúc rồi không xử lý tiếp được.
-code=$(code_of "$(call POST "$LG" "/workflow/leave-requests/$ID/actions" '{"action":"rejected"}')")
-r=$(call POST "$LG" "/workflow/leave-requests/$ID/actions" '{"action":"approved","note":"Đồng ý"}')
+# 5. Hai bước duyệt qua quy trình: trưởng phòng rồi giám đốc; giám đốc không bỏ qua được bước trưởng phòng; trưởng phòng
+#    không duyệt được bước của giám đốc; kết thúc rồi không xử lý tiếp được.
+act() { call POST "$1" "/workflow/leave-requests/$ID/actions" "$2"; }
+skip=$(code_of "$(act "$LG" '{"action":"approved"}')")
+r1=$(act "$TP" '{"action":"dept_approved","note":"Phòng đã sắp xếp người thay"}'); s1=$(body_of "$r1" | jfield status)
+step2=$(call GET "$NV" "/workflow/leave-requests/$ID/actions" | cut -f2- | python3 -c 'import json,sys
+try: d=json.load(sys.stdin); print(d.get("step"), ",".join(sorted(d.get("actions",[]))))
+except Exception: print("")')
+tp2=$(code_of "$(act "$TP" '{"action":"approved"}')")
+[ "$skip" = "409" ] && [ "$(code_of "$r1")" = "200" ] && [ "$s1" = "dept_approved" ] && [ "$step2" = "Chờ giám đốc duyệt approved,rejected" ] && [ "$tp2" = "403" ] &&
+  ok "Trưởng phòng duyệt bước đầu (vai trò của gói); giám đốc không bỏ qua được bước này (409); trưởng phòng không duyệt thay giám đốc (403)" ||
+  fail "Bước trưởng phòng: giám đốc bỏ qua $skip, trưởng phòng duyệt $(code_of "$r1") '$s1', bước sau '$step2', trưởng phòng duyệt bước 2 $tp2"
+code=$(code_of "$(act "$LG" '{"action":"rejected"}')")
+r=$(act "$LG" '{"action":"approved","note":"Đồng ý"}')
 st=$(body_of "$r" | jfield status)
-again=$(code_of "$(call POST "$LG" "/workflow/leave-requests/$ID/actions" '{"action":"rejected","note":"Đổi ý"}')")
+again=$(code_of "$(act "$LG" '{"action":"rejected","note":"Đổi ý"}')")
 seen=$(call GET "$NV" "/rest/leave_requests?id=eq.$ID&select=status,decided_by" | cut -f2- | python3 -c 'import json,sys
 try: d=json.load(sys.stdin); print(d[0]["status"] if d else "")
 except Exception: print("")')
 [ "$code" = "400" ] && [ "$(code_of "$r")" = "200" ] && [ "$st" = "approved" ] && [ "$again" = "409" ] && [ "$seen" = "approved" ] &&
-  ok "Không đồng ý mà thiếu lý do bị chặn (400); giám đốc duyệt qua quy trình, nhân viên thấy kết quả; đơn đã kết thúc không xử lý lại (409)" ||
+  ok "Không đồng ý mà thiếu lý do bị chặn (400); giám đốc duyệt bước cuối, nhân viên thấy kết quả; đơn đã kết thúc không xử lý lại (409)" ||
   fail "Duyệt: thiếu lý do $code, duyệt $(code_of "$r") '$st', xử lý lại $again, nhân viên thấy '$seen'"
 
 late=$(code_of "$(upload "$NV" "$TMP/giay.pdf" application/pdf)")
@@ -157,8 +192,8 @@ except Exception: print("")')
 chain=$(call POST "$LG" /rest/rpc/verify_ledger "{\"only_tenant\":\"$CODE\"}" | cut -f2- | python3 -c 'import json,sys
 try: d=json.load(sys.stdin); print(d[0]["ok"] if len(d)==1 else "")
 except Exception: print("")')
-[ "$steps" = "submitted,attachment,approved" ] && [ "$chain" = "True" ] &&
-  ok "Sổ ghi nhận của lõi ghi đủ các bước của đơn (nộp, đính kèm tệp, duyệt), chuỗi băm của Công ty A nguyên vẹn" ||
+[ "$steps" = "submitted,attachment,dept_approved,approved" ] && [ "$chain" = "True" ] &&
+  ok "Sổ ghi nhận của lõi ghi đủ các bước của đơn (nộp, đính kèm tệp, trưởng phòng duyệt, giám đốc duyệt), chuỗi băm của Công ty A nguyên vẹn" ||
   fail "Sổ ghi nhận: các bước '$steps', chuỗi nguyên vẹn '$chain'"
 
 # 7. Gói theo đơn vị: Công ty A chỉ dùng gói doanh nghiệp, không dùng được chức năng của gói xã.

@@ -3,6 +3,9 @@
   "title": "Ví dụ doanh nghiệp: duyệt đơn nghỉ phép",
   "version": "0.2.0",
   "db": ["db/nghi-phep.sql"],
+  "roles": [
+    { "name": "truong-phong", "title": "Trưởng phòng", "description": "Duyệt đơn nghỉ phép của nhân viên trước giám đốc" }
+  ],
   "knowledge": [
     { "file": "kb/quy-che-nghi-phep.md", "audience": "staff" }
   ],

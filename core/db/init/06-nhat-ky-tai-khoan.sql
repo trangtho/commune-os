@@ -9,7 +9,7 @@ CREATE TABLE IF NOT EXISTS staff_audit (
   id bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   tenant_code text NOT NULL,
   actor text NOT NULL,
-  action text NOT NULL CHECK (action IN ('create', 'update', 'lock', 'unlock', 'reset_password', 'delete')),
+  action text NOT NULL CHECK (action IN ('create', 'update', 'lock', 'unlock', 'reset_password', 'delete', 'set_roles')),
   target_username text NOT NULL,
   created_at timestamptz NOT NULL DEFAULT now()
 );
@@ -17,7 +17,7 @@ CREATE TABLE IF NOT EXISTS staff_audit (
 -- Máy đã tạo bảng bằng bản cũ (chỉ 4 thao tác): cập nhật ràng buộc cho đủ 6 thao tác.
 ALTER TABLE staff_audit DROP CONSTRAINT IF EXISTS staff_audit_action_check;
 ALTER TABLE staff_audit ADD CONSTRAINT staff_audit_action_check
-  CHECK (action IN ('create', 'update', 'lock', 'unlock', 'reset_password', 'delete'));
+  CHECK (action IN ('create', 'update', 'lock', 'unlock', 'reset_password', 'delete', 'set_roles'));
 
 CREATE OR REPLACE FUNCTION public.staff_audit_block_change() RETURNS trigger
 LANGUAGE plpgsql AS $$

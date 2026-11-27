@@ -100,6 +100,14 @@ c3=$(code -X POST -H "Authorization: Bearer $QT" -H 'Content-Type: application/j
   ok "Kho tri thức: /rest/knowledge_documents đọc được; tìm kiếm, tạo vector chỉ dịch vụ AI gọi được (403)" ||
   fail "Kho tri thức: danh sách $c1, tìm kiếm $c2, tạo vector $c3"
 
+# 5d. Vai trò của gói: lãnh đạo đọc được vai trò gán được (gói đơn vị đã bật); vai trò lạ, vai trò của lõi bị từ chối.
+c1=$(code -H "Authorization: Bearer $LT" "$GW/rest/module_roles")
+c2=$(code -X PUT -H "Authorization: Bearer $LT" -H 'Content-Type: application/json' -d '{"roles":["khong-co:vai-tro"]}' "$GW/accounts/staff/00000000-0000-0000-0000-000000000000/roles")
+c3=$(code -X PUT -H "Authorization: Bearer $LT" -H 'Content-Type: application/json' -d '{"roles":["leader"]}' "$GW/accounts/staff/00000000-0000-0000-0000-000000000000/roles")
+[ "$c1" = "200" ] && [ "$c2" = "400" ] && [ "$c3" = "400" ] &&
+  ok "Vai trò của gói: /rest/module_roles đọc được; gán vai trò không thuộc gói đơn vị đã bật, vai trò của lõi bị từ chối (400)" ||
+  fail "Vai trò của gói: danh sách $c1, vai trò lạ $c2, vai trò lõi $c3"
+
 # 6. Không cài gói xã thì lõi không có bảng, API nào của gói xã.
 case ",$MODULES," in
   *,xa,*) echo "  BỎ QUA  Lõi không chứa bảng của gói xã (gói xã đang được cài)" ;;

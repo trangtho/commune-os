@@ -2,22 +2,32 @@
 SPDX-FileCopyrightText: 2026 CommuneOS Contributors
 SPDX-License-Identifier: Apache-2.0
 
-Ví dụ doanh nghiệp: duyệt đơn nghỉ phép của nhân viên.
+Ví dụ doanh nghiệp: duyệt đơn nghỉ phép hai bước, trưởng phòng rồi giám đốc.
 Cùng cách viết với quy trình hồ sơ của gói nghiệp vụ xã: mỗi userTask có id trùng trạng thái của đơn,
-nhánh đi tiếp chọn theo biến "action". Thêm bước (ví dụ trưởng phòng duyệt trước giám đốc) chỉ cần sửa sơ đồ này
-và hàm đổi trạng thái trong db/nghi-phep.sql, không sửa mã của lõi.
+nhánh đi tiếp chọn theo biến "action". Bước trưởng phòng dùng vai trò riêng của gói ("doanh-nghiep:truong-phong",
+khai báo ở mục "roles" của module.json); thêm, bớt bước chỉ cần sửa sơ đồ này và hàm đổi trạng thái trong
+db/nghi-phep.sql, không sửa mã của lõi.
  -->
 <definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:flowable="http://flowable.org/bpmn" targetNamespace="https://github.com/trangtho/commune-os">
 <process id="duyet-nghi-phep" name="Duyệt đơn nghỉ phép" isExecutable="true">
 <startEvent id="nop-don" name="Nhân viên nộp đơn"/>
 <sequenceFlow id="f0" sourceRef="nop-don" targetRef="submitted"/>
-<userTask id="submitted" name="Chờ giám đốc duyệt" flowable:candidateGroups="leader"/>
-<sequenceFlow id="f1" sourceRef="submitted" targetRef="ket-qua-duyet"/>
-<exclusiveGateway id="ket-qua-duyet" name="Kết quả duyệt"/>
-<sequenceFlow id="f2" sourceRef="ket-qua-duyet" targetRef="approved">
+<userTask id="submitted" name="Chờ trưởng phòng duyệt" flowable:candidateGroups="doanh-nghiep:truong-phong,leader"/>
+<sequenceFlow id="f1" sourceRef="submitted" targetRef="ket-qua-truong-phong"/>
+<exclusiveGateway id="ket-qua-truong-phong" name="Trưởng phòng duyệt"/>
+<sequenceFlow id="f2" sourceRef="ket-qua-truong-phong" targetRef="dept_approved">
+<conditionExpression>${action == 'dept_approved'}</conditionExpression>
+</sequenceFlow>
+<sequenceFlow id="f3" sourceRef="ket-qua-truong-phong" targetRef="rejected">
+<conditionExpression>${action == 'rejected'}</conditionExpression>
+</sequenceFlow>
+<userTask id="dept_approved" name="Chờ giám đốc duyệt" flowable:candidateGroups="leader"/>
+<sequenceFlow id="f4" sourceRef="dept_approved" targetRef="ket-qua-giam-doc"/>
+<exclusiveGateway id="ket-qua-giam-doc" name="Giám đốc duyệt"/>
+<sequenceFlow id="f5" sourceRef="ket-qua-giam-doc" targetRef="approved">
 <conditionExpression>${action == 'approved'}</conditionExpression>
 </sequenceFlow>
-<sequenceFlow id="f3" sourceRef="ket-qua-duyet" targetRef="rejected">
+<sequenceFlow id="f6" sourceRef="ket-qua-giam-doc" targetRef="rejected">
 <conditionExpression>${action == 'rejected'}</conditionExpression>
 </sequenceFlow>
 <endEvent id="approved" name="Đồng ý cho nghỉ"/>

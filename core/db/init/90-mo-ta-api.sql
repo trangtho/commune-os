@@ -51,7 +51,8 @@ BEGIN
     ('core_knowledge_search', 'Tìm kiếm lai toàn văn và ngữ nghĩa trên kho tri thức của lõi (chỉ ai-gateway gọi, cần X-Workflow-Token)', 'Ứng dụng hỏi trợ lý qua POST /ai/ask.'),
     ('core_knowledge_pending', 'Đoạn tri thức của lõi chưa có vector (chỉ ai-gateway gọi)', NULL),
     ('core_knowledge_store', 'Lưu vector cho đoạn tri thức của lõi (chỉ ai-gateway gọi)', NULL),
-    ('core_knowledge_status', 'Tình trạng chỉ mục vector của kho tri thức lõi (chỉ ai-gateway gọi)', NULL)
+    ('core_knowledge_status', 'Tình trạng chỉ mục vector của kho tri thức lõi (chỉ ai-gateway gọi)', NULL),
+    ('module_roles', 'Vai trò do gói nghiệp vụ khai báo, gán được cho nhân viên', 'role: tên trong Keycloak và trong token ("<gói>:<vai trò>"). Người của đơn vị chỉ thấy vai trò của gói đơn vị đã bật. Lãnh đạo gán bằng PUT /accounts/staff/<id>/roles.')
   ) AS t(name, summary, detail)
   LOOP
     IF to_regclass('api.' || quote_ident(item.name)) IS NOT NULL THEN

@@ -22,7 +22,7 @@ vị và bật, tắt ở bảng quản trị (Đơn vị → chi tiết đơn v
 
 | Trụ cột | Lõi cung cấp (dùng chung) | Gói nghiệp vụ xã dùng | Ví dụ doanh nghiệp dùng |
 | --- | --- | --- | --- |
-| **H** (Con người) | Đăng nhập một lần (Keycloak); đơn vị, lãnh đạo, nhân viên, đổi mật khẩu tạm (dịch vụ `accounts`); vai trò trong token | Cán bộ, lãnh đạo xã, công dân; hồ sơ cán bộ, giao việc, hai cấp duyệt ([QUAN_LY_NHAN_VIEN.md](QUAN_LY_NHAN_VIEN.md)) | Giám đốc (`leader`), nhân viên (`officer`) của Công ty A, tạo qua cùng API |
+| **H** (Con người) | Đăng nhập một lần (Keycloak); đơn vị, lãnh đạo, nhân viên, đổi mật khẩu tạm (dịch vụ `accounts`); vai trò trong token, gồm vai trò riêng do gói khai báo, lãnh đạo gán cho nhân viên | Cán bộ, lãnh đạo xã, công dân; hồ sơ cán bộ, giao việc, hai cấp duyệt ([QUAN_LY_NHAN_VIEN.md](QUAN_LY_NHAN_VIEN.md)) | Giám đốc (`leader`), nhân viên (`officer`), trưởng phòng (vai trò của gói `doanh-nghiep:truong-phong`) của Công ty A |
 | **P** (Quy trình) | Flowable + dịch vụ điều phối: mọi loại đối tượng chạy theo sơ đồ BPMN, chặn gọi thẳng hàm đổi trạng thái ([core/orchestrator](../core/orchestrator/README.md)) | Quy trình xử lý hồ sơ `xu-ly-ho-so`; danh mục thủ tục theo xã, gói thủ tục (`modules/xa/packs/`) | Quy trình `duyet-nghi-phep` |
 | **D** (Dữ liệu) | PostgreSQL + PostgREST, cách ly đơn vị bằng RLS; kho tệp S3 (SeaweedFS) và dịch vụ tệp; sổ ghi nhận hash-chain theo đơn vị (`public.ledger_record`) | Hồ sơ, giấy tờ, báo cáo điều hành (`apps/commune` → Báo cáo), sổ ghi nhận (`apps/admin` → Kiểm tra hồ sơ đã ký) | Đơn nghỉ phép (schema `nghi_phep`), tệp đính kèm của đơn (giấy khám bệnh...), ghi sổ từng bước duyệt |
 | **I** (Trí tuệ) | AI chạy cục bộ (Ollama); `ai-gateway` che dữ liệu cá nhân, chỉ trích dẫn từ nguồn, gộp các nguồn tri thức; kho tri thức dùng chung (tài liệu của gói và của từng đơn vị), tìm kiếm lai toàn văn + ngữ nghĩa (RAG) ([core/ai](../core/ai/README.md)) | Nguồn tri thức riêng: thủ tục, câu hỏi thường gặp, hướng dẫn nghiệp vụ; trợ lý thủ tục cho người dân, trợ lý nghiệp vụ cho cán bộ | Quy chế nghỉ phép của gói, tài liệu riêng do giám đốc nạp; nhân viên hỏi trợ lý |
@@ -48,7 +48,13 @@ Lõi không biết gói nào tồn tại:
   thêm rằng không có bảng, API nào của gói xã) và `make example-enterprise`.
 
 Gói nghiệp vụ chỉ được dựa vào phần lõi: bảng `tenants`, các hàm đọc token, `is_workflow_call`, `ledger_record`,
-`register_request_hook`, `tenant_has_module`, `require_module`, dịch vụ tài khoản. Không đọc ghi bảng của gói khác.
+`register_request_hook`, `tenant_has_module`, `require_module`, `has_role`, dịch vụ tài khoản. Không đọc ghi bảng của gói
+khác.
+
+**Vai trò theo gói** (`core/db/init/11-vai-tro-goi.sql`): gói khai báo vai trò riêng trong `module.json` (mục `roles`);
+`identity-setup` tạo vai trò `<gói>:<vai trò>` trong Keycloak; lãnh đạo đơn vị gán cho nhân viên
+(`PUT /accounts/staff/{id}/roles`), chỉ vai trò của gói đơn vị đã bật. Gói kiểm tra bằng `public.has_role('<gói>:<vai trò>')`
+trong RLS và hàm của mình. Ví dụ gói doanh nghiệp: bước "trưởng phòng duyệt" trước giám đốc.
 
 **Gói theo đơn vị** (`core/db/init/08-goi-theo-don-vi.sql`): bảng `tenant_modules` ghi đơn vị nào bật gói nào. Gói tự
 kiểm tra trong RLS (`public.tenant_has_module(tenant_id, '<gói>')`) và trong hàm (`public.require_module('<gói>')`), nên
@@ -70,6 +76,7 @@ Làm theo [modules/doanh-nghiep](../modules/doanh-nghiep/README.md):
 4. **Khai báo (`module.json`):** `name`, `title`, `version`; `db` (tệp SQL theo thứ tự chạy); `workflows` (loại đối
    tượng, sơ đồ, bảng ảo, hàm đổi trạng thái, [các trường](../core/orchestrator/README.md#thêm-loại-đối-tượng-gói-nghiệp-vụ));
    `jobs` nếu cần việc định kỳ; `attachments` nếu đối tượng cần đính kèm tệp ([cách khai báo](../core/files/README.md));
+   `roles` nếu gói cần vai trò riêng (`name`, `title`, `description`; dùng trong gói là `<gói>:<name>`);
    `knowledge` nếu có tài liệu nội bộ cho trợ lý AI (tệp Markdown, mỗi `## ...` là một mục; `audience` `staff` hoặc
    `public`); `knowledgeProvider` nếu gói có nguồn tri thức riêng ([core/ai](../core/ai/README.md#nguồn-tri-thức)).
    Hàm đổi trạng thái phải kiểm tra `public.is_workflow_call()` để mọi bước đi qua sơ đồ.
@@ -81,9 +88,10 @@ Làm theo [modules/doanh-nghiep](../modules/doanh-nghiep/README.md):
 
 ## Giới hạn hiện tại
 
-- Vai trò cố định trong realm Keycloak (`leader`, `officer`, `receptionist`, `sys_admin`); gói mới dùng lại các vai trò
-  này (ví dụ giám đốc là `leader`). Thông báo lỗi của dịch vụ tài khoản còn gọi đơn vị là "xã".
-- Hồ sơ cán bộ, giao việc, hai cấp duyệt (`modules/xa/db/17-nhan-vien.sql`) còn thuộc gói xã vì gắn với hồ sơ.
+- Vai trò của lõi cố định (`leader`, `officer`, `receptionist`, `sys_admin`); gói thêm vai trò riêng qua mục `roles`.
+  Thông báo lỗi của dịch vụ tài khoản còn gọi đơn vị là "xã".
+- Hồ sơ cán bộ, giao việc, hai cấp duyệt (`modules/xa/db/17-nhan-vien.sql`) còn thuộc gói xã vì gắn với hồ sơ (khóa
+  ngoại tới hồ sơ, duyệt kết quả hồ sơ) và màn hình cán bộ xã gọi trực tiếp; gói khác tự làm phần tương ứng của mình.
 - Cổng API liệt kê cố định các hàm công khai (`/public/rpc/...`), gồm cả hàm của gói xã.
 
 ## Vì sao bài toán minh họa là cấp xã

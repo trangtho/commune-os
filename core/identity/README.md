@@ -34,6 +34,10 @@ và tài khoản quản trị hệ thống từ `.env`.
 Client trong biến `CONFIDENTIAL` luôn được đặt là client bí mật với secret lấy từ biến môi trường.
 Khi thêm vai trò hoặc client vào tệp realm, thêm tên vào `IMPORT`.
 
+Vai trò của các gói đang bật (mục `roles` trong `modules/<gói>/module.json`) cũng do `identity-setup` tạo, tên
+`<gói>:<vai trò>` (ví dụ `doanh-nghiep:truong-phong`); chỉ thêm và cập nhật mô tả, không xóa vai trò đã có. Lãnh đạo
+đơn vị gán vai trò này cho cán bộ qua dịch vụ tài khoản ([core/accounts](../accounts/README.md)).
+
 ```bash
 docker compose logs identity-setup   # xem đã bổ sung những gì
 ```
