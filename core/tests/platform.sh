@@ -92,6 +92,14 @@ c3=$(code -X POST -H "Authorization: Bearer $LT" -H 'Content-Type: application/j
   ok "Tệp đính kèm: loại chưa khai báo trả 404; không token 401; gọi thẳng hàm ghi tệp bị chặn (403)" ||
   fail "Tệp đính kèm: loại lạ $c1, không token $c2, gọi thẳng $c3"
 
+# 5c. Kho tri thức của lõi: người của đơn vị đọc được danh sách tài liệu; hàm tìm kiếm, tạo vector chỉ cho ai-gateway.
+c1=$(code -H "Authorization: Bearer $QT" "$GW/rest/knowledge_documents")
+c2=$(code -X POST -H "Authorization: Bearer $QT" -H 'Content-Type: application/json' -d '{"p_query":"x"}' "$GW/rest/rpc/core_knowledge_search")
+c3=$(code -X POST -H "Authorization: Bearer $QT" -H 'Content-Type: application/json' -d '{"p_model":"x"}' "$GW/rest/rpc/core_knowledge_pending")
+[ "$c1" = "200" ] && [ "$c2" = "403" ] && [ "$c3" = "403" ] &&
+  ok "Kho tri thức: /rest/knowledge_documents đọc được; tìm kiếm, tạo vector chỉ dịch vụ AI gọi được (403)" ||
+  fail "Kho tri thức: danh sách $c1, tìm kiếm $c2, tạo vector $c3"
+
 # 6. Không cài gói xã thì lõi không có bảng, API nào của gói xã.
 case ",$MODULES," in
   *,xa,*) echo "  BỎ QUA  Lõi không chứa bảng của gói xã (gói xã đang được cài)" ;;

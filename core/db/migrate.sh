@@ -5,7 +5,8 @@
 # Dựng cấu trúc cơ sở dữ liệu: lõi trước, rồi từng gói nghiệp vụ, cuối cùng các tệp 9x của lõi.
 #   1. core/db/init/0*-* đến 8*-* (.sql chạy bằng psql, .sh chạy bằng sh) theo thứ tự tên tệp.
 #   2. Mỗi gói trong COMMUNEOS_MODULES (cách nhau bằng dấu phẩy hoặc khoảng trắng, theo thứ tự ghi):
-#      các tệp trong mục "db" của modules/<gói>/module.json, đúng thứ tự khai báo; xong thì ghi vào core_modules.
+#      các tệp trong mục "db" của modules/<gói>/module.json, đúng thứ tự khai báo; nạp tài liệu tri thức (mục
+#      "knowledge") vào kho tri thức của lõi; xong thì ghi vào core_modules.
 #   3. core/db/init/9*-* (mô tả API của lõi; gói có thể đã tạo lại bảng ảo của lõi).
 # Mọi tệp đều chạy lại được (idempotent); db-setup chạy script này mỗi lần make up.
 # Biến: PG* (kết nối), POSTGRES_USER, POSTGRES_DB, COMMUNEOS_MODULES, CORE_DIR, MODULES_DIR.
@@ -48,6 +49,24 @@ SQL
     case "$f" in /*|*..*) echo "Đường dẫn không hợp lệ trong $manifest: $f" >&2; exit 1 ;; esac
     run "$MODULES_DIR/$m/$f"
   done
+  # Tài liệu tri thức của gói (mục "knowledge": [{ "file": "kb/...md", "audience": "staff" | "public" }]) cho trợ lý AI.
+  docs=$(psql -At -v ON_ERROR_STOP=1 -v manifest="$(cat "$manifest")" <<'SQL'
+SELECT (k ->> 'file') || '|' || coalesce(k ->> 'audience', 'staff')
+FROM json_array_elements(coalesce(:'manifest'::json -> 'knowledge', '[]'::json)) AS k;
+SQL
+)
+  sources=""
+  for d in $docs; do
+    f=${d%%|*}; aud=${d#*|}
+    case "$f" in /*|*..*|*,*|'') echo "Tệp tri thức không hợp lệ trong $manifest: $f" >&2; exit 1 ;; esac
+    psql -q -v ON_ERROR_STOP=1 -v m="$m" -v f="$f" -v a="$aud" -v doc="$(cat "$MODULES_DIR/$m/$f")" >/dev/null <<'SQL'
+SELECT public.knowledge_load_module_doc(:'m', :'f', :'a', :'doc');
+SQL
+    sources="${sources:+$sources,}$f"
+  done
+  psql -q -v ON_ERROR_STOP=1 -v m="$m" -v s="$sources" >/dev/null <<'SQL'
+SELECT public.knowledge_prune_module(:'m', string_to_array(nullif(:'s', ''), ','));
+SQL
   psql -q -v ON_ERROR_STOP=1 -v manifest="$(cat "$manifest")" <<'SQL'
 INSERT INTO core_modules (name, title, version)
 VALUES (:'manifest'::json ->> 'name', :'manifest'::json ->> 'title', :'manifest'::json ->> 'version')

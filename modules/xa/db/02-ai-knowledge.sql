@@ -41,6 +41,10 @@ CREATE TRIGGER citizen_knowledge_vector_trigger
 
 -- Cập nhật tại chỗ: đoạn không đổi nội dung được giữ nguyên (kể cả vector tìm kiếm ngữ nghĩa của
 -- core/ai), đoạn đổi nội dung được cập nhật, đoạn không còn (gỡ công bố, xóa giấy tờ) bị xóa.
+-- Thủ tục có đưa vào kho tri thức của trợ lý không. Thủ tục mô phỏng chỉ để hiển thị danh mục, chưa có nội dung thật
+-- (danh mục mở rộng của make demo), đặt false để trợ lý không trích nội dung chưa xác minh.
+ALTER TABLE public.procedures ADD COLUMN IF NOT EXISTS ai_indexed boolean NOT NULL DEFAULT true;
+
 CREATE OR REPLACE FUNCTION public.communeos_rag_refresh_procedure(p_id text)
 RETURNS void LANGUAGE plpgsql SECURITY DEFINER SET search_path = pg_catalog, public AS $$
 BEGIN
@@ -56,14 +60,14 @@ BEGIN
       ('fee', p.fee_note),
       ('duration', p.sla_days::text || ' ngày (thời hạn minh họa)')
     ) AS field_data(field,content)
-    WHERE p.id=p_id AND p.published=true AND nullif(btrim(field_data.content),'') IS NOT NULL
+    WHERE p.id=p_id AND p.published=true AND p.ai_indexed AND nullif(btrim(field_data.content),'') IS NOT NULL
     UNION ALL
     SELECT 'procedure:' || d.procedure_id || ':document:' || d.document_code,
       'procedure', p.id, p.id, 'documents', p.title,
       d.document_name || CASE WHEN d.is_required THEN ' (bắt buộc theo dữ liệu hệ thống)' ELSE ' (không bắt buộc)' END
     FROM public.procedure_documents d
     JOIN public.procedures p ON p.id=d.procedure_id
-    WHERE p.id=p_id AND p.published=true
+    WHERE p.id=p_id AND p.published=true AND p.ai_indexed
   ), upserted AS (
     INSERT INTO public.citizen_knowledge_chunks
       (id,source_type,procedure_id,source_id,field,source_title,content)

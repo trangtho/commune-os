@@ -46,6 +46,12 @@
     "db/37-bat-goi-xa.sql",
     "db/25-api-comments.sql"
   ],
+  "knowledgeProvider": {
+    "search": "knowledge_search",
+    "pending": "ai_pending_chunks",
+    "store": "ai_store_embeddings",
+    "status": "ai_index_status"
+  },
   "workflows": [
     {
       "name": "dossiers",

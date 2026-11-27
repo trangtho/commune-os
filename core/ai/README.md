@@ -15,7 +15,7 @@ CommuneOS không gọi bất kỳ API AI bên ngoài nào, vì hồ sơ hành ch
 | `ai-models` | Ollama 0.12.6 (`pull-models.sh`) | mạng chung | Chạy một lần mỗi khi `make up`: tải mô hình vào volume `ai-models` nếu chưa có. Dịch vụ AI duy nhất cần Internet, và chỉ ở lần đầu |
 | `ai` | Ollama 0.12.6 | chỉ `ai-internal` (`internal: true`) | Chạy mô hình; không mở cổng, không ra được Internet |
 | `ai-gateway` | Node.js 22, `server.mjs`, không thư viện ngoài | mạng chung và `ai-internal` | Cầu nối duy nhất tới mô hình, sau APISIX |
-| `db` | PostgreSQL 17 + pgvector 0.8.1 | mạng chung | Vector của chỉ mục tri thức (`modules/xa/db/22-ai-knowledge-vectors.sql`) |
+| `db` | PostgreSQL 17 + pgvector 0.8.1 | mạng chung | Kho tri thức dùng chung của lõi (`core/db/init/10-tri-thuc.sql`) và chỉ mục tri thức của gói xã (`modules/xa/db/22-ai-knowledge-vectors.sql`) |
 
 Mô hình mặc định (đặt khác được trong `.env`):
 
@@ -41,15 +41,31 @@ chọn trích dẫn 3–15 giây với `qwen3:1.7b`.
 
 1. Che số điện thoại, dãy số dạng định danh, email trong câu hỏi trước khi đưa vào mô hình.
 2. Tạo vector câu hỏi bằng mô hình nhúng.
-3. Tìm kiếm lai trên `citizen_knowledge_chunks` (chỉ thủ tục đã công bố và câu hỏi thường gặp, không có
-   dữ liệu cá nhân): toàn văn và vector, xếp hạng bằng Reciprocal Rank Fusion (`api.knowledge_search`).
-   Kết quả vector chỉ được tính khi độ tương đồng cosine từ `AI_MIN_SIMILARITY` (mặc định 0,45) trở lên.
+3. Tìm kiếm lai song song trên mọi **nguồn tri thức** (không có dữ liệu cá nhân), toàn văn và vector, xếp hạng
+   bằng Reciprocal Rank Fusion; gộp kết quả các nguồn theo điểm, lấy 8 đoạn tốt nhất. Kết quả vector chỉ được
+   tính khi độ tương đồng cosine từ `AI_MIN_SIMILARITY` (mặc định 0,45) trở lên. Một nguồn lỗi thì vẫn dùng các
+   nguồn còn lại.
 4. Tách 3 đoạn đầu thành câu đánh số. Mô hình ngôn ngữ **chỉ trả số thứ tự câu**; trích dẫn được chép
    nguyên văn từ nguồn theo số đó, nên mô hình không thể tự viết nội dung.
 5. Trả `{ mode, chunks, selections, masked, models, timings }`. Mô hình lỗi hoặc quá giờ thì vẫn trả
    kết quả tìm kiếm (`mode: semantic`).
 
 Không lưu câu hỏi; nhật ký chỉ ghi mã băm, độ dài, số kết quả và thời gian.
+
+### Nguồn tri thức
+
+| Nguồn | Nội dung | Hàm |
+| --- | --- | --- |
+| Lõi (luôn có) | Kho tri thức dùng chung `core_knowledge`: tài liệu của các gói (mục `knowledge` của `module.json`, nạp khi cài gói) và tài liệu riêng do lãnh đạo đơn vị nạp (`POST /rest/rpc/knowledge_add`). Mỗi mục `## ...` của tài liệu Markdown là một đoạn | `api.core_knowledge_search`, `_pending`, `_store`, `_status` |
+| Gói có `knowledgeProvider` trong `module.json` | Gói xã: thủ tục đã công bố (`citizen_knowledge_chunks`), câu hỏi thường gặp, hướng dẫn nghiệp vụ (`staff_guide`) | Gói xã: `api.knowledge_search`, `ai_pending_chunks`, `ai_store_embeddings`, `ai_index_status` |
+
+Mọi hàm của nguồn tri thức có cùng chữ ký và cùng dạng kết quả, nên thêm nguồn chỉ cần khai báo, không sửa mã
+của `ai-gateway`. Ví dụ gói doanh nghiệp mang quy chế nghỉ phép (`modules/doanh-nghiep/kb/quy-che-nghi-phep.md`):
+nhân viên Công ty A hỏi "nghỉ ốm cần giấy tờ gì" thì trợ lý trích đúng mục quy chế đó.
+
+Đơn vị xem tài liệu mình dùng được ở `GET /rest/knowledge_documents`; lãnh đạo nạp, gỡ tài liệu riêng bằng
+`POST /rest/rpc/knowledge_add` (`module`, `title`, `content` Markdown, `audience`: `staff` hoặc `public`),
+`POST /rest/rpc/knowledge_remove`.
 
 ### Phạm vi theo người hỏi (đặt từ token đã ký, người hỏi không tự khai được)
 
@@ -59,8 +75,13 @@ Không lưu câu hỏi; nhật ký chỉ ghi mã băm, độ dài, số kết qu
 | Công dân (`citizen-app`) | Chỉ thủ tục xã của công dân đang mở (claim `citizen_tenant`) | Không |
 | Cán bộ (`commune-app`) | Chỉ thủ tục xã của cán bộ đang mở (claim `tenant_id`) | Có |
 
+Kho tri thức của lõi: chỉ tài liệu của các gói đơn vị người hỏi đã bật, tài liệu chung của gói và tài liệu riêng
+của đơn vị đó; tài liệu `staff` chỉ cho người của đơn vị, khách và công dân chỉ thấy tài liệu `public`. Đơn vị không
+bật gói xã thì không nhận tri thức nào của gói xã.
+
 `api.knowledge_search` chỉ cấp cho vai trò `web_anon` mà `ai-gateway` dùng trong mạng nội bộ; gọi thẳng qua
-`/rest` bằng token người dùng bị từ chối, nên không ai tự đổi được xã hay đối tượng.
+`/rest` bằng token người dùng bị từ chối, nên không ai tự đổi được xã hay đối tượng. Hàm của kho tri thức lõi còn
+đòi kèm `WORKFLOW_TOKEN`.
 
 Câu hỏi tra cứu thông tin của một người cụ thể ("số điện thoại của công dân...", "hồ sơ của ông...") hoặc một
 mã hồ sơ (`HS-...`) bị từ chối trước khi tìm kiếm (`mode: refused`). Trợ lý không có quyền đọc hồ sơ, giấy tờ,
@@ -83,9 +104,13 @@ AI chưa sẵn sàng thì trợ lý dùng tìm kiếm toàn văn như trước.
 ## Chỉ mục vector
 
 `ai-gateway` quét mỗi phút, tạo vector cho đoạn tri thức mới hoặc đã đổi nội dung (so mã băm MD5),
-ghi qua `api.ai_pending_chunks` và `api.ai_store_embeddings`. Hai hàm này chỉ nhận lời gọi kèm
-`WORKFLOW_TOKEN` (cùng cách với dịch vụ điều phối). Trigger của `02-ai-knowledge.sql` cập nhật chỉ mục
-tại chỗ, nên đoạn không đổi giữ nguyên vector.
+ghi qua hàm `pending`, `store` của từng nguồn (lõi: `api.core_knowledge_pending`, `api.core_knowledge_store`;
+gói xã: `api.ai_pending_chunks`, `api.ai_store_embeddings`). Các hàm này chỉ nhận lời gọi kèm `WORKFLOW_TOKEN`
+(cùng cách với dịch vụ điều phối). Đoạn không đổi nội dung giữ nguyên vector. `GET /ai/status` báo tình trạng chỉ
+mục của từng nguồn.
+
+Thủ tục có `ai_indexed = false` (danh mục mô phỏng của `make demo`, chưa có nội dung thật) không vào chỉ mục của
+gói xã, để trợ lý không trích nội dung chưa xác minh.
 
 ## Máy chủ không có Internet
 

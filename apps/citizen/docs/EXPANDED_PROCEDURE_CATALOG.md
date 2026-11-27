@@ -5,6 +5,7 @@
 - Thêm **36 thủ tục tham khảo** vào 6 thủ tục demo gốc, tổng cộng **42 thủ tục** trên cơ sở dữ liệu mẫu mới.
 - Các nhóm: Hộ tịch, Cư trú, Chứng thực, Kinh doanh, Đất đai – Xây dựng, An sinh xã hội, Người có công, Bảo hiểm y tế.
 - Danh mục có tìm kiếm, lọc lĩnh vực và phân trang 12 thẻ/trang.
+- Không đưa vào kho tri thức của trợ lý AI (`ai_indexed = false`, `modules/xa/db/02-ai-knowledge.sql`), để trợ lý không trích nội dung chưa xác minh.
 - **Chỉ là dữ liệu demo chưa xác minh**: thời hạn là `0` (giao diện hiển thị “Chưa xác minh”), lệ phí “Chưa xác minh”, giấy tờ kèm theo chỉ là gợi ý tùy chọn. Không công bố đây là hướng dẫn/khả năng tiếp nhận chính thức.
 - Giữ nguyên 6 thủ tục cũ và thay đổi mà quản trị đã cập nhật vì câu lệnh `ON CONFLICT DO NOTHING`.
 - Khởi tạo phiên bản cho thủ tục mới bằng chính cơ chế chính SQL bổ sung, với `provenance_status=unverified_demo`.

@@ -38,6 +38,8 @@ BEGIN
     SELECT id INTO v_tenant FROM tenants WHERE code = p_tenant_code;
     -- Mã xã không tồn tại: không trả thủ tục nào (không rơi về toàn bộ danh mục).
     IF v_tenant IS NULL THEN v_tenant := '00000000-0000-0000-0000-000000000000'; END IF;
+    -- Đơn vị không bật gói xã (core/db/init/08-goi-theo-don-vi.sql): không có tri thức nào của gói xã.
+    IF NOT public.tenant_has_module(v_tenant, 'xa') THEN RETURN '[]'::json; END IF;
   END IF;
   -- Chỉ lấy các từ của câu hỏi (không nhận cú pháp tìm kiếm từ người dùng), nối bằng OR.
   SELECT to_tsquery('simple', string_agg(quote_literal(lexeme), ' | '))

@@ -25,7 +25,7 @@ vị và bật, tắt ở bảng quản trị (Đơn vị → chi tiết đơn v
 | **H** (Con người) | Đăng nhập một lần (Keycloak); đơn vị, lãnh đạo, nhân viên, đổi mật khẩu tạm (dịch vụ `accounts`); vai trò trong token | Cán bộ, lãnh đạo xã, công dân; hồ sơ cán bộ, giao việc, hai cấp duyệt ([QUAN_LY_NHAN_VIEN.md](QUAN_LY_NHAN_VIEN.md)) | Giám đốc (`leader`), nhân viên (`officer`) của Công ty A, tạo qua cùng API |
 | **P** (Quy trình) | Flowable + dịch vụ điều phối: mọi loại đối tượng chạy theo sơ đồ BPMN, chặn gọi thẳng hàm đổi trạng thái ([core/orchestrator](../core/orchestrator/README.md)) | Quy trình xử lý hồ sơ `xu-ly-ho-so`; danh mục thủ tục theo xã, gói thủ tục (`modules/xa/packs/`) | Quy trình `duyet-nghi-phep` |
 | **D** (Dữ liệu) | PostgreSQL + PostgREST, cách ly đơn vị bằng RLS; kho tệp S3 (SeaweedFS) và dịch vụ tệp; sổ ghi nhận hash-chain theo đơn vị (`public.ledger_record`) | Hồ sơ, giấy tờ, báo cáo điều hành (`apps/commune` → Báo cáo), sổ ghi nhận (`apps/admin` → Kiểm tra hồ sơ đã ký) | Đơn nghỉ phép (schema `nghi_phep`), tệp đính kèm của đơn (giấy khám bệnh...), ghi sổ từng bước duyệt |
-| **I** (Trí tuệ) | AI chạy cục bộ (Ollama), dịch vụ `ai-gateway` che dữ liệu cá nhân trước khi đưa vào mô hình, chỉ trích dẫn từ nguồn ([core/ai](../core/ai/README.md)) | Kho tri thức thủ tục, tìm kiếm lai toàn văn + ngữ nghĩa (RAG); trợ lý thủ tục cho người dân, trợ lý nghiệp vụ cho cán bộ | (chưa dùng) |
+| **I** (Trí tuệ) | AI chạy cục bộ (Ollama); `ai-gateway` che dữ liệu cá nhân, chỉ trích dẫn từ nguồn, gộp các nguồn tri thức; kho tri thức dùng chung (tài liệu của gói và của từng đơn vị), tìm kiếm lai toàn văn + ngữ nghĩa (RAG) ([core/ai](../core/ai/README.md)) | Nguồn tri thức riêng: thủ tục, câu hỏi thường gặp, hướng dẫn nghiệp vụ; trợ lý thủ tục cho người dân, trợ lý nghiệp vụ cho cán bộ | Quy chế nghỉ phép của gói, tài liệu riêng do giám đốc nạp; nhân viên hỏi trợ lý |
 
 ## Ranh giới trong mã nguồn
 
@@ -69,7 +69,9 @@ Làm theo [modules/doanh-nghiep](../modules/doanh-nghiep/README.md):
 3. **Quy trình (`bpmn/*.bpmn20.xml`):** mỗi `userTask` có `id` trùng một trạng thái; nhánh đi tiếp theo biến `action`.
 4. **Khai báo (`module.json`):** `name`, `title`, `version`; `db` (tệp SQL theo thứ tự chạy); `workflows` (loại đối
    tượng, sơ đồ, bảng ảo, hàm đổi trạng thái, [các trường](../core/orchestrator/README.md#thêm-loại-đối-tượng-gói-nghiệp-vụ));
-   `jobs` nếu cần việc định kỳ; `attachments` nếu đối tượng cần đính kèm tệp ([cách khai báo](../core/files/README.md)).
+   `jobs` nếu cần việc định kỳ; `attachments` nếu đối tượng cần đính kèm tệp ([cách khai báo](../core/files/README.md));
+   `knowledge` nếu có tài liệu nội bộ cho trợ lý AI (tệp Markdown, mỗi `## ...` là một mục; `audience` `staff` hoặc
+   `public`); `knowledgeProvider` nếu gói có nguồn tri thức riêng ([core/ai](../core/ai/README.md#nguồn-tri-thức)).
    Hàm đổi trạng thái phải kiểm tra `public.is_workflow_call()` để mọi bước đi qua sơ đồ.
 5. **Cài gói:** thêm tên gói vào `COMMUNEOS_MODULES` trong `.env`, chạy `make up`.
 6. **Đơn vị, tài khoản:** quản trị hệ thống tạo đơn vị kèm lãnh đạo và chọn gói (`POST /accounts/tenants` với
@@ -81,7 +83,6 @@ Làm theo [modules/doanh-nghiep](../modules/doanh-nghiep/README.md):
 
 - Vai trò cố định trong realm Keycloak (`leader`, `officer`, `receptionist`, `sys_admin`); gói mới dùng lại các vai trò
   này (ví dụ giám đốc là `leader`). Thông báo lỗi của dịch vụ tài khoản còn gọi đơn vị là "xã".
-- AI: mô hình và dịch vụ `ai-gateway` thuộc lõi; kho tri thức và hàm tìm kiếm hiện thuộc gói xã (tri thức về thủ tục).
 - Hồ sơ cán bộ, giao việc, hai cấp duyệt (`modules/xa/db/17-nhan-vien.sql`) còn thuộc gói xã vì gắn với hồ sơ.
 - Cổng API liệt kê cố định các hàm công khai (`/public/rpc/...`), gồm cả hàm của gói xã.
 
