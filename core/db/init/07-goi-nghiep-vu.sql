@@ -37,7 +37,7 @@ CREATE OR REPLACE FUNCTION public.rest_pre_request() RETURNS void
 LANGUAGE plpgsql SECURITY DEFINER SET search_path = public AS $$
 DECLARE h record;
 BEGIN
-  FOR h IN SELECT fn FROM core_request_hooks ORDER BY module LOOP
+  FOR h IN SELECT hook.fn FROM core_request_hooks hook JOIN core_modules m ON m.name = hook.module ORDER BY hook.module LOOP
     IF to_regprocedure(h.fn || '()') IS NOT NULL THEN
       EXECUTE format('SELECT %s()', h.fn);
     END IF;

@@ -55,7 +55,7 @@ class HttpError extends Error {
 // Mỗi nguồn là 4 hàm api.* cùng chữ ký: search (tìm kiếm lai), pending/store (tạo vector), status (tình trạng chỉ mục).
 const FN_RE = /^[a-z_][a-z0-9_]{0,62}$/
 const PROVIDERS = [{ name: 'lõi', search: 'core_knowledge_search', pending: 'core_knowledge_pending', store: 'core_knowledge_store', status: 'core_knowledge_status' }]
-for (const m of (process.env.COMMUNEOS_MODULES || 'xa').split(/[\s,]+/).filter(Boolean)) {
+for (const m of (process.env.COMMUNEOS_MODULES ?? '').split(/[\s,]+/).filter(Boolean)) {
   const file = join(process.env.MODULES_DIR || '/modules', m, 'module.json')
   if (!existsSync(file)) { console.warn(`[ai] Không đọc được ${file}; bỏ qua nguồn tri thức của gói ${m}`); continue }
   const p = JSON.parse(readFileSync(file, 'utf8')).knowledgeProvider

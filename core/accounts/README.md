@@ -61,3 +61,5 @@ Mật khẩu tạm (của cán bộ và lãnh đạo xã) có `temporary: true`:
 
 Lưu ý Keycloak 26.8: Admin API chỉ nhận token có client scope `kc-admin-api`, nên client
 `accounts-service` có scope này trong tệp realm.
+
+Đăng ký người dân được cung cấp bởi `modules/xa/handlers/accounts.mjs` qua `serviceHandlers.accounts` trong manifest. Nếu không cài gói xã thì đường dẫn này trả 404; các API đơn vị, lãnh đạo và nhân viên vẫn dùng chung.

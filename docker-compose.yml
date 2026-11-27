@@ -148,7 +148,7 @@ services:
       POSTGRES_APP_PASSWORD: ${POSTGRES_APP_PASSWORD}
       POSTGRES_REST_PASSWORD: ${POSTGRES_REST_PASSWORD}
       WORKFLOW_TOKEN: ${WORKFLOW_TOKEN}
-      COMMUNEOS_MODULES: ${COMMUNEOS_MODULES:-xa,doanh-nghiep}
+      COMMUNEOS_MODULES: ${COMMUNEOS_MODULES-xa,doanh-nghiep}
     volumes:
       - ./core/db:/setup/core:ro
       - ./modules:/setup/modules:ro
@@ -243,7 +243,7 @@ services:
       CITIZEN_REMINDERS_ENABLED: ${CITIZEN_REMINDERS_ENABLED:-false}
       CITIZEN_RETENTION_SCAN_ENABLED: ${CITIZEN_RETENTION_SCAN_ENABLED:-false}
       # Gói nghiệp vụ (cùng danh sách với db-setup): quy trình, sơ đồ BPMN, việc định kỳ khai báo trong module.json.
-      COMMUNEOS_MODULES: ${COMMUNEOS_MODULES:-xa,doanh-nghiep}
+      COMMUNEOS_MODULES: ${COMMUNEOS_MODULES-xa,doanh-nghiep}
       MODULES_DIR: /modules
     volumes:
       - ./core/orchestrator:/app:ro
@@ -270,10 +270,14 @@ services:
       KEYCLOAK_URL: http://identity:8080
       ACCOUNTS_CLIENT_SECRET: ${KEYCLOAK_ACCOUNTS_SECRET}
       CITIZEN_CLIENT_SECRET: ${CITIZEN_KEYCLOAK_SECRET}
+      COMMUNEOS_MODULES: ${COMMUNEOS_MODULES-xa,doanh-nghiep}
+      MODULES_DIR: /modules
       REST_URL: http://rest:3000
       WORKFLOW_TOKEN: ${WORKFLOW_TOKEN}
     volumes:
       - ./core/accounts:/app:ro
+      - ./core/module-loader.mjs:/module-loader.mjs:ro
+      - ./modules:/modules:ro
     depends_on:
       identity:
         condition: service_healthy
@@ -319,10 +323,11 @@ services:
       FILES_SERVICE_TOKEN: ${FILES_SERVICE_TOKEN}
       CLAMAV_HOST: ${CLAMAV_HOST:-}
       # Loại đối tượng được đính kèm tệp: mục "attachments" trong modules/<gói>/module.json của các gói đang bật.
-      COMMUNEOS_MODULES: ${COMMUNEOS_MODULES:-xa,doanh-nghiep}
+      COMMUNEOS_MODULES: ${COMMUNEOS_MODULES-xa,doanh-nghiep}
       MODULES_DIR: /modules
     volumes:
       - ./core/files:/app:ro
+      - ./core/module-loader.mjs:/module-loader.mjs:ro
       - ./modules:/modules:ro
     depends_on:
       storage:
@@ -415,7 +420,7 @@ services:
       AI_CHAT_MODEL: ${AI_CHAT_MODEL:-qwen3:1.7b}
       AI_EMBED_MODEL: ${AI_EMBED_MODEL:-bge-m3}
       # Nguồn tri thức riêng của gói: mục "knowledgeProvider" trong modules/<gói>/module.json của các gói đang bật.
-      COMMUNEOS_MODULES: ${COMMUNEOS_MODULES:-xa,doanh-nghiep}
+      COMMUNEOS_MODULES: ${COMMUNEOS_MODULES-xa,doanh-nghiep}
       MODULES_DIR: /modules
     volumes:
       - ./core/ai:/app:ro

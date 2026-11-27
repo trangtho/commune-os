@@ -13,8 +13,14 @@ COMPOSE="${COMPOSE:-docker compose}"
 from_env() { sed -n "s/^$1=//p" .env 2>/dev/null | tail -1; }
 ADMIN_USER="${COMMUNEOS_ADMIN_USERNAME:-$(from_env COMMUNEOS_ADMIN_USERNAME)}"
 ADMIN_PASS="${COMMUNEOS_ADMIN_PASSWORD:-$(from_env COMMUNEOS_ADMIN_PASSWORD)}"
-MODULES="${COMMUNEOS_MODULES:-$(from_env COMMUNEOS_MODULES)}"
-MODULES=$(echo "${MODULES:-xa,doanh-nghiep}" | tr ', ' '\n\n' | sed '/^$/d' | sort | paste -sd, -)
+if [ "${COMMUNEOS_MODULES+x}" = x ]; then
+  MODULES="$COMMUNEOS_MODULES"
+elif grep -q '^COMMUNEOS_MODULES=' .env 2>/dev/null; then
+  MODULES=$(from_env COMMUNEOS_MODULES)
+else
+  MODULES=xa,doanh-nghiep
+fi
+MODULES=$(echo "$MODULES" | tr ', ' '\n\n' | sed '/^$/d' | sort | paste -sd, -)
 FAIL=0
 
 ok()   { echo "  ĐẠT  $1"; }
@@ -33,7 +39,7 @@ sql() { $COMPOSE exec -T db sh -c 'psql -At -U "$POSTGRES_USER" -d "$POSTGRES_DB
 echo "Kiểm thử lõi dùng chung ($GW), gói cần có: $MODULES"
 
 # 1. Gói đã cài: đúng danh sách COMMUNEOS_MODULES; xem được khi chưa đăng nhập (cổng dùng để kiểm tra sức khỏe).
-got=$(curl -s "$GW/public/rpc/public_platform" | jget '",".join(sorted(m["name"] for m in d["modules"]))')
+got=$(curl -fsS "$GW/public/rpc/public_platform" | python3 -c 'import json,sys; print(",".join(sorted(m["name"] for m in json.load(sys.stdin)["modules"])))') || { echo "Không đọc được registry của lõi" >&2; exit 1; }
 [ "$got" = "$MODULES" ] && ok "Gói đã cài khớp COMMUNEOS_MODULES ($got), xem công khai qua /public/rpc/public_platform" ||
   fail "Gói đã cài '$got', cần '$MODULES'"
 
@@ -50,7 +56,9 @@ c3=$(code -H "Authorization: Bearer $QT" "$GW/rest/tenants")
 post() { curl -s -w '\t%{http_code}' -X POST -H "Authorization: Bearer $1" -H 'Content-Type: application/json' -d "$3" "$GW$2" |
   python3 -c 'import sys; b,_,c=sys.stdin.read().rpartition("\t"); print(c+"\t"+b)'; }
 T="dv-kt-$(date +%s)"; L="ld.$T"; M1=$(echo "$MODULES" | cut -d, -f1)
-r=$(post "$QT" /accounts/tenants "{\"code\":\"$T\",\"name\":\"Đơn vị kiểm thử\",\"modules\":[\"$M1\"],\"leaderUsername\":\"$L\",\"leaderFullName\":\"Kiểm Thử\"}")
+chosen="[]"
+[ -z "$M1" ] || chosen="[\"$M1\"]"
+r=$(post "$QT" /accounts/tenants "{\"code\":\"$T\",\"name\":\"Đơn vị kiểm thử\",\"modules\":$chosen,\"leaderUsername\":\"$L\",\"leaderFullName\":\"Kiểm Thử\"}")
 tmp=$(echo "$r" | cut -f2- | jget 'd.get("leader",{}).get("temporaryPassword","")')
 curl -s -o /dev/null -X POST -H 'Content-Type: application/json' \
   -d "{\"username\":\"$L\",\"currentPassword\":\"$tmp\",\"newPassword\":\"KiemThu2026x\"}" "$GW/accounts/first-password"
@@ -65,10 +73,17 @@ seen=$(curl -s -H "Authorization: Bearer $LT" "$GW/rest/tenants?select=code" | j
 mods() { curl -s -X POST -H "Authorization: Bearer $1" -H 'Content-Type: application/json' -d '{}' "$GW/rest/rpc/my_modules" | jget '",".join(d)'; }
 setm() { curl -s -o /dev/null -w '%{http_code}' -X POST -H "Authorization: Bearer $1" -H 'Content-Type: application/json' \
   -d "{\"tenant_code\":\"$T\",\"module\":\"$2\",\"enabled\":$3}" "$GW/rest/rpc/set_tenant_module"; }
-m1=$(mods "$LT"); c1=$(setm "$QT" "$M1" false); m2=$(mods "$LT"); c2=$(setm "$QT" khong-co true); c3=$(setm "$LT" "$M1" true)
-[ "$m1" = "$M1" ] && [ "$c1" = "200" ] && [ "$m2" = "" ] && [ "$c2" = "400" ] && [ "$c3" = "403" ] &&
-  ok "Gói theo đơn vị: đơn vị mới dùng đúng gói chọn khi tạo ($M1); tắt được; gói chưa cài bị từ chối (400); lãnh đạo không tự bật gói (403)" ||
-  fail "Gói theo đơn vị: lúc tạo '$m1', tắt $c1 → '$m2', gói chưa cài $c2, lãnh đạo tự bật $c3"
+if [ -n "$M1" ]; then
+  m1=$(mods "$LT"); c1=$(setm "$QT" "$M1" false); m2=$(mods "$LT"); c2=$(setm "$QT" khong-co true); c3=$(setm "$LT" "$M1" true)
+  [ "$m1" = "$M1" ] && [ "$c1" = "200" ] && [ "$m2" = "" ] && [ "$c2" = "400" ] && [ "$c3" = "403" ] &&
+    ok "Gói theo đơn vị: đơn vị mới dùng đúng gói chọn khi tạo ($M1); tắt được; gói chưa cài bị từ chối (400); lãnh đạo không tự bật gói (403)" ||
+    fail "Gói theo đơn vị: lúc tạo '$m1', tắt $c1 → '$m2', gói chưa cài $c2, lãnh đạo tự bật $c3"
+else
+  # No business module is installed; account/tenant services must still work.
+  m1=$(curl -fsS -X POST -H "Authorization: Bearer $LT" -H 'Content-Type: application/json' -d '{}' "$GW/rest/rpc/my_modules")
+  c2=$(setm "$QT" khong-co true); c3=$(setm "$LT" khong-co true)
+  [ "$m1" = '[]' ] && [ "$c2" = "400" ] && [ "$c3" = "403" ] && ok "Lõi trống: đơn vị không có gói; không thể bật gói chưa cài" || fail "Lõi trống: gói '$m1', quản trị $c2, lãnh đạo $c3"
+fi
 
 # 4. Sổ ghi nhận: chuỗi của mọi đơn vị nguyên vẹn; không sửa được qua API.
 bad=$(curl -s -X POST -H "Authorization: Bearer $QT" -H 'Content-Type: application/json' -d '{}' "$GW/rest/rpc/verify_ledger" |
@@ -106,8 +121,10 @@ case ",$MODULES," in
   *)
     tables=$(echo "SELECT count(*) FROM pg_tables WHERE schemaname='public' AND tablename IN ('citizens','procedures','applications','application_events')" | sql)
     c=$(code -H "Authorization: Bearer $QT" "$GW/rest/dossiers")
-    [ "$tables" = "0" ] && [ "$c" = "404" ] && ok "Không cài gói xã: không có bảng công dân, thủ tục, hồ sơ; /rest/dossiers không tồn tại (404)" ||
-      fail "Không cài gói xã mà còn $tables bảng của gói xã, /rest/dossiers trả $c"
+    reg=$(code -X POST -H 'Content-Type: application/json' -d '{}' "$GW/public/accounts/register")
+    files=$(code -H "Authorization: Bearer $QT" "$GW/files/documents/00000000-0000-0000-0000-000000000000")
+    [ "$tables" = "0" ] && [ "$c" = "404" ] && [ "$reg" = "404" ] && [ "$files" = "404" ] && ok "Không cài gói xã: không có bảng công dân, thủ tục, hồ sơ; /rest/dossiers không tồn tại (404)" ||
+      fail "Không cài gói xã mà còn $tables bảng của gói xã, /rest/dossiers trả $c, đăng ký $reg, tệp $files"
     ;;
 esac
 

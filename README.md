@@ -17,7 +17,17 @@ không phụ thuộc nhà cung cấp. Trên lõi này:
   cùng lõi, chỉ thêm một thư mục gói nghiệp vụ.
 
 Lõi cài và chạy được khi không có gói xã (CI kiểm tra mỗi lần đưa mã lên); gói nào được nạp do biến
-`COMMUNEOS_MODULES` quyết định.
+`COMMUNEOS_MODULES` quyết định. Để chứng minh lõi chạy độc lập, dùng môi trường thử nghiệm mới:
+
+```sh
+COMMUNEOS_MODULES= make platform-up
+COMMUNEOS_MODULES= make test-platform
+```
+
+Cần project Docker/volume mới, không trùng cổng với hệ thống đang chạy; không xóa volume cũ. Chế độ này
+không dựng các portal xã hay tải AI tùy chọn. Để chứng minh khả năng dùng lại, chọn
+`COMMUNEOS_MODULES=doanh-nghiep`, chạy `make platform-up`, rồi `make example-enterprise` trên môi trường thử nghiệm.
+CI kiểm thử hai chế độ riêng.
 
 | Trụ cột | Lõi cung cấp |
 | --- | --- |

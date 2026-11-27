@@ -23,3 +23,7 @@ tệp, tài khoản), xem [docs/LOI_DUNG_CHUNG.md](../../docs/LOI_DUNG_CHUNG.md)
 
 Bật gói: có `xa` trong `COMMUNEOS_MODULES` (mặc định có), rồi `make up`. Kiểm thử: `make test`, `make test-sql`,
 `make test-citizen`, `make e2e-citizen`.
+
+## Handler dịch vụ đặc thù
+
+`handlers/accounts.mjs` xử lý đăng ký người dân; `handlers/files.mjs` xử lý giấy tờ hồ sơ, giấy tờ cán bộ và mã chuyển hồ sơ. Các handler được khai báo trong `module.json`, chỉ được nạp khi gói `xa` đang cài. Đường dẫn API và kiểm tra quyền tại PostgreSQL giữ nguyên.

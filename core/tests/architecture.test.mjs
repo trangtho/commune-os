@@ -14,7 +14,7 @@ test('All portals build deterministically and expose readiness', () => {
     assert.match(read(`apps/${app}/Dockerfile`), /npm ci/)
     assert.ok(existsSync(resolve(root,`apps/${app}/package-lock.json`)))
     const health = read(`apps/${app}/server/api/health.get.ts`)
-    assert.match(health, /procedure_catalog/)
+    assert.match(health, app === 'admin' ? /public_platform/ : /procedure_catalog/)
     assert.match(health, /503/)
   }
 })
@@ -120,4 +120,73 @@ test('Core SQL knows nothing about the commune module (citizens, procedures, dos
     assert.equal(manifest.name, m)
     for (const f of manifest.db) assert.ok(existsSync(resolve(root, `modules/${m}/${f}`)), `${m}/${f}`)
   }
+})
+
+test('Empty module selection does not fall back to a business module', async () => {
+  const {moduleNames, loadServiceHandlers, dispatchHandlers} = await import('../module-loader.mjs')
+  assert.deepEqual(moduleNames(''), [])
+  assert.deepEqual(moduleNames('xa, doanh-nghiep'), ['xa', 'doanh-nghiep'])
+  assert.throws(() => moduleNames('../xa'))
+  assert.throws(() => moduleNames('xa,xa'))
+  const opts = { modules: [], directory: '/nonexistent' }
+  assert.deepEqual(await loadServiceHandlers('accounts', {}, opts), [])
+  assert.deepEqual(await loadServiceHandlers('files', {}, opts), [])
+  assert.equal(await dispatchHandlers([], {res: {headersSent: false}}), false)
+  for (const service of ['orchestrator', 'files', 'ai']) {
+    assert.match(read(`core/${service}/server.mjs`), /COMMUNEOS_MODULES \?\? ''/)
+  }
+  assert.match(read('core/db/migrate.sh'), /\$\{COMMUNEOS_MODULES-\}/)
+  assert.equal((read('docker-compose.yml').match(/\$\{COMMUNEOS_MODULES-xa,doanh-nghiep\}/g) || []).length, 5)
+  assert.match(read('core/db/init/07-goi-nghiep-vu.sql'), /JOIN core_modules m ON m.name = hook.module/)
+})
+
+test('Business adapters are loaded only for enabled modules, preserving routes', async () => {
+  const {loadServiceHandlers, dispatchHandlers} = await import('../module-loader.mjs')
+  const directory = resolve(root, 'modules')
+  const enterprise = { modules: ['doanh-nghiep'], directory }
+  assert.deepEqual(await loadServiceHandlers('accounts', {}, enterprise), [])
+  assert.deepEqual(await loadServiceHandlers('files', {}, enterprise), [])
+  const commune = { modules: ['xa'], directory }
+  class HttpError extends Error { constructor(status, message) { super(message); this.status = status } }
+  const deps = {limited: () => false, HttpError, readJson: async () => ({consent: false})}
+  const accounts = await loadServiceHandlers('accounts', deps, commune)
+  const res = {headersSent: false}
+  assert.equal(await dispatchHandlers(accounts, {req: {method: 'GET'}, res, url: new URL('http://accounts/unknown')}), false)
+  await assert.rejects(dispatchHandlers(accounts, {req: {method: 'POST', headers: {}, socket: {}}, res, url: new URL('http://accounts/accounts/register')}), {status: 400})
+  const files = await loadServiceHandlers('files', {HttpError, UUID_RE: /^[0-9a-f-]{36}$/i}, commune)
+  assert.equal(await dispatchHandlers(files, {req: {method: 'GET'}, res, parts: ['files', 'unknown']}), false)
+  await assert.rejects(dispatchHandlers(files, {req: {method: 'GET'}, res, parts: ['files', 'documents', 'bad-id']}), {status: 404})
+  assert.doesNotMatch(read('core/accounts/server.mjs'), /system_(?:un)?register_citizen/)
+  assert.doesNotMatch(read('core/files/server.mjs'), /rpc\('(register_document|document_object|staff_document_object|citizen_handoff_document)'/)
+  assert.match(read('modules/xa/handlers/accounts.mjs'), /coreRpc\('system_register_citizen'/)
+  assert.match(read('modules/xa/handlers/files.mjs'), /rpc\('citizen_handoff_document'/)
+})
+
+test('Module dispatch stops at a handled response and propagates errors', async () => {
+  const {dispatchHandlers} = await import('../module-loader.mjs')
+  const res = {headersSent: false}
+  let reached = false
+  assert.equal(await dispatchHandlers([async () => {}, async ({res}) => { res.headersSent = true }, async () => { reached = true }], {res}), true)
+  assert.equal(reached, false)
+  await assert.rejects(dispatchHandlers([async () => { throw Error('failure') }], {res: {headersSent: false}}), /failure/)
+})
+
+test('Registration adapter calls the original domain RPC and Keycloak primitive', async () => {
+  const {loadServiceHandlers, dispatchHandlers} = await import('../module-loader.mjs')
+  const calls = []
+  class HttpError extends Error { constructor(status, message) { super(message); this.status = status } }
+  const handler = await loadServiceHandlers('accounts', {
+    limited: () => false, HttpError,
+    readJson: async () => ({consent: true, username: 'sample.user', email: 'sample@example.invalid', tenantCode: 'demo', password: 'Example-only9', fullName: 'Sample User'}),
+    USERNAME_RE: /^[a-z0-9.]+$/, EMAIL_RE: /@/, checkPassword: () => {}, splitName: () => ({firstName: 'User', lastName: 'Sample'}),
+    kcJson: async () => [], coreRpc: async (name, body, options) => { calls.push({name, body, options}); return {citizen_id: 'id-test', tenant_code: 'demo'} },
+    createAccount: async (body) => { calls.push({account: body}) },
+    json: (res, status, body) => { res.headersSent = true; res.status = status; res.body = body },
+  }, {modules: ['xa'], directory: resolve(root, 'modules')})
+  const res = {headersSent: false}
+  assert.equal(await dispatchHandlers(handler, {req: {method: 'POST', headers: {}, socket: {}}, res, url: new URL('http://accounts/accounts/register')}), true)
+  assert.equal(res.status, 201)
+  assert.equal(calls[0].name, 'system_register_citizen')
+  assert.equal(calls[0].options.workflow, true)
+  assert.deepEqual(calls[1].account.attributes, {citizen_id: ['id-test'], citizen_tenant: ['demo']})
 })

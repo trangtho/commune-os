@@ -10,7 +10,7 @@ const manifest=read('../../../modules/xa/module.json')
 const handoff=read('../server/api/applications/[id]/handoff/index.post.ts')
 // Phía cán bộ là API của lõi (gọi qua cổng /rest bằng token Keycloak), không nằm trong Kênh người dân.
 const staffApi=read('../../../modules/xa/db/26-citizen-staff-api.sql')
-const filesService=read('../../../core/files/server.mjs')
+const filesService=read('../../../modules/xa/handlers/files.mjs')
 const ticketNew=read('../server/api/tickets/index.post.ts')
 const ticketReply=read('../server/api/tickets/[id]/reply.post.ts')
 test('handoff code is random, hashed, expires, and can only be issued for an owned draft',()=>{

@@ -40,4 +40,5 @@ Thêm tệp SQL cho một gói: đặt trong `modules/<gói>/db/` rồi thêm v�
 đặt trong `init/` với số thứ tự phù hợp; tệp của lõi không được dùng bảng, hàm của gói nào (`make test-architecture`
 kiểm tra). Mọi tệp phải chạy lại được nhiều lần (idempotent).
 
-Bỏ một gói khỏi `COMMUNEOS_MODULES` chỉ ngừng nạp gói đó (xóa khỏi `core_modules`), không xóa dữ liệu của gói.
+Đặt `COMMUNEOS_MODULES=` để không cài gói nào; dùng volume mới để kiểm thử lõi độc lập.
+Bỏ một gói khỏi `COMMUNEOS_MODULES` chỉ ngừng nạp gói đó (xóa khỏi `core_modules`), không xóa dữ liệu hoặc schema cũ. Móc yêu cầu chỉ chạy với gói còn trong registry.

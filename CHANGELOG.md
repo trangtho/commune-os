@@ -11,6 +11,12 @@ Mọi thay đổi đáng chú ý của dự án được ghi tại đây.
 
 ## [Chưa phát hành]
 
+### Thay đổi (hoàn thiện ranh giới lõi và gói nghiệp vụ)
+
+- Cho phép khởi động lõi với danh sách module rỗng; thêm `make platform-up` và CI riêng cho lõi trống.
+- Tách handler đăng ký công dân và giấy tờ đặc thù sang `modules/xa/handlers`, nạp từ manifest, giữ nguyên API.
+- Healthcheck quản trị dùng registry nền tảng thay cho danh mục thủ tục; chỉ chạy request hook của module đang cài.
+
 ### Thêm (trợ lý AI dùng chung cho mọi gói, 2026-11-29)
 
 - Kho tri thức dùng chung của lõi (`core/db/init/10-tri-thuc.sql`): gói mang tài liệu Markdown (mục `knowledge` của

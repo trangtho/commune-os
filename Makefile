@@ -22,6 +22,12 @@ up: check-env ## Dựng và khởi động toàn bộ dịch vụ, tự nạp sc
 	$(COMPOSE) up -d --force-recreate --no-deps gateway orchestrator accounts files ai-gateway
 	@sh core/tests/wait-ready.sh 900
 
+.PHONY: platform-up
+platform-up: check-env ## Dựng chỉ lõi, theo COMMUNEOS_MODULES (có thể rỗng), không dựng portal và AI tùy chọn
+	$(COMPOSE) up -d db db-setup identity identity-setup rest-keys rest gateway api-docs workflow-engine orchestrator storage files accounts
+	$(COMPOSE) up -d --force-recreate --no-deps gateway orchestrator accounts files
+	@sh core/tests/wait-ready.sh 900
+
 ready: ## Chờ mọi dịch vụ sẵn sàng (healthcheck đạt, các bước khởi tạo đã xong); báo dịch vụ lỗi nếu có
 	@sh core/tests/wait-ready.sh 900
 

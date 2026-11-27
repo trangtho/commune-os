@@ -46,6 +46,10 @@
     "db/37-bat-goi-xa.sql",
     "db/25-api-comments.sql"
   ],
+  "serviceHandlers": {
+    "accounts": "handlers/accounts.mjs",
+    "files": "handlers/files.mjs"
+  },
   "knowledgeProvider": {
     "search": "knowledge_search",
     "pending": "ai_pending_chunks",

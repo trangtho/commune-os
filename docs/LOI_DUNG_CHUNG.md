@@ -44,8 +44,11 @@ Lõi không biết gói nào tồn tại:
 - PostgREST gọi `public.rest_pre_request()` của lõi đầu mỗi yêu cầu; gói nào cần (gói xã đặt biến RLS của công dân)
   thì ghi danh móc của mình bằng `public.register_request_hook`.
 - `make test-architecture` kiểm tra SQL của lõi và mã của dịch vụ điều phối không nhắc tới bảng, hàm, biến của gói xã.
-- CI có job "Chỉ lõi, không có gói xã" (`COMMUNEOS_MODULES=doanh-nghiep`): dựng lõi, chạy `make test-platform` (kiểm tra
-  thêm rằng không có bảng, API nào của gói xã) và `make example-enterprise`.
+- CI dựng hai môi trường mới: không có gói nào (`COMMUNEOS_MODULES=`) và chỉ có gói doanh nghiệp.
+  `make test-platform` xác minh registry, định danh, dữ liệu, quyền và các endpoint xã không tồn tại; môi trường doanh nghiệp chạy thêm `make example-enterprise`.
+- Handler đăng ký công dân và giấy tờ đặc thù ở `modules/xa/handlers/`, chỉ nạp khi manifest khai báo
+  `serviceHandlers`. Dịch vụ lõi giữ các primitive định danh và lưu tệp. Handler là mã triển khai tin cậy,
+  không phải plugin do người dùng upload.
 
 Gói nghiệp vụ chỉ được dựa vào phần lõi: bảng `tenants`, các hàm đọc token, `is_workflow_call`, `ledger_record`,
 `register_request_hook`, `tenant_has_module`, `require_module`, dịch vụ tài khoản. Không đọc ghi bảng của gói khác.
@@ -84,7 +87,9 @@ Làm theo [modules/doanh-nghiep](../modules/doanh-nghiep/README.md):
 - Vai trò cố định trong realm Keycloak (`leader`, `officer`, `receptionist`, `sys_admin`); gói mới dùng lại các vai trò
   này (ví dụ giám đốc là `leader`). Thông báo lỗi của dịch vụ tài khoản còn gọi đơn vị là "xã".
 - Hồ sơ cán bộ, giao việc, hai cấp duyệt (`modules/xa/db/17-nhan-vien.sql`) còn thuộc gói xã vì gắn với hồ sơ.
-- Cổng API liệt kê cố định các hàm công khai (`/public/rpc/...`), gồm cả hàm của gói xã.
+- Keycloak còn client/vai trò công dân và cấu hình AI còn phân loại đối tượng công dân; tên API lõi và schema dùng chung giữ tương thích ngược.
+- Cổng API liệt kê cố định các hàm công khai (`/public/rpc/...`), gồm cả hàm của gói xã. Chưa tách hoàn toàn cấu hình gateway/identity theo manifest.
+- Chứng minh không có bảng nghiệp vụ cần volume mới. Tắt gói trên volume cũ không gỡ schema hoặc mọi RPC; không xem đây là cơ chế uninstall.
 
 ## Vì sao bài toán minh họa là cấp xã
 

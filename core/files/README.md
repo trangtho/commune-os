@@ -53,3 +53,5 @@ Kênh người dân dùng đường này.
 `WORKFLOW_TOKEN` (khóa nội bộ của lõi, dùng chung với dịch vụ điều phối),
 `FILES_SERVICE_TOKEN`, `CLAMAV_HOST` (tùy chọn), `PORT` (mặc định 3000),
 `COMMUNEOS_MODULES`, `MODULES_DIR` (gói đang bật và thư mục gói, để đọc mục `attachments`).
+
+Các đường dẫn giấy tờ đặc thù của gói xã do `modules/xa/handlers/files.mjs` cung cấp, thông qua `serviceHandlers.files` trong manifest. Lõi cung cấp các hàm lưu, tải, kiểm tra tệp và chuyển token; handler chỉ được nạp khi module đang cài.
