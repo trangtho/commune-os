@@ -76,7 +76,7 @@ test('Retention is staff-review first, access log does not expose sensitive valu
  assert.match(migration,/ON CONFLICT DO NOTHING RETURNING citizen_id/)
  assert.match(migration,/citizen_staff_review_privacy_request/)
  assert.match(migration,/citizen_staff_review_retention/)
- assert.match(read('../../../modules/xa/module.json'),/"rpc": "system_scan_citizen_retention", "everyMinutes": 1440, "enabledBy": "CITIZEN_RETENTION_SCAN_ENABLED"/)
+ assert.ok(JSON.parse(read('../../../modules/xa/module.json')).jobs.some(j=>j.rpc==="system_scan_citizen_retention" && j.everyMinutes===1440 && j.enabledBy==="CITIZEN_RETENTION_SCAN_ENABLED"))
  assert.match(read('../../../modules/xa/db/34-citizen-direct-access.sql'),/FUNCTION api\.system_scan_citizen_retention[\s\S]*is_workflow_call\(\)/)
  assert.match(readRoute('citizen/data-access/index.get.ts'),/'citizen_data_access'/)
  assert.match(personalFn('citizen_data_access'),/citizen_data_event_digest/)

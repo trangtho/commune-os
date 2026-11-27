@@ -13,6 +13,24 @@ export function moduleNames(value = process.env.COMMUNEOS_MODULES ?? '') {
   return names
 }
 
+export function loadManifests({ modules = moduleNames(), directory = process.env.MODULES_DIR || '/modules' } = {}) {
+  return moduleNames(modules.join(',')).map(name => {
+    const base = realpathSync(directory)
+    const root = realpathSync(resolve(base, name))
+    if (!root.startsWith(base + sep)) throw new Error(`Gói ngoài thư mục: ${name}`)
+    const manifest = JSON.parse(readFileSync(moduleFile(root, 'module.json'), 'utf8'))
+    if (manifest.name !== name) throw new Error(`Tên gói không khớp: ${name}`)
+    return { root, manifest }
+  })
+}
+
+export function moduleFile(root, entry) {
+  if (typeof entry !== 'string' || !entry || entry.startsWith('/') || entry.split('/').some(p => p === '..' || p === '.')) throw new Error('Đường dẫn module không hợp lệ')
+  const path = realpathSync(resolve(root, entry))
+  if (!path.startsWith(root + sep)) throw new Error('Tệp ngoài module')
+  return path
+}
+
 export async function loadServiceHandlers(service, dependencies, { modules = moduleNames(), directory = process.env.MODULES_DIR || '/modules' } = {}) {
   const handlers = []
   for (const name of moduleNames(modules.join(','))) {

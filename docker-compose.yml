@@ -85,6 +85,8 @@ services:
     command: ["node", "/app/setup.mjs"]
     environment:
       KEYCLOAK_URL: http://identity:8080
+      COMMUNEOS_MODULES: ${COMMUNEOS_MODULES-xa,doanh-nghiep}
+      MODULES_DIR: /modules
       KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN}
       KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD}
       CITIZEN_KEYCLOAK_SECRET: ${CITIZEN_KEYCLOAK_SECRET}
@@ -94,9 +96,23 @@ services:
       COMMUNEOS_ADMIN_PASSWORD: ${COMMUNEOS_ADMIN_PASSWORD}
     volumes:
       - ./core/identity:/app:ro
+      - ./core/module-loader.mjs:/module-loader.mjs:ro
+      - ./modules:/modules:ro
     depends_on:
       identity:
         condition: service_healthy
+
+  gateway-setup:
+    image: node:22-alpine
+    restart: "no"
+    command: ["node", "/core/gateway/generate-config.mjs", "/core/gateway/apisix.yaml", "/generated/apisix.yaml"]
+    environment:
+      COMMUNEOS_MODULES: ${COMMUNEOS_MODULES-xa,doanh-nghiep}
+      MODULES_DIR: /modules
+    volumes:
+      - ./core:/core:ro
+      - ./modules:/modules:ro
+      - gateway-config:/generated
 
   gateway:
     image: apache/apisix:3.20.0-debian
@@ -105,11 +121,17 @@ services:
       APISIX_STAND_ALONE: "true"
     volumes:
       - ./core/gateway/config.yaml:/usr/local/apisix/conf/config.yaml
-      - ./core/gateway/apisix.yaml:/usr/local/apisix/conf/apisix.yaml
+      - gateway-config:/generated:ro
+    entrypoint: ["/bin/sh", "-ec", "cp /generated/apisix.yaml /usr/local/apisix/conf/apisix.yaml; exec /docker-entrypoint.sh docker-start"]
     depends_on:
-      - identity
-      - rest
-      - api-docs
+      gateway-setup:
+        condition: service_completed_successfully
+      identity-setup:
+        condition: service_completed_successfully
+      rest:
+        condition: service_started
+      api-docs:
+        condition: service_started
     # Sẵn sàng khi gọi được một API công khai qua cổng tới PostgREST và PostgreSQL (ảnh PostgREST không có shell
     # để tự kiểm tra, nên kiểm tra cả chuỗi ở đây).
     healthcheck:
@@ -322,6 +344,7 @@ services:
       WORKFLOW_TOKEN: ${WORKFLOW_TOKEN}
       FILES_SERVICE_TOKEN: ${FILES_SERVICE_TOKEN}
       CLAMAV_HOST: ${CLAMAV_HOST:-}
+      CLAMAV_REQUIRED: ${CLAMAV_REQUIRED:-false}
       # Loại đối tượng được đính kèm tệp: mục "attachments" trong modules/<gói>/module.json của các gói đang bật.
       COMMUNEOS_MODULES: ${COMMUNEOS_MODULES-xa,doanh-nghiep}
       MODULES_DIR: /modules
@@ -424,6 +447,7 @@ services:
       MODULES_DIR: /modules
     volumes:
       - ./core/ai:/app:ro
+      - ./core/module-loader.mjs:/module-loader.mjs:ro
       - ./modules:/modules:ro
     networks:
       - default
@@ -588,6 +612,30 @@ services:
     ports:
       - "${PORTAL_BIND_ADDRESS:-127.0.0.1}:${ADMIN_PORT:-3001}:3000"
 
+  enterprise:
+    image: node:22-alpine
+    profiles: ["enterprise"]
+    restart: unless-stopped
+    working_dir: /app
+    command: ["node", "server.mjs"]
+    environment:
+      KEYCLOAK_URL: http://identity:8080
+      GATEWAY_URL: http://gateway:9080
+      ENTERPRISE_PUBLIC_ORIGIN: ${ENTERPRISE_PUBLIC_ORIGIN:-http://localhost:3003}
+      PORTAL_ALLOW_LOCAL_HTTP: ${PORTAL_ALLOW_LOCAL_HTTP:-false}
+    volumes:
+      - ./apps/enterprise:/app:ro
+    ports:
+      - "127.0.0.1:${ENTERPRISE_PORT:-3003}:3000"
+    depends_on:
+      gateway:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:3000/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 10
+
 networks:
   # Mạng riêng của AI, không có đường ra Internet.
   ai-internal:
@@ -597,5 +645,6 @@ volumes:
   ai-models:
   db-data:
   rest-keys:
+  gateway-config:
   citizen-uploads:
   storage-data:

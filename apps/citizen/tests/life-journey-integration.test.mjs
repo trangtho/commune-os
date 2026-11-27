@@ -34,7 +34,7 @@ test('plans and tasks remain opt-in; no background administrative submissions',(
  assert.doesNotMatch(create,/INSERT INTO applications/)
  // Nhắc việc định kỳ do dịch vụ điều phối của lõi chạy, bật bằng biến môi trường (tắt mặc định).
  const schedule=read('../../../modules/xa/module.json')
- assert.match(schedule,/"rpc": "system_dispatch_citizen_reminders", "everyMinutes": 60, "enabledBy": "CITIZEN_REMINDERS_ENABLED"/)
+ assert.ok(JSON.parse(schedule).jobs.some(j=>j.rpc==="system_dispatch_citizen_reminders" && j.everyMinutes===60 && j.enabledBy==="CITIZEN_REMINDERS_ENABLED"))
  assert.match(read('../../../core/orchestrator/server.mjs'),/process\.env\[j\.enabledBy\] !== 'true'/)
  const settings=read('../server/api/citizen/reminders/settings.put.ts')
  assert.match(settings,/enabled/);assert.match(settings,/daysBefore/)

@@ -34,6 +34,8 @@ jobs:
             modules: ""
           - mode: enterprise
             modules: doanh-nghiep
+          - mode: iot
+            modules: doanh-nghiep,iot-demo
     runs-on: ubuntu-latest
     timeout-minutes: 30
     env:
@@ -62,8 +64,12 @@ jobs:
         run: make test-platform
 
       - name: Gói doanh nghiệp chạy trên lõi không có gói xã
-        if: matrix.mode == 'enterprise'
+        if: matrix.mode == 'enterprise' || matrix.mode == 'iot'
         run: make example-enterprise
+
+      - name: Kiểm thử IT/OT mô phỏng
+        if: matrix.mode == 'iot'
+        run: make test-iot
 
       - name: In log khi lỗi
         if: failure()
@@ -120,6 +126,7 @@ jobs:
       - name: Kiểm thử kiến trúc và phiên đăng nhập ba kênh
         run: |
           node --experimental-strip-types --test core/tests/architecture.test.mjs
+          node --test core/tests/open-core.test.mjs
           node core/tests/portal-smoke.mjs
           npm --prefix apps/commune test
 

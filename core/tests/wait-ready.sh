@@ -17,11 +17,11 @@ while :; do
   # Mỗi dòng: dịch vụ|trạng thái|sức khỏe|mã thoát
   status=$($COMPOSE ps -a --format '{{.Service}}|{{.State}}|{{.Health}}|{{.ExitCode}}' 2>/dev/null)
   failed=$(echo "$status" | awk -F'|' '
-    ($1=="db-setup" || $1=="identity-setup" || $1=="rest-keys") && $2=="exited" && $4!="0" { print $1 " kết thúc lỗi (mã " $4 ")" }
-    $1!="db-setup" && $1!="identity-setup" && $1!="rest-keys" && $1!="ai-models" && ($2=="exited" || $2=="dead") { print $1 " đã dừng" }')
+    ($1=="db-setup" || $1=="identity-setup" || $1=="rest-keys" || $1=="gateway-setup") && $2=="exited" && $4!="0" { print $1 " kết thúc lỗi (mã " $4 ")" }
+    $1!="db-setup" && $1!="identity-setup" && $1!="rest-keys" && $1!="gateway-setup" && $1!="ai-models" && ($2=="exited" || $2=="dead") { print $1 " đã dừng" }')
   waiting=$(echo "$status" | awk -F'|' '
     $1=="ai-models" { next }
-    ($1=="db-setup" || $1=="identity-setup" || $1=="rest-keys") { if ($2!="exited") print $1; next }
+    ($1=="db-setup" || $1=="identity-setup" || $1=="rest-keys" || $1=="gateway-setup") { if ($2!="exited") print $1; next }
     $2=="running" && $3!="" && $3!="healthy" { print $1 " (" $3 ")" }
     $2=="created" || $2=="restarting" { print $1 " (" $2 ")" }')
   if [ -n "$failed" ]; then

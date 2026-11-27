@@ -1,0 +1,7 @@
+{
+  "name": "iot-demo",
+  "title": "Ví dụ IT/OT: giám sát nhiệt độ mô phỏng",
+  "version": "0.1.0",
+  "db": ["db/telemetry.sql"],
+  "workflows": [{"name":"telemetry-alerts","label":"Cảnh báo nhiệt độ","processKey":"telemetry-alert","view":"telemetry_alerts","statusRpc":"telemetry_alert_status","idParam":"p_id","final":["resolved","false_alarm"],"variables":{"tenant":"tenant_code"}}]
+}

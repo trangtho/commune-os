@@ -168,3 +168,6 @@ apps/citizen/test-results/
 
 # macOS system files
 .DS_Store
+
+# Báo cáo đo trên máy thật
+/evidence/

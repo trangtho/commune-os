@@ -93,53 +93,10 @@ routes:
       type: roundrobin
       nodes:
         "accounts:3000": 1
-  # Người dân tự đăng ký tài khoản (chưa có token). Dịch vụ tài khoản kiểm tra dữ liệu, sự đồng ý và giới hạn thêm
-  # theo địa chỉ IP người dùng (X-Forwarded-For do Kênh người dân chuyển tiếp).
-  - id: accounts-register
-    uri: /public/accounts/register
-    methods: ["POST"]
-    plugins:
-      limit-count:
-        count: 20
-        time_window: 60
-        key_type: var
-        key: remote_addr
-        rejected_code: 429
-      proxy-rewrite:
-        uri: /accounts/register
-        headers:
-          remove: ["Authorization"]
-    upstream:
-      type: roundrobin
-      nodes:
-        "accounts:3000": 1
-  # API công khai cho khách chưa đăng nhập. Của lõi: thông tin nền tảng, các gói đã cài (public_platform,
-  # core/db/init/07-goi-nghiep-vu.sql; dùng để kiểm tra sức khỏe). Của gói xã: danh mục, chi tiết, phiên bản, nguồn văn bản
-  # của thủ tục đã công bố, kho tri thức của trợ lý, địa phương, phiên chuẩn bị tại quầy, tra cứu mã kiểm chứng kết quả
-  # (modules/xa/db/21-citizen-api-core-flow.sql, 33-citizen-api-public.sql), danh sách xã để đăng ký (35-account-onboarding.sql).
-  # Liệt kê từng hàm: hàm khác không mở cho khách.
-  # Không nhận token (bỏ header Authorization), PostgREST dùng vai trò web_anon; có giới hạn số lần gọi.
-  - id: public-procedures
+  # API công khai của nền tảng và danh sách RPC do module khai báo.
+  - id: public-rpc
     uris:
       - "/public/rpc/public_platform"
-      - "/public/rpc/procedure_catalog"
-      - "/public/rpc/procedure_detail"
-      - "/public/rpc/public_knowledge"
-      - "/public/rpc/public_knowledge_search"
-      - "/public/rpc/public_knowledge_status"
-      - "/public/rpc/public_provenance"
-      - "/public/rpc/public_procedure_versions"
-      - "/public/rpc/public_procedure_guide_source"
-      - "/public/rpc/public_procedure_channels"
-      - "/public/rpc/public_guidance_rules"
-      - "/public/rpc/public_recommendation_catalog"
-      - "/public/rpc/public_journey_catalog"
-      - "/public/rpc/public_localities"
-      - "/public/rpc/public_counter_session"
-      - "/public/rpc/public_counter_session_start"
-      - "/public/rpc/public_counter_session_end"
-      - "/public/rpc/public_result_verification"
-      - "/public/rpc/public_registration_tenants"
     methods: ["GET", "POST"]
     plugins:
       limit-count:

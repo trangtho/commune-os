@@ -132,11 +132,11 @@ test('Empty module selection does not fall back to a business module', async () 
   assert.deepEqual(await loadServiceHandlers('accounts', {}, opts), [])
   assert.deepEqual(await loadServiceHandlers('files', {}, opts), [])
   assert.equal(await dispatchHandlers([], {res: {headersSent: false}}), false)
-  for (const service of ['orchestrator', 'files', 'ai']) {
+  for (const service of ['orchestrator', 'files']) {
     assert.match(read(`core/${service}/server.mjs`), /COMMUNEOS_MODULES \?\? ''/)
   }
   assert.match(read('core/db/migrate.sh'), /\$\{COMMUNEOS_MODULES-\}/)
-  assert.equal((read('docker-compose.yml').match(/\$\{COMMUNEOS_MODULES-xa,doanh-nghiep\}/g) || []).length, 5)
+  assert.equal((read('docker-compose.yml').match(/\$\{COMMUNEOS_MODULES-xa,doanh-nghiep\}/g) || []).length, 7)
   assert.match(read('core/db/init/07-goi-nghiep-vu.sql'), /JOIN core_modules m ON m.name = hook.module/)
 })
 

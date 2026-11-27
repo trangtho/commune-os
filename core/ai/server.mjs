@@ -26,8 +26,8 @@
 
 import { createServer } from 'node:http'
 import { createHash, createPublicKey, verify } from 'node:crypto'
-import { existsSync, readFileSync } from 'node:fs'
-import { join } from 'node:path'
+import { loadManifests } from '../module-loader.mjs'
+import { buildPrincipalRules, principal, resourceId } from './principals.mjs'
 
 const env = (name, fallback) => {
   const v = process.env[name] ?? fallback
@@ -55,10 +55,11 @@ class HttpError extends Error {
 // Mỗi nguồn là 4 hàm api.* cùng chữ ký: search (tìm kiếm lai), pending/store (tạo vector), status (tình trạng chỉ mục).
 const FN_RE = /^[a-z_][a-z0-9_]{0,62}$/
 const PROVIDERS = [{ name: 'lõi', search: 'core_knowledge_search', pending: 'core_knowledge_pending', store: 'core_knowledge_store', status: 'core_knowledge_status' }]
-for (const m of (process.env.COMMUNEOS_MODULES ?? '').split(/[\s,]+/).filter(Boolean)) {
-  const file = join(process.env.MODULES_DIR || '/modules', m, 'module.json')
-  if (!existsSync(file)) { console.warn(`[ai] Không đọc được ${file}; bỏ qua nguồn tri thức của gói ${m}`); continue }
-  const p = JSON.parse(readFileSync(file, 'utf8')).knowledgeProvider
+const entries = loadManifests()
+const principalRules = buildPrincipalRules(entries)
+for (const {manifest} of entries) {
+  const m = manifest.name
+  const p = manifest.knowledgeProvider
   if (!p) continue
   if (!['search', 'pending', 'store', 'status'].every((k) => FN_RE.test(p[k] || ''))) throw new Error(`${m}/module.json: "knowledgeProvider" khai báo sai`)
   PROVIDERS.push({ name: m, search: p.search, pending: p.pending, store: p.store, status: p.status })
@@ -89,12 +90,9 @@ async function caller(req) {
   if (header.alg !== 'RS256') throw new HttpError(401, 'Token không hợp lệ')
   const ok = verify('RSA-SHA256', Buffer.from(`${h}.${p}`), await publicKey(header.kid), Buffer.from(s || '', 'base64url'))
   if (!ok || !claims.exp || claims.exp * 1000 < Date.now()) throw new HttpError(401, 'Token không hợp lệ hoặc đã hết hạn')
-  const roles = claims.realm_access?.roles || []
-  const citizen = claims.azp === 'citizen-app' && roles.includes('citizen') && claims.citizen_id
-  const staff = claims.azp === 'commune-app' && (claims.tenant_id || roles.includes('sys_admin'))
-  if (!citizen && !staff) throw new HttpError(403, 'Tài khoản không được dùng trợ lý AI')
-  // Phạm vi tri thức lấy từ token đã ký: xã của người hỏi; cán bộ thấy thêm hướng dẫn nghiệp vụ.
-  return { sub: claims.sub, roles, kind: citizen ? 'citizen' : 'staff', tenant: citizen ? claims.citizen_tenant : (claims.tenant_id || '') }
+  const me = principal(claims, principalRules)
+  if (!me) throw new HttpError(403, 'Tài khoản không được dùng trợ lý AI')
+  return me
 }
 
 // ---------- Giới hạn số lần gọi (theo người dùng hoặc địa chỉ IP) ----------
@@ -229,7 +227,7 @@ const recordError = (where, e) => {
 async function ask(body, who, tenant = '') {
   const question = typeof body.question === 'string' ? body.question.trim() : ''
   if (question.length < 2 || question.length > 500) throw new HttpError(400, 'Câu hỏi phải từ 2 đến 500 ký tự')
-  const procedureId = typeof body.procedureId === 'string' && /^[a-z0-9-]{2,80}$/.test(body.procedureId) ? body.procedureId : ''
+  const resource = resourceId(body)
   const started = Date.now()
   const timings = {}
   const { text, masked } = maskPersonalData(question)
@@ -249,7 +247,7 @@ async function ask(body, who, tenant = '') {
 
   const t1 = Date.now()
   const args = {
-    p_query: text, p_embedding: vector ? `[${vector.join(',')}]` : null, p_procedure_id: procedureId, p_limit: 8,
+    p_query: text, p_embedding: vector ? `[${vector.join(',')}]` : null, p_procedure_id: resource, p_limit: 8,
     p_min_similarity: MIN_SIMILARITY,
     // Công dân, khách không bao giờ thấy tài liệu nội bộ; người đăng nhập chỉ thấy tri thức của gói đơn vị mình bật.
     p_audience: who === 'staff' ? 'staff' : 'citizen', p_tenant_code: tenant || '',

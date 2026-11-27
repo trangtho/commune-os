@@ -11,6 +11,16 @@ Mọi thay đổi đáng chú ý của dự án được ghi tại đây.
 
 ## [Chưa phát hành]
 
+### Thêm (mở rộng nền tảng đa nghiệp vụ)
+
+- Gateway sinh danh sách RPC và route tài khoản công khai từ manifest, giữ chính sách rate limit và upstream trong lõi.
+- Tách client, role và thuộc tính định danh công dân vào module xã; setup bổ sung cấu hình, không tự xóa tài khoản cũ.
+- AI nạp quy tắc principal từ module, hỗ trợ resourceId tương thích với procedureId.
+- Portal doanh nghiệp tùy chọn, SDK scaffold/validate, kiểm thử kiến trúc mở rộng và báo cáo đo API.
+- Module IT/OT mô phỏng tùy chọn, tổng hợp nhiệt độ theo ngày, xuất JSONL có checksum.
+- Tùy chọn CLAMAV_REQUIRED từ chối khởi động khi thiếu máy quét; bổ sung hướng dẫn nghiệm thu và phát hành.
+
+
 ### Thay đổi (hoàn thiện ranh giới lõi và gói nghiệp vụ)
 
 - Cho phép khởi động lõi với danh sách module rỗng; thêm `make platform-up` và CI riêng cho lõi trống.

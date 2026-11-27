@@ -279,3 +279,7 @@ Cập nhật thời gian thực: [docs/REALTIME_CITIZEN.md](docs/REALTIME_CITIZE
 ## Đội phát triển
 
 Danh sách người đóng góp: [Contributors](https://github.com/trangtho/commune-os/graphs/contributors).
+
+## Hoàn thiện nền tảng đa nghiệp vụ
+
+Xem [hướng dẫn nghiệm thu Open-Core](docs/OPEN_CORE_DELIVERY.md) để kiểm thử lõi độc lập, cấu hình Gateway và Identity theo module, chạy portal doanh nghiệp, tạo scaffold module và thu thập bằng chứng trước phát hành.

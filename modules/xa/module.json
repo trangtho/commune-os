@@ -64,12 +64,61 @@
       "view": "dossiers",
       "statusRpc": "set_dossier_status",
       "idParam": "dossier_id",
-      "final": ["completed", "rejected"],
-      "variables": { "tenant": "tenant_code", "procedure": "procedure_id" }
+      "final": [
+        "completed",
+        "rejected"
+      ],
+      "variables": {
+        "tenant": "tenant_code",
+        "procedure": "procedure_id"
+      }
     }
   ],
   "jobs": [
-    { "name": "nhắc việc", "rpc": "system_dispatch_citizen_reminders", "everyMinutes": 60, "enabledBy": "CITIZEN_REMINDERS_ENABLED" },
-    { "name": "rà soát lưu trữ", "rpc": "system_scan_citizen_retention", "everyMinutes": 1440, "enabledBy": "CITIZEN_RETENTION_SCAN_ENABLED" }
-  ]
+    {
+      "name": "nhắc việc",
+      "rpc": "system_dispatch_citizen_reminders",
+      "everyMinutes": 60,
+      "enabledBy": "CITIZEN_REMINDERS_ENABLED"
+    },
+    {
+      "name": "rà soát lưu trữ",
+      "rpc": "system_scan_citizen_retention",
+      "everyMinutes": 1440,
+      "enabledBy": "CITIZEN_RETENTION_SCAN_ENABLED"
+    }
+  ],
+  "gateway": {
+    "publicRpc": [
+      "procedure_catalog",
+      "procedure_detail",
+      "public_knowledge",
+      "public_knowledge_search",
+      "public_knowledge_status",
+      "public_provenance",
+      "public_procedure_versions",
+      "public_procedure_guide_source",
+      "public_procedure_channels",
+      "public_guidance_rules",
+      "public_recommendation_catalog",
+      "public_journey_catalog",
+      "public_localities",
+      "public_counter_session",
+      "public_counter_session_start",
+      "public_counter_session_end",
+      "public_result_verification",
+      "public_registration_tenants"
+    ],
+    "publicAccounts": [
+      "register"
+    ]
+  },
+  "identity": "identity/realm-extension.json",
+  "aiPrincipal": {
+    "clientId": "citizen-app",
+    "requiredRole": "citizen",
+    "subjectClaim": "citizen_id",
+    "tenantClaim": "citizen_tenant",
+    "audience": "citizen"
+  }
 }

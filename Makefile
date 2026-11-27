@@ -16,6 +16,7 @@ check-env: .env ## Kiểm tra .env có đủ biến bắt buộc (biến docker-
 	  echo "Chép các dòng tương ứng từ .env.example sang .env (đổi giá trị bí mật), rồi chạy lại."; exit 1; fi
 	@sh core/identity/check-admin-env.sh .env
 up: check-env ## Dựng và khởi động toàn bộ dịch vụ, tự nạp schema, danh mục thủ tục và mô hình AI (lần đầu); dữ liệu mẫu: make demo
+	$(COMPOSE) run --rm --no-deps gateway-setup
 	$(COMPOSE) up -d --build
 	@# Cổng API và các dịch vụ Node của lõi chạy thẳng mã nguồn gắn từ core/ vào container: sau git pull, compose
 	@# thấy cấu hình không đổi nên không khởi động lại, container vẫn chạy mã cũ (thiếu API mới, đăng nhập, nộp hồ sơ lỗi).
@@ -24,6 +25,7 @@ up: check-env ## Dựng và khởi động toàn bộ dịch vụ, tự nạp sc
 
 .PHONY: platform-up
 platform-up: check-env ## Dựng chỉ lõi, theo COMMUNEOS_MODULES (có thể rỗng), không dựng portal và AI tùy chọn
+	$(COMPOSE) run --rm --no-deps gateway-setup
 	$(COMPOSE) up -d db db-setup identity identity-setup rest-keys rest gateway api-docs workflow-engine orchestrator storage files accounts
 	$(COMPOSE) up -d --force-recreate --no-deps gateway orchestrator accounts files
 	@sh core/tests/wait-ready.sh 900
@@ -145,3 +147,19 @@ doctor: .env ## Xem tình trạng kết nối, role, bảng và số lượng th
 	@$(COMPOSE) ps
 	@$(COMPOSE) exec -T db sh -c 'psql -v ON_ERROR_STOP=1 -U "$$POSTGRES_USER" -d "$$POSTGRES_DB"' < modules/xa/db/tests/diagnose.sql
 	@echo 'API health: curl -i http://localhost:3000/api/health'
+
+.PHONY: module-create module-validate test-open-core enterprise-up evidence
+module-create: ## Tạo scaffold module (NAME=ten-goi), không tự cấp quyền
+	node tools/module-sdk.mjs create "$(NAME)"
+module-validate: ## Kiểm tra manifest và đường dẫn (NAME=ten-goi)
+	node tools/module-sdk.mjs validate "$(NAME)"
+test-open-core: ## Kiểm thử generator, module identity, AI và SDK (Node 22)
+	node --test core/tests/open-core.test.mjs
+enterprise-up: check-env ## Khởi động portal doanh nghiệp tùy chọn (sau make platform-up hoặc make up)
+	$(COMPOSE) --profile enterprise up -d enterprise
+evidence: ## Đo health và độ trễ API công khai; lưu báo cáo JSON (Node 22)
+	node tools/platform-evidence.mjs
+
+.PHONY: test-iot
+test-iot: ## Kiểm thử IT/OT mô phỏng (stack demo có doanh-nghiep,iot-demo; sau make example-enterprise)
+	node modules/iot-demo/demo.mjs

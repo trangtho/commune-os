@@ -38,6 +38,8 @@ const REST_URL = env('REST_URL', 'http://rest:3000').replace(/\/$/, '')
 const WORKFLOW_TOKEN = env('WORKFLOW_TOKEN')
 const FILES_SERVICE_TOKEN = env('FILES_SERVICE_TOKEN')
 const CLAMAV_HOST = process.env.CLAMAV_HOST || ''          // để trống = không quét mã độc
+const CLAMAV_REQUIRED = process.env.CLAMAV_REQUIRED === 'true'
+if (CLAMAV_REQUIRED && !CLAMAV_HOST) throw new Error('CLAMAV_REQUIRED=true nhưng thiếu CLAMAV_HOST')
 const CLAMAV_PORT = Number(process.env.CLAMAV_PORT || 3310)
 const PORT = Number(process.env.PORT || 3000)
 const MAX_BYTES = 5 * 1024 * 1024

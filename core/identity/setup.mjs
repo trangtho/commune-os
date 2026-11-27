@@ -16,6 +16,8 @@
 // Không thư viện ngoài (chỉ Node 22).
 
 import { readFile } from 'node:fs/promises'
+import { loadManifests } from '../module-loader.mjs'
+import { identityConfig } from './module-config.mjs'
 
 const KEYCLOAK_URL = (process.env.KEYCLOAK_URL || 'http://identity:8080').replace(/\/$/, '')
 const REALM = 'communeos'
@@ -23,19 +25,8 @@ const ADMIN_USER = process.env.KEYCLOAK_ADMIN
 const ADMIN_PASSWORD = process.env.KEYCLOAK_ADMIN_PASSWORD
 const REALM_FILE = process.env.REALM_FILE || '/app/realm/communeos-realm.json'
 
-// Những mục được bổ sung khi thiếu. Thêm mục mới vào đây khi sửa tệp realm.
-const IMPORT = {
-  realmRoles: ['citizen'],
-  clients: ['citizen-app'],
-}
 const SYS_ADMIN_USERNAME = String(process.env.COMMUNEOS_ADMIN_USERNAME || '').trim().toLowerCase()
 const SYS_ADMIN_PASSWORD = String(process.env.COMMUNEOS_ADMIN_PASSWORD || '')
-// Client bí mật và biến môi trường chứa secret.
-const CONFIDENTIAL = {
-  'citizen-app': 'CITIZEN_KEYCLOAK_SECRET',
-  'accounts-service': 'KEYCLOAK_ACCOUNTS_SECRET',
-}
-
 if (!ADMIN_USER || !ADMIN_PASSWORD) {
   console.error('Thiếu KEYCLOAK_ADMIN hoặc KEYCLOAK_ADMIN_PASSWORD')
   process.exit(1)
@@ -72,6 +63,13 @@ async function waitToken() {
 async function main() {
   const raw = await readFile(REALM_FILE, 'utf8')
   const realm = JSON.parse(raw.replace(/\$\{([A-Z0-9_]+)\}/g, (all, name) => (process.env[name] ? JSON.stringify(process.env[name]).slice(1, -1) : all)))
+  const config = identityConfig(realm, loadManifests())
+  // Replace only confidential-client secrets, not arbitrary placeholders in module data.
+  for (const [id, variable] of Object.entries(config.confidential)) {
+    if (!process.env[variable]) throw new Error(`Thiếu ${variable}`)
+    const client = config.clients.find(c => c.clientId === id)
+    if (client) client.secret = process.env[variable]
+  }
   const token = await waitToken()
   const api = async (method, path, body) => {
     const r = await fetch(`${KEYCLOAK_URL}/admin/realms/${REALM}${path}`, {
@@ -85,9 +83,7 @@ async function main() {
   }
 
   // 1. Thuộc tính trong user profile: thêm thuộc tính có trong tệp mà realm đang thiếu.
-  const fileProfile = JSON.parse(
-    realm.components['org.keycloak.userprofile.UserProfileProvider'][0].config['kc.user.profile.config'][0],
-  )
+  const fileProfile = { attributes: config.attributes }
   const profile = await api('GET', '/users/profile')
   const have = new Set(profile.attributes.map((a) => a.name))
   const missing = fileProfile.attributes.filter((a) => !have.has(a.name))
@@ -98,20 +94,19 @@ async function main() {
   console.log(`User profile: thêm ${missing.length} thuộc tính${missing.length ? ` (${missing.map((a) => a.name).join(', ')})` : ''}`)
 
   // 2. Vai trò, client, người dùng: partialImport bỏ qua mục đã tồn tại.
-  const pick = (list, key, names) => (list || []).filter((x) => names.includes(x[key]))
   const result = await api('POST', '/partialImport', {
     ifResourceExists: 'SKIP',
-    roles: { realm: pick(realm.roles.realm, 'name', IMPORT.realmRoles) },
-    clients: pick(realm.clients, 'clientId', IMPORT.clients),
+    roles: { realm: config.roles.filter(x => !realm.roles.realm.some(b => b.name === x.name)) },
+    clients: config.clients.filter(x => !realm.clients.some(b => b.clientId === x.clientId)),
   })
   console.log(`partialImport: thêm ${result.added}, bỏ qua ${result.skipped} (đã có)`)
 
   // 3. Client bí mật: realm cài từ bản trước có thể còn là client công khai hoặc secret cũ.
-  for (const [clientId, variable] of Object.entries(CONFIDENTIAL)) {
+  for (const [clientId, variable] of Object.entries(config.confidential)) {
     const secret = process.env[variable]
     if (!secret) throw new Error(`Thiếu ${variable}`)
     const [client] = await api('GET', `/clients?clientId=${encodeURIComponent(clientId)}`)
-    if (!client) continue
+    if (!client) throw new Error(`Thiếu client ${clientId}`)
     const current = client.publicClient ? null : (await api('GET', `/clients/${client.id}/client-secret`))?.value
     // Tài khoản dịch vụ: máy chủ Kênh người dân gọi lõi thay mặt chính nó (liên kết đăng nhập OIDC bên ngoài),
     // không cần khóa dùng chung riêng (core/db/init/34-citizen-direct-access.sql, public.is_citizen_service()).

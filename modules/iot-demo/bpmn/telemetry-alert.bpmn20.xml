@@ -1,0 +1,11 @@
+<!-- SPDX-FileCopyrightText: 2026 CommuneOS Contributors
+SPDX-License-Identifier: Apache-2.0 -->
+<definitions xmlns="http://www.omg.org/spec/BPMN/20100524/MODEL" xmlns:flowable="http://flowable.org/bpmn" targetNamespace="https://github.com/trangtho/commune-os">
+<process id="telemetry-alert" name="Cảnh báo nhiệt độ mô phỏng" isExecutable="true">
+<startEvent id="start"/><sequenceFlow id="f0" sourceRef="start" targetRef="submitted"/>
+<userTask id="submitted" name="Chờ xử lý cảnh báo" flowable:candidateGroups="leader"/>
+<sequenceFlow id="f1" sourceRef="submitted" targetRef="decision"/><exclusiveGateway id="decision"/>
+<sequenceFlow id="f2" sourceRef="decision" targetRef="resolved"><conditionExpression>${action == 'resolved'}</conditionExpression></sequenceFlow>
+<sequenceFlow id="f3" sourceRef="decision" targetRef="false_alarm"><conditionExpression>${action == 'false_alarm'}</conditionExpression></sequenceFlow>
+<endEvent id="resolved"/><endEvent id="false_alarm"/>
+</process></definitions>
