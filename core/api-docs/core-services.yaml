@@ -151,6 +151,59 @@ paths:
         '409': { $ref: '#/components/responses/Conflict' }
 
   # ---------------- Tệp ----------------
+  /files/{resource}/{id}/attachments:
+    parameters:
+      - name: resource
+        in: path
+        required: true
+        description: Loại đối tượng do gói khai báo ở mục "attachments" của module.json, ví dụ leave-requests. Loại chưa khai báo trả 404.
+        schema: { type: string, pattern: '^[a-z][a-z0-9_-]*$', example: leave-requests }
+      - name: id
+        in: path
+        required: true
+        description: Mã đối tượng, ví dụ mã đơn NP-20261127-1A2B3C
+        schema: { type: string, example: NP-20261127-1A2B3C }
+    post:
+      tags: [Tệp]
+      summary: Đính kèm tệp vào một đối tượng của gói nghiệp vụ
+      description: >-
+        Thân là nội dung tệp (không dùng multipart): PDF, PNG hoặc JPG, tối đa 5 MB, nội dung phải khớp định dạng.
+        Người gọi phải xem được đối tượng qua bảng ảo của gói (RLS của gói), đơn vị phải bật gói; đối tượng ở trạng
+        thái không nhận tệp thì 409. Mỗi tệp ghi một dòng vào sổ ghi nhận.
+      parameters:
+        - { name: name, in: query, required: false, description: Tên tệp hiển thị, schema: { type: string, maxLength: 180, example: giay-kham-benh.pdf } }
+      requestBody:
+        required: true
+        content:
+          application/pdf: { schema: { type: string, format: binary } }
+          image/png: { schema: { type: string, format: binary } }
+          image/jpeg: { schema: { type: string, format: binary } }
+      responses:
+        '201': { description: Đã lưu tệp, content: { application/json: { schema: { type: object } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '413': { description: Tệp quá 5 MB, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        '415': { description: Sai định dạng hoặc nội dung không khớp định dạng, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+    get:
+      tags: [Tệp]
+      summary: Danh sách tệp đính kèm của một đối tượng
+      responses:
+        '200': { description: Danh sách tệp (id, tên, định dạng, kích thước, SHA-256, người tải lên, thời điểm), content: { application/json: { schema: { type: array, items: { type: object } } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /files/attachments/{id}:
+    get:
+      tags: [Tệp]
+      summary: Tải một tệp đính kèm
+      description: Kiểm tra lại quyền xem đối tượng và mã băm trước khi trả; tệp trong kho bị thay đổi thì 409. Header X-Content-SHA256 chứa mã băm.
+      parameters:
+        - $ref: '#/components/parameters/Uuid'
+      responses:
+        '200': { description: Nội dung tệp, content: { application/octet-stream: { schema: { type: string, format: binary } } } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
   /files/dossiers/{id}/documents:
     post:
       tags: [Tệp]

@@ -1,10 +1,15 @@
 // SPDX-FileCopyrightText: 2026 CommuneOS Contributors
 // SPDX-License-Identifier: Apache-2.0
 //
-// Dịch vụ tệp của lõi: lưu và trả giấy tờ của hồ sơ, nội dung nằm trong kho đối tượng chuẩn S3
+// Dịch vụ tệp của lõi: lưu và trả tệp của mọi gói nghiệp vụ, nội dung nằm trong kho đối tượng chuẩn S3
 // (SeaweedFS). Không giao diện, không thư viện ngoài (chỉ Node 22).
 //
 // Đường dẫn công khai (đi qua cổng APISIX /files/*, cổng đã kiểm tra token Keycloak):
+//   Tệp đính kèm dùng chung (loại đối tượng do gói khai báo ở mục "attachments" của module.json):
+//   POST /files/:loai/:ma/attachments?name=<tên tệp>                 thân = nội dung tệp
+//   GET  /files/:loai/:ma/attachments                               danh sách tệp của đối tượng
+//   GET  /files/attachments/:id                                     tải tệp (kiểm tra mã băm)
+//   Giấy tờ riêng của gói xã:
 //   POST /files/dossiers/:id/documents?code=<loại>&name=<tên tệp>   thân = nội dung tệp
 //   GET  /files/documents/:id                                       tải giấy tờ (kiểm tra mã băm)
 //   GET  /files/handoffs/:id/documents/:id                          giấy tờ trong mã chuyển hồ sơ tại quầy
@@ -18,6 +23,8 @@
 import { createServer } from 'node:http'
 import { createHash, createHmac, randomUUID, timingSafeEqual } from 'node:crypto'
 import { connect } from 'node:net'
+import { existsSync, readFileSync } from 'node:fs'
+import { join } from 'node:path'
 
 const env = (name, fallback) => {
   const v = process.env[name] ?? fallback
@@ -44,6 +51,24 @@ const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/
 class HttpError extends Error {
   constructor(status, message) { super(message); this.status = status }
 }
+
+// ---------- Loại đối tượng được đính kèm tệp, do các gói đang bật khai báo ----------
+// module.json: "attachments": [{ "resource": "leave-requests", "view": "leave_requests", "label": "Đơn nghỉ phép",
+//   "uploadStatuses": ["submitted"] }]. view: bảng ảo trong schema api có cột id (và status nếu có uploadStatuses);
+// người dùng phải XEM ĐƯỢC đối tượng qua view này bằng token của mình (RLS của gói) mới đính kèm, xem được tệp.
+const NAME_RE = /^[a-z][a-z0-9_-]{0,62}$/
+const ATTACHABLE = new Map()
+const MODULES_DIR = process.env.MODULES_DIR || '/modules'
+for (const m of (process.env.COMMUNEOS_MODULES || 'xa').split(/[\s,]+/).filter(Boolean)) {
+  const file = join(MODULES_DIR, m, 'module.json')
+  if (!existsSync(file)) { console.log(`Không đọc được ${file}; bỏ qua tệp đính kèm của gói ${m}`); continue }
+  for (const a of JSON.parse(readFileSync(file, 'utf8')).attachments || []) {
+    if (!NAME_RE.test(a.resource || '') || !NAME_RE.test(a.view || '')) throw new Error(`${m}/module.json: "attachments" khai báo sai`)
+    if (ATTACHABLE.has(a.resource)) throw new Error(`${m}/module.json: loại "${a.resource}" đã được khai báo`)
+    ATTACHABLE.set(a.resource, { module: m, label: a.label || 'Đối tượng', view: a.view, uploadStatuses: a.uploadStatuses || null })
+  }
+}
+if (ATTACHABLE.size) console.log(`Tệp đính kèm: ${[...ATTACHABLE.keys()].map((r) => `/files/${r}/<mã>/attachments`).join(', ')}`)
 
 // ---------- Kho đối tượng S3 (chữ ký AWS Signature V4) ----------
 const sha256hex = (data) => createHash('sha256').update(data).digest('hex')
@@ -159,6 +184,17 @@ async function rpc(fn, body, authorization) {
   return data
 }
 
+// Người gọi xem được đối tượng qua bảng ảo của gói không (RLS của gói quyết định). Trả dòng (id, status...).
+async function visibleItem(kind, id, authorization) {
+  const select = kind.uploadStatuses ? 'id,status' : 'id'
+  const r = await fetch(`${REST_URL}/${kind.view}?id=eq.${encodeURIComponent(id)}&select=${select}`, { headers: { authorization } })
+  if (r.status === 401) throw new HttpError(401, 'Token không hợp lệ hoặc đã hết hạn')
+  if (!r.ok) throw new HttpError(r.status === 403 ? 403 : 502, 'API dữ liệu từ chối yêu cầu')
+  const [row] = await r.json()
+  if (!row) throw new HttpError(404, `${kind.label} không tồn tại`)    // đơn vị khác, không có quyền: cũng 404
+  return row
+}
+
 // ---------- HTTP ----------
 async function readBody(req) {
   const chunks = []; let size = 0
@@ -212,6 +248,48 @@ async function handle(req, res) {
   if (parts[0] === 'files') {
     if (!/^Bearer \S+$/.test(auth)) throw new HttpError(401, 'Thiếu token đăng nhập')
 
+    // --- Tệp đính kèm dùng chung ---
+    // POST, GET /files/:loai/:ma/attachments
+    if (parts.length === 4 && parts[3] === 'attachments' && ATTACHABLE.has(parts[1])) {
+      const kind = ATTACHABLE.get(parts[1])
+      const refId = decodeURIComponent(parts[2])
+      const item = await visibleItem(kind, refId, auth)
+      if (req.method === 'GET') {
+        return json(res, 200, await rpc('attachment_list', { module: kind.module, resource: parts[1], ref_id: refId }, auth))
+      }
+      if (req.method !== 'POST') throw new HttpError(405, 'Chỉ hỗ trợ GET và POST')
+      if (kind.uploadStatuses && !kind.uploadStatuses.includes(item.status)) {
+        throw new HttpError(409, `${kind.label} ở trạng thái "${item.status}" không nhận thêm tệp`)
+      }
+      const name = String(url.searchParams.get('name') || 'tep-dinh-kem').slice(0, 180)
+      const type = String(req.headers['content-type'] || '').split(';')[0].trim()
+      const stored = await storeObject(type, await readBody(req))
+      try {
+        return json(res, 201, await rpc('attachment_register', {
+          module: kind.module, resource: parts[1], ref_id: refId, original_name: name,
+          mime_type: type, size_bytes: stored.size, sha256: stored.sha256, storage_key: stored.key,
+        }, auth))
+      } catch (e) {
+        await s3('DELETE', stored.key).catch(() => {})   // không để lại tệp mồ côi
+        throw e
+      }
+    }
+
+    // GET /files/attachments/:id
+    if (req.method === 'GET' && parts.length === 3 && parts[1] === 'attachments') {
+      if (!UUID_RE.test(parts[2])) throw new HttpError(404, 'Không tìm thấy tệp')
+      const meta = await rpc('attachment_object', { attachment_id: parts[2] }, auth)
+      const kind = meta && ATTACHABLE.get(meta.resource)
+      if (!meta || !kind || kind.module !== meta.module) throw new HttpError(404, 'Không tìm thấy tệp hoặc không có quyền xem')
+      await visibleItem(kind, meta.ref_id, auth)
+      const data = await readObject(meta.storage_key)
+      if (sha256hex(data) !== meta.sha256) {
+        throw new HttpError(409, 'Tệp trong kho không khớp mã băm đã ghi: có thể đã bị thay đổi')
+      }
+      return sendFile(res, data, meta)
+    }
+
+    // --- Giấy tờ riêng của gói xã ---
     // POST /files/dossiers/:id/documents
     if (req.method === 'POST' && parts.length === 4 && parts[1] === 'dossiers' && parts[3] === 'documents') {
       const code = String(url.searchParams.get('code') || '')
