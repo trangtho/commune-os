@@ -131,7 +131,8 @@ paths:
       summary: Thực hiện một bước với đối tượng thuộc gói nghiệp vụ khác
       description: |
         `action` phải nằm trong `actions` của GET. Hàm đổi trạng thái của gói kiểm tra vai trò, đơn vị, lý do.
-        Với đơn nghỉ phép: chỉ giám đốc (`leader`) duyệt; không đồng ý (`rejected`) cần `note`.
+        Với đơn nghỉ phép: bước 1 trưởng phòng (vai trò của gói `doanh-nghiep:truong-phong`) hoặc giám đốc
+        (`dept_approved`), bước 2 giám đốc (`approved`); không đồng ý (`rejected`) cần `note`.
       requestBody:
         required: true
         content:
@@ -403,6 +404,33 @@ paths:
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
+  /accounts/staff/{id}/roles:
+    put:
+      tags: [Tài khoản]
+      summary: Lãnh đạo đặt vai trò của gói cho một cán bộ xử lý
+      description: >-
+        Vai trò do gói khai báo (mục roles của module.json), tên <gói>:<vai trò>. Chỉ vai trò của gói đơn vị đã bật
+        (GET /rest/module_roles); danh sách rỗng là gỡ hết; không đụng vai trò của lõi. Token mới của cán bộ mang vai trò.
+      parameters:
+        - $ref: '#/components/parameters/Uuid'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [roles]
+              properties:
+                roles: { type: array, items: { type: string }, example: [doanh-nghiep:truong-phong] }
+      responses:
+        '200':
+          description: Đã đặt vai trò
+          content:
+            application/json:
+              example: { id: d90c78d4-7a39-4d5f-b115-31a4015039a2, username: truongphong.cong-ty-a, moduleRoles: [doanh-nghiep:truong-phong] }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
   /accounts/staff/{id}/status:
     patch:
       tags: [Tài khoản]

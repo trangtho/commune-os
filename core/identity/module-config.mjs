@@ -12,6 +12,21 @@ export function identityConfig(realm, entries) {
       target.push(entry)
     }
   }
+  const moduleRoles = []
+  for (const {manifest} of entries) {
+    if (manifest.roles === undefined) continue
+    if (!Array.isArray(manifest.roles)) throw new Error('roles phải là danh sách')
+    if (!/^[a-z][a-z0-9-]{0,62}$/.test(manifest.name)) throw new Error('Tên gói không hợp lệ')
+    for (const r of manifest.roles) {
+      if (!r || typeof r.name !== 'string' || !/^[a-z][a-z0-9-]{0,40}$/.test(r.name) ||
+          (r.title !== undefined && (typeof r.title !== 'string' || !r.title.trim())) ||
+          (r.description !== undefined && typeof r.description !== 'string')) {
+        throw new Error(`Vai trò không hợp lệ: ${manifest.name}`)
+      }
+      const name = `${manifest.name}:${r.name}`
+      append(moduleRoles, [{ name, description: (r.title || r.name) + (r.description ? ` – ${r.description}` : '') }], 'name')
+    }
+  }
   for (const {root, manifest} of entries) {
     if (!manifest.identity) continue
     const ext = JSON.parse(readFileSync(moduleFile(root,manifest.identity),'utf8'))
@@ -21,5 +36,7 @@ export function identityConfig(realm, entries) {
       confidential[id] = variable
     }
   }
-  return {roles, clients, attributes, confidential}
+  // Không cho identity extension khai báo trùng một vai trò được quản lý qua registry.
+  if (moduleRoles.some(r => roles.some(x => x.name === r.name))) throw new Error('Trùng vai trò Identity và roles của module')
+  return {roles, clients, attributes, confidential, moduleRoles}
 }

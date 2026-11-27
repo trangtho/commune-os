@@ -4,14 +4,16 @@
 // Bổ sung cấu hình còn thiếu vào realm communeos đã có sẵn (chạy một lần rồi dừng).
 // Keycloak chỉ nạp tệp realm khi realm chưa tồn tại; máy đã cài từ bản trước sẽ thiếu các mục mới.
 // Tệp này đọc realm/communeos-realm.json và thêm những mục chưa có, KHÔNG ghi đè mục đã có:
-//   * vai trò, client liệt kê trong IMPORT (qua partialImport, ifResourceExists=SKIP)
+//   * vai trò, client từ cấu hình Identity của các module (qua partialImport, ifResourceExists=SKIP)
 //   * chính sách mật khẩu của realm (tối thiểu 8 ký tự, có chữ và số)
 //   * tài khoản quản trị hệ thống duy nhất, từ COMMUNEOS_ADMIN_USERNAME, COMMUNEOS_ADMIN_PASSWORD trong .env
 //     (chưa có thì tạo; đã có thì đặt lại mật khẩu theo .env và bảo đảm vai trò sys_admin: đổi mật khẩu quản trị
 //     bằng cách sửa .env rồi make up)
 // Tệp realm không có tài khoản người dùng nào; xã, lãnh đạo, cán bộ, công dân tạo qua API của lõi (make demo tạo mẫu).
 //   * thuộc tính khai báo trong user profile (chỉ thêm thuộc tính chưa có)
-//   * client liệt kê trong CONFIDENTIAL: luôn là client bí mật (có tài khoản dịch vụ) với secret lấy từ biến môi trường
+//   * client bí mật khai báo trong cấu hình Identity: có tài khoản dịch vụ và secret lấy từ biến môi trường
+//   * vai trò của các gói đang bật (mục "roles" trong modules/<gói>/module.json), tên "<gói>:<vai trò>"; chỉ thêm,
+//     cập nhật mô tả, không xóa (vai trò của gói đã gỡ vẫn giữ để không mất phân quyền đã gán)
 // Biến ${TÊN} trong tệp realm được thay bằng biến môi trường cùng tên (giống Keycloak khi nạp realm).
 // Không thư viện ngoài (chỉ Node 22).
 
@@ -143,6 +145,21 @@ async function main() {
   if (!roles.includes('sys_admin')) {
     await api('POST', `/users/${admin.id}/role-mappings/realm`, [sysAdminRole])
     console.log(`Gán vai trò sys_admin cho ${SYS_ADMIN_USERNAME}`)
+  }
+  // 6. Vai trò của các gói đang bật: gói khai báo, lõi tạo trong Keycloak; lãnh đạo đơn vị gán cho nhân viên qua
+  //    dịch vụ tài khoản (PUT /accounts/staff/:id/roles), chỉ vai trò của gói đơn vị đã bật.
+  if (config.moduleRoles.length) {
+    await api('POST', '/partialImport', {
+      ifResourceExists: 'SKIP', roles: { realm: config.moduleRoles },
+    })
+    for (const { name, description } of config.moduleRoles) {
+      const path = `/roles/${encodeURIComponent(name)}`
+      const found = await api('GET', path)
+      if (found.description !== description) {
+        await api('PUT', path, { ...found, description })
+      }
+    }
+    console.log(`Đã đồng bộ ${config.moduleRoles.length} vai trò nghiệp vụ.`)
   }
   console.log('Cấu hình định danh đã đủ.')
 }

@@ -6,14 +6,14 @@ SPDX-License-Identifier: Apache-2.0
 # modules/doanh-nghiep – Ví dụ doanh nghiệp: duyệt đơn nghỉ phép
 
 Gói nghiệp vụ nhỏ chạy trên cùng lõi CommuneOS với gói nghiệp vụ xã (hoặc chạy một mình, không cần gói xã), để cho
-thấy lõi dùng chung được cho tổ chức khác: đơn vị "Công ty A", giám đốc và nhân viên, quy trình duyệt nghỉ phép theo sơ đồ BPMN. Không sửa mã của lõi,
+thấy lõi dùng chung được cho tổ chức khác: đơn vị "Công ty A", giám đốc, trưởng phòng và nhân viên, quy trình duyệt nghỉ phép hai bước theo sơ đồ BPMN. Không sửa mã của lõi,
 không dùng bảng nào của gói nghiệp vụ xã. Chưa có giao diện; mọi thao tác gọi qua cổng API.
 
 | Tệp | Nội dung |
 | --- | --- |
 | [`db/nghi-phep.sql`](db/nghi-phep.sql) | Bảng đơn nghỉ phép (schema `nghi_phep`), RLS theo đơn vị, API `api.leave_requests`, `api.leave_request_create`, `api.set_leave_request_status` |
-| [`bpmn/duyet-nghi-phep.bpmn20.xml`](bpmn/duyet-nghi-phep.bpmn20.xml) | Quy trình: nhân viên nộp đơn → giám đốc đồng ý hoặc không đồng ý (bắt buộc lý do) |
-| [`module.json`](module.json) | Khai báo gói: tệp SQL, loại đối tượng `leave-requests` cho dịch vụ điều phối và dịch vụ tệp của lõi |
+| [`bpmn/duyet-nghi-phep.bpmn20.xml`](bpmn/duyet-nghi-phep.bpmn20.xml) | Quy trình: nhân viên nộp đơn → trưởng phòng duyệt → giám đốc duyệt; không đồng ý ở bước nào cũng bắt buộc lý do |
+| [`module.json`](module.json) | Khai báo gói: tệp SQL, vai trò riêng `truong-phong`, loại đối tượng `leave-requests` cho dịch vụ điều phối và dịch vụ tệp của lõi, tài liệu tri thức |
 | [`kb/quy-che-nghi-phep.md`](kb/quy-che-nghi-phep.md) | Quy chế nghỉ phép mẫu, nạp vào kho tri thức của lõi khi cài gói; trợ lý AI trả lời nhân viên theo tài liệu này |
 | [`test.sh`](test.sh) | Kiểm thử qua cổng API |
 
@@ -25,8 +25,8 @@ make example-enterprise
 ```
 
 `make example-enterprise` chạy `test.sh`. Lần đầu,
-bài kiểm thử tạo qua API của lõi đơn vị `cong-ty-a` ("Công ty A"), giám đốc `giamdoc.cong-ty-a` và nhân viên
-`nhanvien.cong-ty-a`, mật khẩu `DEMO_PASSWORD` (mặc định `Demo@2026!`); các lần sau dùng lại. Kết quả đúng: 14 dòng
+bài kiểm thử tạo qua API của lõi đơn vị `cong-ty-a` ("Công ty A"), giám đốc `giamdoc.cong-ty-a`, nhân viên
+`nhanvien.cong-ty-a` và trưởng phòng `truongphong.cong-ty-a` (vai trò `doanh-nghiep:truong-phong`), mật khẩu `DEMO_PASSWORD` (mặc định `Demo@2026!`); các lần sau dùng lại. Kết quả đúng: 17 dòng
 `ĐẠT` và dòng cuối `KẾT QUẢ: ĐẠT`. Khi không cài gói xã, hoặc chưa `make demo`, mục cách ly với xã A báo `BỎ QUA`.
 Công ty A được tạo với `"modules": ["doanh-nghiep"]`: chỉ dùng gói này, không dùng chức năng của gói xã.
 
@@ -36,8 +36,11 @@ Chạy gói này **không có gói xã** (chỉ lõi): đặt `COMMUNEOS_MODULES
 Bài kiểm thử đi đường thật Keycloak → APISIX → dịch vụ điều phối → Flowable → PostgREST → PostgreSQL:
 
 - tạo đơn vị, giám đốc, nhân viên bằng API tài khoản của lõi; token mang đúng đơn vị;
+- giám đốc gán vai trò của gói `doanh-nghiep:truong-phong` cho trưởng phòng, token mang vai trò; vai trò của gói khác bị
+  từ chối; nhân viên không gán được;
 - nhân viên nộp đơn qua `/rest/rpc/leave_request_create`;
-- sơ đồ BPMN trả đúng bước "Chờ giám đốc duyệt" và hai nhánh qua `/workflow/leave-requests/<mã>/actions`;
+- sơ đồ BPMN trả đúng bước "Chờ trưởng phòng duyệt" và hai nhánh qua `/workflow/leave-requests/<mã>/actions`;
+- trưởng phòng duyệt bước đầu; giám đốc không bỏ qua được bước này; trưởng phòng không duyệt thay giám đốc;
 - nhân viên không tự duyệt được; gọi thẳng hàm đổi trạng thái (bỏ qua quy trình) bị chặn;
 - cán bộ xã A không thấy đơn của Công ty A, Công ty A không thấy hồ sơ của xã nào (khi có gói xã);
 - nhân viên đính kèm giấy tờ vào đơn qua dịch vụ tệp của lõi (`/files/leave-requests/<mã>/attachments`); giám đốc tải
@@ -60,14 +63,15 @@ Ví dụ chưa có ứng dụng riêng; dùng các giao diện sẵn có của l
    - chọn đặc tả **Dữ liệu – PostgREST (/rest)** → `POST /rpc/leave_request_create` → Try it out, gửi
      `{"from_date":"2026-12-21","to_date":"2026-12-23","reason":"Về quê"}`, chép mã đơn trả về;
    - `GET /leave_requests`: thấy đơn của mình;
-   - **Logout**, Authorize lại bằng `giamdoc.cong-ty-a`; chọn đặc tả **Dịch vụ lõi** →
+   - **Logout**, Authorize lại bằng `truongphong.cong-ty-a`; chọn đặc tả **Dịch vụ lõi** →
      `POST /workflow/{resource}/{id}/actions` với `resource` = `leave-requests`, `id` = mã đơn,
-     thân `{"action":"approved"}`. Gửi lại lần nữa thì nhận 409;
+     thân `{"action":"dept_approved"}`;
+   - **Logout**, Authorize lại bằng `giamdoc.cong-ty-a`, gửi `{"action":"approved"}`. Gửi lại lần nữa thì nhận 409;
    - đăng nhập `canbo.xa-a` rồi `GET /leave_requests`: danh sách rỗng (cách ly đơn vị).
 2. **Bảng quản trị** http://localhost:3001 (tài khoản quản trị trong `.env`):
    - Đơn vị: có "Công ty A" (`cong-ty-a`) với gói `doanh-nghiep`, cạnh các xã dùng gói `xa`; mở chi tiết để tắt,
      bật gói;
-   - Kiểm tra hồ sơ đã ký (sổ ghi nhận): kiểm tra chuỗi, Công ty A nguyên vẹn; các dòng có mã đơn `NP-...` với bước `submitted`, `approved`.
+   - Kiểm tra hồ sơ đã ký (sổ ghi nhận): kiểm tra chuỗi, Công ty A nguyên vẹn; các dòng có mã đơn `NP-...` với bước `submitted`, `dept_approved`, `approved`.
 3. **Màn hình cán bộ xã** http://localhost:3002: đăng nhập `giamdoc.cong-ty-a` bị từ chối ("Đơn vị của bạn không dùng
    gói nghiệp vụ xã"), vì màn hình này là ứng dụng của gói xã.
 
@@ -82,9 +86,13 @@ curl -s -H "Authorization: Bearer $NV" -H 'Content-Type: application/json' \
 curl -s -H "Authorization: Bearer $NV" http://localhost:9080/rest/leave_requests
 ```
 
-Giám đốc lấy token tương tự (`giamdoc.cong-ty-a`) rồi duyệt:
-`POST http://localhost:9080/workflow/leave-requests/<mã đơn>/actions` với `{"action":"approved"}` hoặc
-`{"action":"rejected","note":"lý do"}`.
+Trưởng phòng (`truongphong.cong-ty-a`) rồi giám đốc (`giamdoc.cong-ty-a`) lấy token tương tự và duyệt:
+`POST http://localhost:9080/workflow/leave-requests/<mã đơn>/actions` với `{"action":"dept_approved"}` (trưởng phòng),
+`{"action":"approved"}` (giám đốc), hoặc `{"action":"rejected","note":"lý do"}` ở bước nào cũng được.
+
+Gán vai trò trưởng phòng cho một nhân viên (giám đốc gọi):
+`PUT http://localhost:9080/accounts/staff/<id nhân viên>/roles` với `{"roles":["doanh-nghiep:truong-phong"]}`;
+vai trò gán được ở `GET http://localhost:9080/rest/module_roles`.
 
 ## Viết gói nghiệp vụ khác
 

@@ -13,7 +13,7 @@ export function createModule(directory, name) {
   const root = resolve(directory,name)
   mkdirSync(root) // never overwrite an existing module
   mkdirSync(resolve(root,'db'))
-  writeFileSync(resolve(root,'module.json'),JSON.stringify({name,title:name,version:'0.1.0',db:['db/01-schema.sql'],workflows:[]},null,2)+'\n')
+  writeFileSync(resolve(root,'module.json'),JSON.stringify({name,title:name,version:'0.1.0',db:['db/01-schema.sql'],roles:[],workflows:[]},null,2)+'\n')
   writeFileSync(resolve(root,'db/01-schema.sql'),`-- SPDX-FileCopyrightText: 2026 CommuneOS Contributors
 -- SPDX-License-Identifier: Apache-2.0
 -- Add tenant-scoped tables, RLS and explicit grants before exposing any data.

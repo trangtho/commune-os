@@ -9,6 +9,7 @@
 //   GET   /accounts/staff                          danh sách cán bộ của xã
 //   POST  /accounts/staff                          tạo cán bộ xử lý   { username, firstName, lastName, email? }
 //   PATCH /accounts/staff/:id/status               khóa / mở          { enabled: true|false }
+//   PUT   /accounts/staff/:id/roles                vai trò của gói    { roles: ["doanh-nghiep:truong-phong"] }
 //   POST  /accounts/staff/:id/reset-password       cấp mật khẩu tạm mới
 //   PATCH /accounts/staff/:id                      sửa họ tên, email
 //   DELETE /accounts/staff/:id                     xóa hẳn (phải khóa trước)
@@ -480,6 +481,7 @@ async function handle(req, res) {
         id: u.id, username: u.username, firstName: u.firstName || '', lastName: u.lastName || '',
         email: u.email || null, role, enabled: u.enabled, createdAt: new Date(u.createdTimestamp).toISOString(),
         isMe: u.id === me.id, manageable: role === 'officer' && u.id !== me.id,
+        moduleRoles: roles.filter((r) => r.includes(':')),     // vai trò của gói, ví dụ doanh-nghiep:truong-phong
       })
     }
     list.sort((a, b) => (a.role === b.role ? a.username.localeCompare(b.username) : a.role === 'leader' ? -1 : 1))
@@ -512,6 +514,33 @@ async function handle(req, res) {
     }
     await audit(me, 'create', username)
     return json(res, 201, { id, username, role: MANAGED_ROLE, temporaryPassword: password })
+  }
+
+  // PUT /accounts/staff/:id/roles { roles: ["<gói>:<vai trò>", ...] } — đặt toàn bộ vai trò của gói cho một cán bộ.
+  // Chỉ vai trò của gói đơn vị đã bật (lõi: GET /rest/module_roles bằng token lãnh đạo); không đụng vai trò lõi.
+  if (req.method === 'PUT' && parts.length === 4 && parts[3] === 'roles') {
+    const b = await readJson(req)
+    if (!Array.isArray(b.roles) || b.roles.length > 20 || !b.roles.every((r) => typeof r === 'string' && /^[a-z][a-z0-9-]*:[a-z][a-z0-9-]*$/.test(r))) {
+      throw new HttpError(400, 'roles phải là danh sách vai trò của gói, ví dụ ["doanh-nghiep:truong-phong"]')
+    }
+    const r = await fetch(`${REST_URL}/module_roles?select=role`, { headers: { authorization: `Bearer ${me.token}` } })
+    if (!r.ok) throw new HttpError(502, 'Không đọc được vai trò của gói từ API dữ liệu')
+    const allowed = (await r.json()).map((x) => x.role)
+    const bad = b.roles.filter((x) => !allowed.includes(x))
+    if (bad.length) throw new HttpError(400, `Không gán được vai trò: ${bad.join(', ')} (gói chưa cài hoặc đơn vị chưa bật gói)`)
+    const user = await manageable(me, parts[2])
+    const current = await kcJson('GET', `/users/${user.id}/role-mappings/realm`)
+    const remove = current.filter((x) => x.name.includes(':') && !b.roles.includes(x.name))
+    const add = []
+    for (const name of b.roles.filter((x) => !current.some((c) => c.name === x))) {
+      try { add.push(await kcJson('GET', `/roles/${encodeURIComponent(name)}`)) } catch {
+        throw new HttpError(409, `Keycloak chưa có vai trò ${name}; chạy make up để tạo vai trò của gói`)
+      }
+    }
+    if (remove.length) await kc('DELETE', `/users/${user.id}/role-mappings/realm`, remove)
+    if (add.length) await kc('POST', `/users/${user.id}/role-mappings/realm`, add)
+    await audit(me, 'set_roles', user.username)
+    return json(res, 200, { id: user.id, username: user.username, moduleRoles: b.roles })
   }
 
   // PATCH /accounts/staff/:id/status

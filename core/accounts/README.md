@@ -21,6 +21,9 @@ tài khoản công dân. Tài khoản vẫn nằm ở Keycloak; dịch vụ gọ
   `citizen` gắn `citizen_id`, `citizen_tenant`; tạo tài khoản lỗi thì hủy hồ sơ vừa tạo.
 - Chỉ tác động lên cán bộ cùng xã. Khác xã trả 404.
 - Chỉ tạo được vai trò `officer`. Xã luôn là xã của người gọi, không nhận từ yêu cầu.
+- Vai trò của gói (mục `roles` trong `modules/<gói>/module.json`, tên `<gói>:<vai trò>`, `identity-setup` tạo trong
+  Keycloak): lãnh đạo gán cho cán bộ xử lý của đơn vị mình (`PUT /accounts/staff/{id}/roles`), chỉ vai trò của gói đơn vị
+  đã bật (lõi trả ở `GET /rest/module_roles`); không gán, không gỡ được vai trò của lõi (`leader`, `officer`...).
 - Không tác động lên chính mình, lãnh đạo khác, `supervisor` hay `sys_admin` (403).
 - Mỗi thao tác ghi vào nhật ký `staff_audit` (chỉ thêm, không sửa, không xóa; không ghi mật khẩu).
 
@@ -36,6 +39,7 @@ nằm trong `server.mjs` và được kiểm thử trong `core/tests/tenant-isol
 | POST | `/accounts/staff` | Tạo cán bộ xử lý `{ username, firstName, lastName, email? }`, trả mật khẩu tạm |
 | PATCH | `/accounts/staff/{id}` | Sửa họ, tên, email `{ firstName, lastName, email }` |
 | PATCH | `/accounts/staff/{id}/status` | Khóa hoặc mở `{ enabled: true \| false }` |
+| PUT | `/accounts/staff/{id}/roles` | Đặt toàn bộ vai trò của gói cho một cán bộ `{ roles: ["doanh-nghiep:truong-phong"] }` (danh sách rỗng là gỡ hết); ghi nhật ký `set_roles` |
 | DELETE | `/accounts/staff/{id}` | Xóa hẳn tài khoản (phải khóa trước); hồ sơ cá nhân và nhật ký vẫn giữ |
 | POST | `/accounts/first-password` | Không cần token. Cán bộ đổi mật khẩu tạm lần đầu ngay trên trang đăng nhập `{ username, currentPassword, newPassword }`; mật khẩu tạm được Keycloak kiểm tra; tối đa 5 lần/15 phút mỗi tài khoản |
 | POST | `/accounts/staff/{id}/reset-password` | Cấp mật khẩu tạm mới |

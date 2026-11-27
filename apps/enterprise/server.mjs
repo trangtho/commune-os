@@ -40,18 +40,18 @@ async function handle(req,res){
     if(sid)sessions.delete(sid)
     if(sessions.size>=1000)throw fail(503,'Quá nhiều phiên demo')
     const age=Math.floor(Math.min(Number(t.expires_in),3600));if(!Number.isFinite(age)||age<=0)throw fail(503,'Token không hợp lệ')
-    const id=randomBytes(32).toString('hex');sessions.set(id,{token:t.access_token,refresh:t.refresh_token,exp:Date.now()+age*1000,name:c.name||c.preferred_username,tenant:c.tenant_id,leader:c.realm_access.roles.includes('leader')});cookie(res,id,age);return json(res,200,{ok:true})
+    const id=randomBytes(32).toString('hex');sessions.set(id,{token:t.access_token,refresh:t.refresh_token,exp:Date.now()+age*1000,name:c.name||c.preferred_username,tenant:c.tenant_id,leader:c.realm_access.roles.includes('leader'),departmentApprover:c.realm_access.roles.includes('doanh-nghiep:truong-phong')});cookie(res,id,age);return json(res,200,{ok:true})
   }
   const s=sessions.get(sid)
   if(!s||s.exp<=Date.now()){sessions.delete(sid);throw fail(401,'Vui lòng đăng nhập lại')}
   if(method==='POST'&&path==='/api/logout'){sessions.delete(sid);cookie(res,'',0);if(s.refresh)await fetch(`${keycloak}/realms/communeos/protocol/openid-connect/logout`,{method:'POST',body:new URLSearchParams({client_id:'commune-app',refresh_token:s.refresh}),redirect:'error',signal:timeout()}).catch(()=>{});return json(res,200,{ok:true})}
-  if(method==='GET'&&path==='/api/me')return json(res,200,{name:s.name,tenant:s.tenant,leader:s.leader})
+  if(method==='GET'&&path==='/api/me')return json(res,200,{name:s.name,tenant:s.tenant,leader:s.leader,departmentApprover:s.departmentApprover})
   let target, payload, type='application/json'
   const m=/^\/api\/leave\/([A-Za-z0-9-]{1,80})\/(actions|attachments|ledger)$/.exec(path)
   const a=/^\/api\/attachment\/([a-f0-9-]{36})$/.exec(path)
   if(path==='/api/leave'&&method==='GET')target='/rest/leave_requests?order=created_at.desc&limit=100'
   else if(path==='/api/leave'&&method==='POST'){target='/rest/rpc/leave_request_create';const b=await body(req);payload=JSON.stringify({from_date:b.from_date,to_date:b.to_date,reason:b.reason})}
-  else if(m&&m[2]==='actions'&&['GET','POST'].includes(method)){target=`/workflow/leave-requests/${m[1]}/actions`;if(method==='POST'){const b=await body(req);if(!['approved','rejected'].includes(b.action))throw fail(400,'Thao tác không hợp lệ');payload=JSON.stringify({action:b.action,note:b.note})}}
+  else if(m&&m[2]==='actions'&&['GET','POST'].includes(method)){target=`/workflow/leave-requests/${m[1]}/actions`;if(method==='POST'){const b=await body(req);if(!['dept_approved','approved','rejected'].includes(b.action))throw fail(400,'Thao tác không hợp lệ');payload=JSON.stringify({action:b.action,note:b.note})}}
   else if(m&&m[2]==='ledger'&&method==='GET')target=`/rest/ledger?dossier_id=eq.${m[1]}&select=action,seq&order=seq`
   else if(m&&m[2]==='attachments'&&['GET','POST'].includes(method)){target=`/files/leave-requests/${m[1]}/attachments`;if(method==='POST'){type=req.headers['content-type'];if(!['application/pdf','image/png','image/jpeg'].includes(type))throw fail(415,'Chỉ PDF/PNG/JPEG');target+='?name='+encodeURIComponent((u.searchParams.get('name')||'file').slice(0,150));payload=await read(req,10*1024*1024)}}
   else if(a&&method==='GET')target=`/files/attachments/${a[1]}`

@@ -67,6 +67,10 @@ SQL
   psql -q -v ON_ERROR_STOP=1 -v m="$m" -v s="$sources" >/dev/null <<'SQL'
 SELECT public.knowledge_prune_module(:'m', string_to_array(nullif(:'s', ''), ','));
 SQL
+  # Vai trò của gói (mục "roles"); identity-setup tạo vai trò "<gói>:<vai trò>" trong Keycloak.
+  psql -q -v ON_ERROR_STOP=1 -v m="$m" -v manifest="$(cat "$manifest")" >/dev/null <<'SQL'
+SELECT public.module_roles_sync(:'m', :'manifest'::json -> 'roles');
+SQL
   psql -q -v ON_ERROR_STOP=1 -v manifest="$(cat "$manifest")" <<'SQL'
 INSERT INTO core_modules (name, title, version)
 VALUES (:'manifest'::json ->> 'name', :'manifest'::json ->> 'title', :'manifest'::json ->> 'version')

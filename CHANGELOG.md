@@ -27,6 +27,17 @@ Mọi thay đổi đáng chú ý của dự án được ghi tại đây.
 - Tách handler đăng ký công dân và giấy tờ đặc thù sang `modules/xa/handlers`, nạp từ manifest, giữ nguyên API.
 - Healthcheck quản trị dùng registry nền tảng thay cho danh mục thủ tục; chỉ chạy request hook của module đang cài.
 
+### Thêm (vai trò theo gói nghiệp vụ, 2026-11-29)
+
+- Gói khai báo vai trò riêng trong `module.json` (mục `roles`); `identity-setup` tạo vai trò `<gói>:<vai trò>` trong
+  Keycloak; `core/db/init/11-vai-tro-goi.sql` ghi danh sách, `GET /rest/module_roles` cho biết vai trò gán được.
+- Dịch vụ tài khoản: `PUT /accounts/staff/{id}/roles`, lãnh đạo gán vai trò của gói cho cán bộ xử lý, chỉ vai trò của
+  gói đơn vị đã bật, không đụng vai trò của lõi; ghi nhật ký `set_roles`. Danh sách cán bộ trả thêm `moduleRoles`.
+- Gói doanh nghiệp: vai trò `doanh-nghiep:truong-phong`; duyệt đơn nghỉ phép hai bước (trưởng phòng rồi giám đốc) theo
+  sơ đồ BPMN, trưởng phòng xem được đơn của đơn vị; kiểm thử thêm 2 mục.
+- Hợp nhất khai báo vai trò với bộ nạp manifest của Identity; giữ chế độ lõi không gói, kiểm tra vai trò qua SDK.
+- Portal doanh nghiệp minh họa lấy hành động từ Workflow API, hỗ trợ quy trình duyệt hai cấp.
+
 ### Thêm (trợ lý AI dùng chung cho mọi gói, 2026-11-29)
 
 - Kho tri thức dùng chung của lõi (`core/db/init/10-tri-thuc.sql`): gói mang tài liệu Markdown (mục `knowledge` của
