@@ -3,6 +3,9 @@
   "title": "Ví dụ doanh nghiệp: duyệt đơn nghỉ phép",
   "version": "0.2.0",
   "db": ["db/nghi-phep.sql"],
+  "attachments": [
+    { "resource": "leave-requests", "view": "leave_requests", "label": "Đơn nghỉ phép", "uploadStatuses": ["submitted"] }
+  ],
   "workflows": [
     {
       "name": "leave-requests",

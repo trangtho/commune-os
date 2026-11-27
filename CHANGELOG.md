@@ -11,6 +11,16 @@ Mọi thay đổi đáng chú ý của dự án được ghi tại đây.
 
 ## [Chưa phát hành]
 
+### Thêm (tệp đính kèm dùng chung cho mọi gói, 2026-11-28)
+
+- Dịch vụ tệp của lõi đính kèm được tệp cho đối tượng của bất kỳ gói nào: gói khai báo `attachments` trong
+  `module.json` (loại đối tượng, bảng ảo, trạng thái còn nhận tệp); `POST`, `GET /files/<loại>/<mã>/attachments`,
+  `GET /files/attachments/<id>`. Quyền xem lấy từ bảng ảo của gói bằng token người dùng (RLS của gói); đơn vị phải bật
+  gói; kiểm tra định dạng, mã độc, mã băm như giấy tờ hồ sơ.
+- `core/db/init/09-tep-dinh-kem.sql`: bảng `core_attachments`, hàm `attachment_register`, `attachment_list`,
+  `attachment_object` (chỉ dịch vụ tệp gọi); mỗi tệp ghi một dòng vào sổ ghi nhận của đơn vị.
+- Gói doanh nghiệp: đính kèm giấy tờ vào đơn nghỉ phép đang chờ duyệt; kiểm thử thêm 3 mục.
+
 ### Thêm (gói nghiệp vụ theo từng đơn vị, 2026-11-28)
 
 - Mỗi đơn vị chỉ dùng các gói được bật cho mình (`core/db/init/08-goi-theo-don-vi.sql`): bảng `tenant_modules`,

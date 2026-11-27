@@ -13,7 +13,7 @@ không dùng bảng nào của gói nghiệp vụ xã. Chưa có giao diện; m�
 | --- | --- |
 | [`db/nghi-phep.sql`](db/nghi-phep.sql) | Bảng đơn nghỉ phép (schema `nghi_phep`), RLS theo đơn vị, API `api.leave_requests`, `api.leave_request_create`, `api.set_leave_request_status` |
 | [`bpmn/duyet-nghi-phep.bpmn20.xml`](bpmn/duyet-nghi-phep.bpmn20.xml) | Quy trình: nhân viên nộp đơn → giám đốc đồng ý hoặc không đồng ý (bắt buộc lý do) |
-| [`module.json`](module.json) | Khai báo gói: tệp SQL, loại đối tượng `leave-requests` cho dịch vụ điều phối của lõi |
+| [`module.json`](module.json) | Khai báo gói: tệp SQL, loại đối tượng `leave-requests` cho dịch vụ điều phối và dịch vụ tệp của lõi |
 | [`test.sh`](test.sh) | Kiểm thử qua cổng API |
 
 ## Chạy
@@ -25,7 +25,7 @@ make example-enterprise
 
 `make example-enterprise` chạy `test.sh`. Lần đầu,
 bài kiểm thử tạo qua API của lõi đơn vị `cong-ty-a` ("Công ty A"), giám đốc `giamdoc.cong-ty-a` và nhân viên
-`nhanvien.cong-ty-a`, mật khẩu `DEMO_PASSWORD` (mặc định `Demo@2026!`); các lần sau dùng lại. Kết quả đúng: 10 dòng
+`nhanvien.cong-ty-a`, mật khẩu `DEMO_PASSWORD` (mặc định `Demo@2026!`); các lần sau dùng lại. Kết quả đúng: 13 dòng
 `ĐẠT` và dòng cuối `KẾT QUẢ: ĐẠT`. Khi không cài gói xã, hoặc chưa `make demo`, mục cách ly với xã A báo `BỎ QUA`.
 Công ty A được tạo với `"modules": ["doanh-nghiep"]`: chỉ dùng gói này, không dùng chức năng của gói xã.
 
@@ -39,8 +39,10 @@ Bài kiểm thử đi đường thật Keycloak → APISIX → dịch vụ đi�
 - sơ đồ BPMN trả đúng bước "Chờ giám đốc duyệt" và hai nhánh qua `/workflow/leave-requests/<mã>/actions`;
 - nhân viên không tự duyệt được; gọi thẳng hàm đổi trạng thái (bỏ qua quy trình) bị chặn;
 - cán bộ xã A không thấy đơn của Công ty A, Công ty A không thấy hồ sơ của xã nào (khi có gói xã);
+- nhân viên đính kèm giấy tờ vào đơn qua dịch vụ tệp của lõi (`/files/leave-requests/<mã>/attachments`); giám đốc tải
+  về đúng nội dung; tệp giả định dạng bị từ chối; cán bộ xã A không xem được; đơn đã duyệt không nhận thêm tệp;
 - giám đốc duyệt qua quy trình; không đồng ý mà thiếu lý do bị chặn; đơn đã kết thúc không xử lý lại được;
-- sổ ghi nhận của lõi ghi đủ các bước, chuỗi băm riêng của Công ty A nguyên vẹn;
+- sổ ghi nhận của lõi ghi đủ các bước (nộp, đính kèm tệp, duyệt), chuỗi băm riêng của Công ty A nguyên vẹn;
 - Công ty A chỉ dùng gói doanh nghiệp: không có trong danh sách đăng ký công dân, không thấy thủ tục, không mở được
   thủ tục xã;
 - tắt gói cho Công ty A thì không thấy đơn, không nộp được; bật lại thấy lại đơn; không bật được gói chưa cài.

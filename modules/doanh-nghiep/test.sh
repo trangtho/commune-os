@@ -110,6 +110,31 @@ except Exception: print(-1)')
     fail "Cách ly đơn vị: xã A thấy $n đơn, quy trình trả $code; Công ty A thấy $nd hồ sơ"
 fi
 
+# 4b. Tệp đính kèm dùng chung của lõi (dịch vụ files, mục "attachments" của module.json): nhân viên đính kèm giấy tờ
+#     vào đơn đang chờ duyệt; giám đốc tải về đúng nội dung; đơn vị khác không tải được; tệp giả định dạng bị từ chối.
+TMP=$(mktemp -d); trap 'rm -rf "$TMP"' EXIT
+printf '%%PDF-1.4\n%% Giay kham benh (mau kiem thu)\n%%%%EOF\n' > "$TMP/giay.pdf"; printf 'khong phai anh' > "$TMP/gia.png"
+upload() { # upload <token> <tệp> <content-type> → "mã HTTP<TAB>nội dung"
+  curl -s -w '\t%{http_code}' -X POST -H "Authorization: Bearer $1" -H "Content-Type: $3" --data-binary @"$2" \
+    "$GW/files/leave-requests/$ID/attachments?name=giay-kham-benh.pdf" | python3 -c 'import sys; b,_,c=sys.stdin.read().rpartition("\t"); print(c+"\t"+b)'
+}
+r=$(upload "$NV" "$TMP/giay.pdf" application/pdf); AID=$(body_of "$r" | jfield id)
+fake=$(code_of "$(upload "$NV" "$TMP/gia.png" image/png)")
+n=$(call GET "$LG" "/files/leave-requests/$ID/attachments" | cut -f2- | python3 -c 'import json,sys
+try: print(len(json.load(sys.stdin)))
+except Exception: print(-1)')
+got=$(curl -s -H "Authorization: Bearer $LG" "$GW/files/attachments/$AID" | sha256sum | cut -d' ' -f1)
+want=$(sha256sum "$TMP/giay.pdf" | cut -d' ' -f1)
+[ "$(code_of "$r")" = "201" ] && [ "$fake" = "415" ] && [ "$n" = "1" ] && [ "$got" = "$want" ] &&
+  ok "Tệp đính kèm dùng chung: nhân viên đính kèm vào đơn, giám đốc thấy và tải về đúng nội dung (SHA-256 khớp); tệp giả định dạng bị từ chối (415)" ||
+  fail "Đính kèm: tải lên $(code_of "$r"), tệp giả $fake, giám đốc thấy $n tệp, mã băm khớp $( [ "$got" = "$want" ] && echo có || echo không)"
+if [ -n "$TA" ]; then
+  c1=$(curl -s -o /dev/null -w '%{http_code}' -H "Authorization: Bearer $TA" "$GW/files/attachments/$AID")
+  c2=$(curl -s -o /dev/null -w '%{http_code}' -H "Authorization: Bearer $TA" "$GW/files/leave-requests/$ID/attachments")
+  [ "$c1" = "404" ] && [ "$c2" = "404" ] && ok "Cán bộ xã A không xem, không tải được tệp của Công ty A (404)" ||
+    fail "Tệp của Công ty A với cán bộ xã A: tải $c1, danh sách $c2"
+fi
+
 # 5. Giám đốc duyệt qua quy trình; kết thúc rồi không xử lý tiếp được.
 code=$(code_of "$(call POST "$LG" "/workflow/leave-requests/$ID/actions" '{"action":"rejected"}')")
 r=$(call POST "$LG" "/workflow/leave-requests/$ID/actions" '{"action":"approved","note":"Đồng ý"}')
@@ -122,15 +147,18 @@ except Exception: print("")')
   ok "Không đồng ý mà thiếu lý do bị chặn (400); giám đốc duyệt qua quy trình, nhân viên thấy kết quả; đơn đã kết thúc không xử lý lại (409)" ||
   fail "Duyệt: thiếu lý do $code, duyệt $(code_of "$r") '$st', xử lý lại $again, nhân viên thấy '$seen'"
 
-# 6. Sổ ghi nhận của lõi: chuỗi riêng của Công ty A, nguyên vẹn, có đủ hai bước của đơn.
+late=$(code_of "$(upload "$NV" "$TMP/giay.pdf" application/pdf)")
+[ "$late" = "409" ] && ok "Đơn đã duyệt không nhận thêm tệp (409, uploadStatuses của gói)" || fail "Đính kèm sau khi duyệt phải 409, nhận $late"
+
+# 6. Sổ ghi nhận của lõi: chuỗi riêng của Công ty A, nguyên vẹn, có đủ các bước của đơn (cả tệp đính kèm).
 steps=$(call GET "$LG" "/rest/ledger?dossier_id=eq.$ID&select=action&order=seq" | cut -f2- | python3 -c 'import json,sys
 try: print(",".join(r["action"] for r in json.load(sys.stdin)))
 except Exception: print("")')
 chain=$(call POST "$LG" /rest/rpc/verify_ledger "{\"only_tenant\":\"$CODE\"}" | cut -f2- | python3 -c 'import json,sys
 try: d=json.load(sys.stdin); print(d[0]["ok"] if len(d)==1 else "")
 except Exception: print("")')
-[ "$steps" = "submitted,approved" ] && [ "$chain" = "True" ] &&
-  ok "Sổ ghi nhận của lõi ghi đủ các bước của đơn, chuỗi băm của Công ty A nguyên vẹn" ||
+[ "$steps" = "submitted,attachment,approved" ] && [ "$chain" = "True" ] &&
+  ok "Sổ ghi nhận của lõi ghi đủ các bước của đơn (nộp, đính kèm tệp, duyệt), chuỗi băm của Công ty A nguyên vẹn" ||
   fail "Sổ ghi nhận: các bước '$steps', chuỗi nguyên vẹn '$chain'"
 
 # 7. Gói theo đơn vị: Công ty A chỉ dùng gói doanh nghiệp, không dùng được chức năng của gói xã.

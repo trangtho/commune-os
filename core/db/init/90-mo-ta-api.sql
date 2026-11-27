@@ -41,7 +41,10 @@ BEGIN
     ('public_platform', 'Thông tin nền tảng: các gói nghiệp vụ đã cài (công khai)', 'Gọi qua /public/rpc/public_platform; cổng API dùng để kiểm tra sức khỏe.'),
     ('tenant_modules', 'Gói nghiệp vụ bật cho từng đơn vị', 'Quản trị hệ thống thấy mọi đơn vị; người của đơn vị chỉ thấy đơn vị mình. Gói chỉ phục vụ đơn vị đã bật nó.'),
     ('my_modules', 'Gói nghiệp vụ của đơn vị người gọi', 'Ví dụ ["xa"]. Ứng dụng của một gói dùng để từ chối người của đơn vị không dùng gói đó.'),
-    ('set_tenant_module', 'Bật hoặc tắt một gói cho một đơn vị', 'Chỉ sys_admin; chỉ bật được gói đang được cài. Tắt gói không xóa dữ liệu của gói.')
+    ('set_tenant_module', 'Bật hoặc tắt một gói cho một đơn vị', 'Chỉ sys_admin; chỉ bật được gói đang được cài. Tắt gói không xóa dữ liệu của gói.'),
+    ('attachment_register', 'Ghi tệp đính kèm của một đối tượng (chỉ dịch vụ tệp của lõi gọi, cần X-Workflow-Token)', 'Ứng dụng tải tệp lên qua POST /files/<loại>/<mã>/attachments. Mỗi tệp ghi một dòng vào sổ ghi nhận.'),
+    ('attachment_list', 'Danh sách tệp đính kèm của một đối tượng (chỉ dịch vụ tệp của lõi gọi)', 'Ứng dụng gọi GET /files/<loại>/<mã>/attachments.'),
+    ('attachment_object', 'Siêu dữ liệu một tệp đính kèm (chỉ dịch vụ tệp của lõi gọi)', 'Ứng dụng tải tệp qua GET /files/attachments/<id>.')
   ) AS t(name, summary, detail)
   LOOP
     IF to_regclass('api.' || quote_ident(item.name)) IS NOT NULL THEN

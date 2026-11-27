@@ -82,6 +82,16 @@ c1=$(code -H "Authorization: Bearer $QT" "$GW/workflow/khong-co/1/actions"); c2=
 [ "$c1" = "404" ] && [ "$c2" = "200" ] && ok "Quy trình: loại chưa khai báo trả 404; dịch vụ điều phối, Flowable chạy" ||
   fail "Quy trình: loại lạ $c1, health $c2"
 
+# 5b. Tệp đính kèm: loại đối tượng chưa khai báo trong gói nào → 404; không token → 401; gọi thẳng hàm ghi tệp bị chặn.
+c1=$(code -X POST -H "Authorization: Bearer $QT" -H 'Content-Type: application/pdf' --data-binary '%PDF-1.4' "$GW/files/khong-co/1/attachments")
+c2=$(code "$GW/files/attachments/00000000-0000-0000-0000-000000000000")
+c3=$(code -X POST -H "Authorization: Bearer $LT" -H 'Content-Type: application/json' \
+  -d '{"module":"x","resource":"x","ref_id":"1","original_name":"a","mime_type":"application/pdf","size_bytes":1,"sha256":"0","storage_key":"x"}' \
+  "$GW/rest/rpc/attachment_register")
+[ "$c1" = "404" ] && [ "$c2" = "401" ] && [ "$c3" = "403" ] &&
+  ok "Tệp đính kèm: loại chưa khai báo trả 404; không token 401; gọi thẳng hàm ghi tệp bị chặn (403)" ||
+  fail "Tệp đính kèm: loại lạ $c1, không token $c2, gọi thẳng $c3"
+
 # 6. Không cài gói xã thì lõi không có bảng, API nào của gói xã.
 case ",$MODULES," in
   *,xa,*) echo "  BỎ QUA  Lõi không chứa bảng của gói xã (gói xã đang được cài)" ;;

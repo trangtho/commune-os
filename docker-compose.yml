@@ -318,8 +318,12 @@ services:
       WORKFLOW_TOKEN: ${WORKFLOW_TOKEN}
       FILES_SERVICE_TOKEN: ${FILES_SERVICE_TOKEN}
       CLAMAV_HOST: ${CLAMAV_HOST:-}
+      # Loại đối tượng được đính kèm tệp: mục "attachments" trong modules/<gói>/module.json của các gói đang bật.
+      COMMUNEOS_MODULES: ${COMMUNEOS_MODULES:-xa,doanh-nghiep}
+      MODULES_DIR: /modules
     volumes:
       - ./core/files:/app:ro
+      - ./modules:/modules:ro
     depends_on:
       storage:
         condition: service_healthy
