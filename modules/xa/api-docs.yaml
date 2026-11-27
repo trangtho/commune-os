@@ -1,0 +1,271 @@
+# SPDX-FileCopyrightText: 2026 CommuneOS Contributors
+# SPDX-License-Identifier: Apache-2.0
+#
+# Đặc tả OpenAPI cho các đường dẫn riêng của gói xã trên dịch vụ của lõi: quy trình hồ sơ (/workflow/dossiers, khai báo
+# "workflows"), giấy tờ hồ sơ, giấy tờ cán bộ, giấy tờ trong mã chuyển hồ sơ (/files/..., khai báo "files"), hàm công
+# khai (/public/rpc/..., khai báo "publicRpc"). Trang tài liệu /docs/ tự liệt kê đặc tả của các gói đang bật.
+openapi: 3.0.3
+info:
+  title: CommuneOS – Gói xã
+  version: 0.2.0
+  license:
+    name: Apache-2.0
+    url: https://www.apache.org/licenses/LICENSE-2.0
+  description: |
+    Đường dẫn riêng của gói nghiệp vụ xã (modules/xa), chạy trên dịch vụ của lõi qua cổng API APISIX. Lấy token như ở
+    đặc tả "Dịch vụ lõi" (ví dụ `canbo.xa-a` / `Demo@2026!`). Dữ liệu trong hệ thống demo là dữ liệu giả lập.
+servers:
+  - url: /
+    description: Cổng API APISIX (cùng địa chỉ với trang tài liệu)
+tags:
+  - name: Quy trình
+    description: Quy trình xử lý hồ sơ (sơ đồ modules/xa/bpmn/xu-ly-ho-so.bpmn20.xml).
+  - name: Tệp
+    description: Giấy tờ của hồ sơ và của cán bộ, lưu bằng dịch vụ tệp của lõi.
+  - name: Công khai
+    description: Không cần token, có giới hạn số lần gọi theo địa chỉ IP.
+security:
+  - keycloak: []
+  - bearer: []
+
+paths:
+  /workflow/dossiers/{id}/actions:
+    parameters:
+      - $ref: '#/components/parameters/DossierId'
+    get:
+      tags: [Quy trình]
+      summary: Bước hiện tại và các bước được phép đi tiếp
+      description: Hồ sơ của xã khác trả 404 (RLS). Hồ sơ đã kết thúc trả `actions` rỗng.
+      responses:
+        '200':
+          description: Bước hiện tại
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DossierActions' }
+              example: { id: HS-2026-001235, status: processing, step: Xử lý hồ sơ, actions: [completed, supplement, rejected] }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+    post:
+      tags: [Quy trình]
+      summary: Thực hiện một bước
+      description: |
+        `action` phải nằm trong danh sách `actions` của GET. Cơ sở dữ liệu ghi trạng thái trước (kiểm tra xã, vai trò,
+        lý do), thành công mới cho quy trình đi tiếp. Từ chối (`rejected`) và yêu cầu bổ sung (`supplement`) cần `note`.
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              type: object
+              required: [action]
+              properties:
+                action: { type: string, enum: [processing, supplement, completed, rejected], example: supplement }
+                note: { type: string, nullable: true, example: Bổ sung bản sao giấy chứng sinh }
+      responses:
+        '200':
+          description: Đã chuyển bước
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id: { type: string, example: HS-2026-001235 }
+                  status: { type: string, example: supplement }
+                  previous_status: { type: string, example: processing }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '403': { $ref: '#/components/responses/Forbidden' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /files/dossiers/{id}/documents:
+    post:
+      tags: [Tệp]
+      summary: Cán bộ tải giấy tờ lên hồ sơ
+      description: Thân yêu cầu là nội dung tệp (không dùng multipart). Chỉ PDF, PNG, JPG, tối đa 5 MB; nội dung phải khớp định dạng khai báo.
+      parameters:
+        - $ref: '#/components/parameters/DossierId'
+        - { name: code, in: query, required: true, description: Mã loại giấy tờ của thủ tục, schema: { type: string, pattern: '^[a-z0-9-]{1,100}$', example: giay-chung-sinh } }
+        - { name: name, in: query, required: false, description: Tên tệp hiển thị, schema: { type: string, maxLength: 180, example: giay-chung-sinh.pdf } }
+      requestBody:
+        required: true
+        content:
+          application/pdf: { schema: { type: string, format: binary } }
+          image/png: { schema: { type: string, format: binary } }
+          image/jpeg: { schema: { type: string, format: binary } }
+      responses:
+        '201':
+          description: Đã lưu tệp và ghi giấy tờ
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/DossierDocument' }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '413': { description: Tệp quá 5 MB, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        '415': { description: Sai định dạng hoặc nội dung không khớp định dạng, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+        '422': { description: Tệp có dấu hiệu mã độc (khi bật ClamAV), content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+  /files/documents/{id}:
+    get:
+      tags: [Tệp]
+      summary: Tải một giấy tờ của hồ sơ
+      description: Kiểm tra lại mã băm trước khi trả; tệp trong kho bị thay đổi thì trả 409. Header `X-Content-SHA256` chứa mã băm.
+      parameters:
+        - $ref: '#/components/parameters/Uuid'
+      responses:
+        '200':
+          description: Nội dung tệp
+          headers:
+            X-Content-SHA256: { schema: { type: string }, description: Mã băm SHA-256 của nội dung }
+          content:
+            application/pdf: { schema: { type: string, format: binary } }
+            image/png: { schema: { type: string, format: binary } }
+            image/jpeg: { schema: { type: string, format: binary } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /files/staff-documents:
+    post:
+      tags: [Tệp]
+      summary: Cán bộ nộp giấy tờ cá nhân (chờ lãnh đạo duyệt)
+      parameters:
+        - { name: doc_type, in: query, required: true, description: Loại giấy tờ, schema: { type: string, pattern: '^[a-z-]{2,30}$', example: bang-cap } }
+        - { name: title, in: query, required: true, schema: { type: string, maxLength: 160, example: Bằng cử nhân } }
+        - { name: note, in: query, required: false, schema: { type: string, maxLength: 1000 } }
+      requestBody:
+        required: true
+        content:
+          application/pdf: { schema: { type: string, format: binary } }
+          image/png: { schema: { type: string, format: binary } }
+          image/jpeg: { schema: { type: string, format: binary } }
+      responses:
+        '201':
+          description: Đã gửi đề nghị thêm giấy tờ
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  id: { type: string, format: uuid, description: Mã đề nghị }
+                  document_id: { type: string, format: uuid }
+                  status: { type: string, example: pending }
+                  sha256: { type: string }
+        '400': { $ref: '#/components/responses/BadRequest' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+  /files/staff-documents/{id}:
+    get:
+      tags: [Tệp]
+      summary: Tải giấy tờ cá nhân của cán bộ
+      description: Chủ giấy tờ hoặc lãnh đạo cùng xã.
+      parameters:
+        - $ref: '#/components/parameters/Uuid'
+      responses:
+        '200':
+          description: Nội dung tệp
+          content:
+            application/pdf: { schema: { type: string, format: binary } }
+            image/png: { schema: { type: string, format: binary } }
+            image/jpeg: { schema: { type: string, format: binary } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+        '409': { $ref: '#/components/responses/Conflict' }
+  /files/handoffs/{handoffId}/documents/{documentId}:
+    get:
+      tags: [Tệp]
+      summary: Tải giấy tờ trong mã chuyển hồ sơ tại quầy
+      description: |
+        Cán bộ xã tiếp nhận tải giấy tờ công dân đã gửi kèm mã chuyển hồ sơ, sau khi dùng mã bằng
+        `POST /rest/rpc/redeem_citizen_handoff`. Chỉ xã tiếp nhận, người đã dùng mã, trong thời hạn cho phép.
+      parameters:
+        - { name: handoffId, in: path, required: true, schema: { type: string, format: uuid } }
+        - { name: documentId, in: path, required: true, schema: { type: string, format: uuid } }
+      responses:
+        '200':
+          description: Nội dung tệp
+          content:
+            application/pdf: { schema: { type: string, format: binary } }
+            image/png: { schema: { type: string, format: binary } }
+            image/jpeg: { schema: { type: string, format: binary } }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '404': { $ref: '#/components/responses/NotFound' }
+  /public/rpc/procedure_catalog:
+    get:
+      tags: [Công khai]
+      summary: Danh mục thủ tục đã công bố (khách)
+      security: []
+      parameters:
+        - { name: p_q, in: query, required: false, description: Từ khóa, schema: { type: string } }
+        - { name: p_category, in: query, required: false, description: Lĩnh vực, schema: { type: string, example: Hộ tịch } }
+      responses:
+        '200':
+          description: Danh sách thủ tục
+          content:
+            application/json:
+              example:
+                - { id: chung-thuc, title: Chứng thực bản sao, category: Chứng thực, summary: Yêu cầu chứng thực bản sao từ bản chính., icon: files, sla_days: 1, fee_note: Theo quy định hiện hành, published: true, version: 1.0.0, document_count: 1 }
+        '429': { $ref: '#/components/responses/TooMany' }
+  /public/rpc/procedure_detail:
+    get:
+      tags: [Công khai]
+      summary: Chi tiết một thủ tục (khách)
+      security: []
+      parameters:
+        - { name: p_procedure_id, in: query, required: true, schema: { type: string, example: khai-sinh } }
+      responses:
+        '200': { description: Thông tin thủ tục, thành phần hồ sơ, biểu mẫu }
+        '429': { $ref: '#/components/responses/TooMany' }
+
+components:
+  securitySchemes:
+    keycloak:
+      type: oauth2
+      description: Đăng nhập Keycloak bằng tên đăng nhập và mật khẩu (qua cổng API, đường dẫn /docs/token).
+      flows:
+        password:
+          tokenUrl: /docs/token
+          scopes: {}
+    bearer:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Dán access_token đã lấy bằng cách khác (không kèm chữ "Bearer").
+  parameters:
+    DossierId:
+      name: id
+      in: path
+      required: true
+      description: Mã hồ sơ
+      schema: { type: string, example: HS-2026-001235 }
+    Uuid:
+      name: id
+      in: path
+      required: true
+      schema: { type: string, format: uuid }
+  responses:
+    BadRequest: { description: Dữ liệu gửi lên không hợp lệ, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+    Unauthorized: { description: Thiếu token, token hết hạn hoặc sai mật khẩu, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+    Forbidden: { description: Vai trò hoặc xã không được phép, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+    NotFound: { description: Không tồn tại hoặc thuộc xã khác, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+    Conflict: { description: Xung đột trạng thái, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+    TooMany: { description: Gọi quá nhiều lần, thử lại sau, content: { application/json: { schema: { $ref: '#/components/schemas/Error' } } } }
+  schemas:
+    Error:
+      type: object
+      properties:
+        message: { type: string, example: Không có đường dẫn này }
+    DossierActions:
+      type: object
+      properties:
+        id: { type: string }
+        status: { type: string, enum: [submitted, processing, supplement, completed, rejected] }
+        step: { type: string, nullable: true, description: Tên bước trong sơ đồ BPMN; null khi hồ sơ đã kết thúc }
+        actions: { type: array, items: { type: string } }
+    DossierDocument:
+      type: object
+      properties:
+        id: { type: string, format: uuid }
+        dossier_id: { type: string }
+        document_code: { type: string }
+        original_name: { type: string }
+        size_bytes: { type: integer }
+        sha256: { type: string }
+        uploaded_at: { type: string, format: date-time }

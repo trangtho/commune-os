@@ -16,9 +16,13 @@ tài khoản công dân. Tài khoản vẫn nằm ở Keycloak; dịch vụ gọ
 - `/accounts/tenants`: chỉ `sys_admin`. Tạo đơn vị (`api.add_tenant`), bật các gói nghiệp vụ chọn trong `modules`
   (`api.set_tenant_module`, chỉ gói đang được cài) rồi tạo lãnh đạo; lỗi thì đơn vị vừa tạo bị hủy
   (`api.remove_new_tenant`). Lãnh đạo của đơn vị khác trả 404.
-- `/accounts/register` (qua `/public/accounts/register`, không token, cổng giới hạn số lần gọi): bắt buộc đồng ý xử lý
-  dữ liệu cá nhân; lõi tạo hồ sơ công dân (`api.system_register_citizen`, khóa nội bộ) rồi tạo tài khoản vai trò
-  `citizen` gắn `citizen_id`, `citizen_tenant`; tạo tài khoản lỗi thì hủy hồ sơ vừa tạo.
+- `/accounts/register` (qua `/public/accounts/register`, không token, cổng giới hạn số lần gọi): người dùng bên ngoài
+  của gói tự đăng ký, theo mục `registration` trong `module.json` của gói (client Keycloak, vai trò, hàm tạo và hàm hủy
+  hồ sơ người dùng của gói, thuộc tính gắn vào tài khoản). Bắt buộc đồng ý xử lý dữ liệu cá nhân; gói tạo hồ sơ người
+  dùng (khóa nội bộ), lõi tạo tài khoản Keycloak; tạo tài khoản lỗi thì hủy hồ sơ vừa tạo. Gói xã: công dân
+  (`citizen-app`, vai trò `citizen`, `api.system_register_citizen`). Nhiều gói cùng cho đăng ký thì gửi `module`.
+- `/accounts/me/password`: người của đơn vị (client `commune-app`) và người dùng bên ngoài của các gói (client, vai trò gói
+  khai báo) tự đổi mật khẩu.
 - Chỉ tác động lên cán bộ cùng xã. Khác xã trả 404.
 - Chỉ tạo được vai trò `officer`. Xã luôn là xã của người gọi, không nhận từ yêu cầu.
 - Vai trò của gói (mục `roles` trong `modules/<gói>/module.json`, tên `<gói>:<vai trò>`, `identity-setup` tạo trong
@@ -28,7 +32,7 @@ tài khoản công dân. Tài khoản vẫn nằm ở Keycloak; dịch vụ gọ
 - Mỗi thao tác ghi vào nhật ký `staff_audit` (chỉ thêm, không sửa, không xóa; không ghi mật khẩu).
 
 Tài khoản dịch vụ có quyền `manage-users` và `view-realm` trên cả realm, nên mọi giới hạn trên
-nằm trong `server.mjs` và được kiểm thử trong `core/tests/tenant-isolation.sh`.
+nằm trong `server.mjs` và được kiểm thử trong `modules/xa/tests/tenant-isolation.sh` (cùng gói xã) và `core/tests/platform.sh`.
 
 ## API (qua cổng APISIX, cần token Keycloak)
 
@@ -61,7 +65,8 @@ Mật khẩu tạm (của cán bộ và lãnh đạo xã) có `temporary: true`:
 `KEYCLOAK_URL`, `KEYCLOAK_REALM` (mặc định `communeos`), `ACCOUNTS_CLIENT_ID`
 (mặc định `accounts-service`), `ACCOUNTS_CLIENT_SECRET`, `TOKEN_AZP` (mặc định `commune-app`),
 `REST_URL`, `WORKFLOW_TOKEN` (khóa nội bộ của lõi), `PORT` (mặc định 3000),
-`CITIZEN_CLIENT_ID` (mặc định `citizen-app`), `CITIZEN_CLIENT_SECRET` (để kiểm tra mật khẩu công dân).
+`COMMUNEOS_MODULES`, `MODULES_DIR` (đọc mục `registration` của các gói), và biến chứa secret client của từng gói theo
+tên gói khai báo (`clientSecretEnv`; gói xã: `CITIZEN_KEYCLOAK_SECRET`).
 
 Lưu ý Keycloak 26.8: Admin API chỉ nhận token có client scope `kc-admin-api`, nên client
 `accounts-service` có scope này trong tệp realm.

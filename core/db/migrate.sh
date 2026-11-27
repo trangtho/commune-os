@@ -67,6 +67,10 @@ SQL
   psql -q -v ON_ERROR_STOP=1 -v m="$m" -v s="$sources" >/dev/null <<'SQL'
 SELECT public.knowledge_prune_module(:'m', string_to_array(nullif(:'s', ''), ','));
 SQL
+  # Hàm khách chưa đăng nhập được gọi qua /public/rpc (mục "publicRpc"); rest_pre_request() chặn mọi hàm khác.
+  psql -q -v ON_ERROR_STOP=1 -v m="$m" -v manifest="$(cat "$manifest")" >/dev/null <<'SQL'
+SELECT public.public_rpc_sync(:'m', :'manifest'::json -> 'publicRpc');
+SQL
   # Vai trò của gói (mục "roles"); identity-setup tạo vai trò "<gói>:<vai trò>" trong Keycloak.
   psql -q -v ON_ERROR_STOP=1 -v m="$m" -v manifest="$(cat "$manifest")" >/dev/null <<'SQL'
 SELECT public.module_roles_sync(:'m', :'manifest'::json -> 'roles');
@@ -78,9 +82,10 @@ ON CONFLICT (name) DO UPDATE SET title = EXCLUDED.title, version = EXCLUDED.vers
 SQL
 done
 
-# Gói không còn trong COMMUNEOS_MODULES: chỉ xóa khỏi danh sách đã cài, KHÔNG xóa dữ liệu của gói.
+# Gói không còn trong COMMUNEOS_MODULES: chỉ xóa khỏi danh sách đã cài (và đóng hàm công khai của gói), KHÔNG xóa dữ liệu.
 list=$(echo "$MODULES" | tr ' ' '\n' | sed '/^$/d' | sed "s/.*/'&'/" | paste -sd, -)
 psql -q -v ON_ERROR_STOP=1 -c "DELETE FROM core_modules WHERE name NOT IN (${list:-''})"
+psql -q -v ON_ERROR_STOP=1 -c "DELETE FROM core_public_rpc WHERE module <> 'core' AND module NOT IN (${list:-''})"
 
 for f in "$CORE_DIR"/9*; do [ -e "$f" ] && run "$f"; done
 psql -q -v ON_ERROR_STOP=1 -c "NOTIFY pgrst, 'reload schema'"

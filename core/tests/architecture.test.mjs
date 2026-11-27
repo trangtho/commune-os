@@ -14,7 +14,8 @@ test('All portals build deterministically and expose readiness', () => {
     assert.match(read(`apps/${app}/Dockerfile`), /npm ci/)
     assert.ok(existsSync(resolve(root,`apps/${app}/package-lock.json`)))
     const health = read(`apps/${app}/server/api/health.get.ts`)
-    assert.match(health, /procedure_catalog/)
+    // Ứng dụng của gói xã kiểm tra bằng danh mục thủ tục; bảng quản trị (nền tảng) bằng hàm công khai của lõi.
+    assert.match(health, app === 'admin' ? /public_platform/ : /procedure_catalog/)
     assert.match(health, /503/)
   }
 })
@@ -120,4 +121,26 @@ test('Core SQL knows nothing about the commune module (citizens, procedures, dos
     assert.equal(manifest.name, m)
     for (const f of manifest.db) assert.ok(existsSync(resolve(root, `modules/${m}/${f}`)), `${m}/${f}`)
   }
+})
+test('Core services, gateway and realm know nothing about the commune module', () => {
+  // Mã chạy được của lõi (bỏ chú thích) không được nhắc tên bảng, hàm, đường dẫn, client của gói xã: mọi thứ riêng của gói
+  // nằm trong modules/<gói>/module.json. Ngoại lệ có chủ ý: tham số "đối tượng ưu tiên" trong hợp đồng nguồn tri thức của
+  // AI (procedureId, p_procedure_id, procedure_id), cùng tên với nguồn tri thức của gói xã.
+  const XA = /citizen|dossier|procedure|handoff|staff[-_]document|xu-ly-ho-so|set_dossier_status/i
+  const strip = (code, comment) => code.split('\n').filter((l) => !comment.test(l)).join('\n')
+  const files = [
+    ['core/orchestrator/server.mjs', /^\s*\/\//], ['core/files/server.mjs', /^\s*\/\//], ['core/accounts/server.mjs', /^\s*\/\//],
+    ['core/ai/server.mjs', /^\s*\/\//], ['core/identity/setup.mjs', /^\s*\/\//], ['core/db/migrate.sh', /^\s*#/],
+    ['core/gateway/apisix.yaml', /^\s*#/], ['core/backup/backup.sh', /^\s*#/],
+  ]
+  for (const [f, comment] of files) {
+    let code = strip(read(f), comment)
+    if (f === 'core/ai/server.mjs') code = code.replace(/\b(procedureId|p_procedure_id|procedure_id)\b/g, '')
+    const hit = code.split('\n').find((l) => XA.test(l))
+    assert.equal(hit, undefined, `${f}: ${hit}`)
+  }
+  // Realm Keycloak của lõi không có client, vai trò, thuộc tính của gói (gói xã: modules/xa/identity/realm.json).
+  assert.doesNotMatch(read('core/identity/realm/communeos-realm.json'), /citizen/)
+  // Đặc tả API của lõi không có đường dẫn riêng của gói (đặc tả của gói: modules/<gói>/api-docs.yaml).
+  assert.doesNotMatch(read('core/api-docs/core-services.yaml'), /^  \/(workflow|files)\/(dossiers|documents|staff-documents|handoffs)|^  \/public\/rpc\/procedure/m)
 })

@@ -18,7 +18,8 @@ Cửa ngõ API của lõi, dùng Apache APISIX ở chế độ đọc cấu hìn
 | `/files/*` | Dịch vụ tệp (`core/files`) | Bắt buộc JWT |
 | `/accounts/*` | Dịch vụ tài khoản (`core/accounts`) | Bắt buộc JWT |
 | `/accounts/first-password` | Dịch vụ tài khoản | Không cần token, giới hạn số lần thử |
-| `/public/rpc/procedure_catalog`, `/public/rpc/procedure_detail` | PostgREST, vai trò `web_anon` | Không cần token (header `Authorization` bị bỏ), giới hạn 120 lần/phút; khách xem danh mục thủ tục |
+| `/public/rpc/*` | PostgREST, vai trò `web_anon` | Không cần token (header `Authorization` bị bỏ), giới hạn 120 lần/phút. Chỉ gọi được hàm do lõi và các gói khai báo (mục `publicRpc` của `module.json`); cơ sở dữ liệu chặn hàm khác (404, `rest_pre_request`). Ví dụ `public_platform` (lõi), `procedure_catalog` (gói xã) |
+| `/public/accounts/register` | Dịch vụ tài khoản | Không cần token, giới hạn số lần gọi; người dùng bên ngoài của gói tự đăng ký (mục `registration`) |
 | `/ai/*` | Cổng AI (`core/ai`) | Bắt buộc JWT; chờ tối đa 120 giây |
 | `/public/ai/ask`, `/public/ai/ready` | Cổng AI | Không cần token (bỏ header `Authorization`), giới hạn 20 lần/phút |
 | `/api/ping` | Keycloak | Tuyến thử |

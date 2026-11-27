@@ -11,6 +11,33 @@ Mọi thay đổi đáng chú ý của dự án được ghi tại đây.
 
 ## [Chưa phát hành]
 
+### Thay đổi (lõi không còn mã, cấu hình nào của gói xã, 2026-11-30)
+
+- Dịch vụ tệp: đường dẫn giấy tờ hồ sơ, giấy tờ cán bộ, giấy tờ trong mã chuyển hồ sơ chuyển thành khai báo `files`
+  trong `modules/xa/module.json` (đường dẫn, tham số, hàm ghi, hàm đọc); mã dịch vụ chỉ còn bộ thực thi chung.
+  Đường dẫn và hành vi giữ nguyên.
+- Hàm công khai cho khách: gói khai báo `publicRpc`; lõi ghi `core_public_rpc` và `rest_pre_request` chặn khách gọi hàm
+  khác ngay ở cơ sở dữ liệu (404). Cổng API dùng một luật chung `/public/rpc/*` thay cho danh sách tên hàm của gói xã.
+- Người dùng bên ngoài tự đăng ký, tự đổi mật khẩu, hỏi trợ lý AI theo khai báo `registration` của gói (client, vai trò,
+  hàm tạo/hủy hồ sơ, thuộc tính, claim); dịch vụ tài khoản và `ai-gateway` không còn viết sẵn "công dân".
+- Realm Keycloak của lõi bỏ client `citizen-app`, vai trò `citizen`, thuộc tính công dân; chúng chuyển sang
+  `modules/xa/identity/realm.json` (khai báo `identity`), `identity-setup` nạp khi gói được bật.
+- Tài liệu API: đặc tả lõi chỉ còn đường dẫn của lõi; đường dẫn riêng của gói xã sang `modules/xa/api-docs.yaml`, trang
+  `/docs/` tự hiện đặc tả của các gói đang bật.
+- Kiểm thử của gói xã (`tenant-isolation.sh`, `portal-smoke.mjs`) chuyển sang `modules/xa/tests/`.
+- Bảng quản trị: menu, trang tổng quan theo gói đã cài (danh mục thủ tục chỉ hiện khi có gói xã); "Kiểm tra hồ sơ đã ký"
+  thành "Sổ ghi nhận" (ghi cả đơn, tệp đính kèm của mọi gói); kiểm tra sức khỏe bằng hàm công khai của lõi.
+- Sao lưu, khôi phục: không liệt kê tên dịch vụ; thư mục tệp riêng của ứng dụng theo quy ước volume `/app/storage`
+  (bản sao lưu cũ `citizen-uploads.tgz` vẫn khôi phục được).
+- Thông báo của dịch vụ tài khoản, trợ lý AI gọi "đơn vị" thay cho "xã".
+- `make test-architecture` thêm bài: mã các dịch vụ lõi, cấu hình cổng, realm, đặc tả API của lõi không nhắc tới gói xã.
+- CI job "Chỉ lõi" dựng thêm bảng quản trị và kiểm tra: bảng quản trị chạy được, hàm công khai của gói xã trả 404, trang
+  tài liệu không có đặc tả gói nào.
+
+### Sửa lỗi (2026-11-30)
+
+- Đặc tả API còn hướng dẫn lấy token bằng mật khẩu `12345`.
+
 ### Thêm (vai trò theo gói nghiệp vụ, 2026-11-29)
 
 - Gói khai báo vai trò riêng trong `module.json` (mục `roles`); `identity-setup` tạo vai trò `<gói>:<vai trò>` trong

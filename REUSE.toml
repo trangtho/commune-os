@@ -12,6 +12,7 @@ path = [
   "**/tsconfig.json",
   "core/identity/realm/communeos-realm.json",
   "modules/*/module.json",
+  "modules/*/identity/*.json",
   "**/.gitignore",
   "**/.dockerignore",
   "**/robots.txt",

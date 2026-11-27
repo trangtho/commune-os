@@ -9,9 +9,11 @@
 //   * tài khoản quản trị hệ thống duy nhất, từ COMMUNEOS_ADMIN_USERNAME, COMMUNEOS_ADMIN_PASSWORD trong .env
 //     (chưa có thì tạo; đã có thì đặt lại mật khẩu theo .env và bảo đảm vai trò sys_admin: đổi mật khẩu quản trị
 //     bằng cách sửa .env rồi make up)
-// Tệp realm không có tài khoản người dùng nào; xã, lãnh đạo, cán bộ, công dân tạo qua API của lõi (make demo tạo mẫu).
+// Tệp realm không có tài khoản người dùng nào; đơn vị, lãnh đạo, cán bộ, người dùng của gói tạo qua API của lõi (make demo tạo mẫu).
 //   * thuộc tính khai báo trong user profile (chỉ thêm thuộc tính chưa có)
 //   * client liệt kê trong CONFIDENTIAL: luôn là client bí mật (có tài khoản dịch vụ) với secret lấy từ biến môi trường
+//   * cấu hình Keycloak riêng của các gói đang bật (mục "identity" trong module.json, ví dụ modules/xa/identity/realm.json:
+//     vai trò, client, thuộc tính user profile, client bí mật), bổ sung giống mục của realm lõi
 //   * vai trò của các gói đang bật (mục "roles" trong modules/<gói>/module.json), tên "<gói>:<vai trò>"; chỉ thêm,
 //     cập nhật mô tả, không xóa (vai trò của gói đã gỡ vẫn giữ để không mất phân quyền đã gán)
 // Biến ${TÊN} trong tệp realm được thay bằng biến môi trường cùng tên (giống Keycloak khi nạp realm).
@@ -27,18 +29,21 @@ const ADMIN_USER = process.env.KEYCLOAK_ADMIN
 const ADMIN_PASSWORD = process.env.KEYCLOAK_ADMIN_PASSWORD
 const REALM_FILE = process.env.REALM_FILE || '/app/realm/communeos-realm.json'
 
-// Những mục được bổ sung khi thiếu. Thêm mục mới vào đây khi sửa tệp realm.
+// Những mục của realm lõi được bổ sung khi thiếu. Thêm mục mới vào đây khi sửa tệp realm.
 const IMPORT = {
-  realmRoles: ['citizen'],
-  clients: ['citizen-app'],
+  realmRoles: [],
+  clients: [],
 }
 const SYS_ADMIN_USERNAME = String(process.env.COMMUNEOS_ADMIN_USERNAME || '').trim().toLowerCase()
 const SYS_ADMIN_PASSWORD = String(process.env.COMMUNEOS_ADMIN_PASSWORD || '')
 // Client bí mật và biến môi trường chứa secret.
 const CONFIDENTIAL = {
-  'citizen-app': 'CITIZEN_KEYCLOAK_SECRET',
   'accounts-service': 'KEYCLOAK_ACCOUNTS_SECRET',
 }
+const MODULES = String(process.env.COMMUNEOS_MODULES || 'xa').split(/[\s,]+/).filter(Boolean)
+const MODULES_DIR = process.env.MODULES_DIR || '/modules'
+// Biến ${TÊN} trong tệp realm được thay bằng biến môi trường cùng tên.
+const substitute = (raw) => raw.replace(/\$\{([A-Z0-9_]+)\}/g, (all, name) => (process.env[name] ? JSON.stringify(process.env[name]).slice(1, -1) : all))
 
 if (!ADMIN_USER || !ADMIN_PASSWORD) {
   console.error('Thiếu KEYCLOAK_ADMIN hoặc KEYCLOAK_ADMIN_PASSWORD')
@@ -75,7 +80,18 @@ async function waitToken() {
 
 async function main() {
   const raw = await readFile(REALM_FILE, 'utf8')
-  const realm = JSON.parse(raw.replace(/\$\{([A-Z0-9_]+)\}/g, (all, name) => (process.env[name] ? JSON.stringify(process.env[name]).slice(1, -1) : all)))
+  const realm = JSON.parse(substitute(raw))
+  // Cấu hình Keycloak riêng của các gói đang bật.
+  const fragments = []
+  for (const m of MODULES) {
+    const file = join(MODULES_DIR, m, 'module.json')
+    if (!existsSync(file)) continue
+    const rel = JSON.parse(await readFile(file, 'utf8')).identity
+    if (!rel) continue
+    if (/^\/|\.\./.test(rel)) throw new Error(`${m}/module.json: "identity" không hợp lệ`)
+    fragments.push({ module: m, ...JSON.parse(substitute(await readFile(join(MODULES_DIR, m, rel), 'utf8'))) })
+  }
+  for (const f of fragments) Object.assign(CONFIDENTIAL, f.confidentialClients || {})
   const token = await waitToken()
   const api = async (method, path, body) => {
     const r = await fetch(`${KEYCLOAK_URL}/admin/realms/${REALM}${path}`, {
@@ -94,7 +110,8 @@ async function main() {
   )
   const profile = await api('GET', '/users/profile')
   const have = new Set(profile.attributes.map((a) => a.name))
-  const missing = fileProfile.attributes.filter((a) => !have.has(a.name))
+  const wanted = [...fileProfile.attributes, ...fragments.flatMap((f) => f.userProfileAttributes || [])]
+  const missing = wanted.filter((a) => !have.has(a.name))
   if (missing.length) {
     profile.attributes.push(...missing)
     await api('PUT', '/users/profile', profile)
@@ -105,8 +122,8 @@ async function main() {
   const pick = (list, key, names) => (list || []).filter((x) => names.includes(x[key]))
   const result = await api('POST', '/partialImport', {
     ifResourceExists: 'SKIP',
-    roles: { realm: pick(realm.roles.realm, 'name', IMPORT.realmRoles) },
-    clients: pick(realm.clients, 'clientId', IMPORT.clients),
+    roles: { realm: [...pick(realm.roles.realm, 'name', IMPORT.realmRoles), ...fragments.flatMap((f) => f.roles?.realm || [])] },
+    clients: [...pick(realm.clients, 'clientId', IMPORT.clients), ...fragments.flatMap((f) => f.clients || [])],
   })
   console.log(`partialImport: thêm ${result.added}, bỏ qua ${result.skipped} (đã có)`)
 
@@ -117,8 +134,8 @@ async function main() {
     const [client] = await api('GET', `/clients?clientId=${encodeURIComponent(clientId)}`)
     if (!client) continue
     const current = client.publicClient ? null : (await api('GET', `/clients/${client.id}/client-secret`))?.value
-    // Tài khoản dịch vụ: máy chủ Kênh người dân gọi lõi thay mặt chính nó (liên kết đăng nhập OIDC bên ngoài),
-    // không cần khóa dùng chung riêng (core/db/init/34-citizen-direct-access.sql, public.is_citizen_service()).
+    // Tài khoản dịch vụ: máy chủ ứng dụng giữ client bí mật gọi lõi thay mặt chính nó (gói xã dùng để liên kết đăng nhập
+    // OIDC bên ngoài), không cần khóa dùng chung riêng.
     if (client.publicClient || current !== secret || !client.serviceAccountsEnabled) {
       await api('PUT', `/clients/${client.id}`, { ...client, publicClient: false, clientAuthenticatorType: 'client-secret', secret,
         serviceAccountsEnabled: true })
