@@ -23,25 +23,24 @@ jobs:
           pipx install reuse
           reuse lint
 
-  # Lõi cài và chạy khi KHÔNG có gói nghiệp vụ xã: chỉ lõi và gói doanh nghiệp, không ứng dụng nào của xã.
+  # Lõi cài và chạy khi KHÔNG có gói nghiệp vụ nào, rồi mới cài thêm gói doanh nghiệp (không bao giờ có gói xã):
+  # đúng cách một tổ chức dùng lõi: dựng lõi trước, nạp gói nghiệp vụ của mình sau.
   chi-loi:
     name: Chỉ lõi, không có gói xã
     runs-on: ubuntu-latest
-    timeout-minutes: 30
-    env:
-      COMMUNEOS_MODULES: doanh-nghiep
+    timeout-minutes: 40
     steps:
       - uses: actions/checkout@v4
 
-      - name: Tạo .env từ mẫu
+      - name: Tạo .env từ mẫu, chưa có gói nào
         run: |
           cp .env.example .env
           sed -i "s/^SESSION_SECRET=.*/SESSION_SECRET=$(openssl rand -hex 32)/" .env
           sed -i "s/^COMMUNEOS_ADMIN_PASSWORD=.*/COMMUNEOS_ADMIN_PASSWORD=Ci$(openssl rand -hex 12)/" .env
-          sed -i "s/^COMMUNEOS_MODULES=.*/COMMUNEOS_MODULES=doanh-nghiep/" .env
+          sed -i "s/^COMMUNEOS_MODULES=.*/COMMUNEOS_MODULES=/" .env
           make check-env
 
-      - name: Dựng lõi và bảng quản trị nền tảng (không ứng dụng của gói xã)
+      - name: Dựng lõi và bảng quản trị nền tảng (không gói nghiệp vụ, không ứng dụng của gói xã)
         run: >-
           docker compose up -d --build
           db db-setup identity identity-setup rest-keys rest gateway api-docs workflow-engine orchestrator
@@ -49,6 +48,20 @@ jobs:
 
       - name: Chờ mọi dịch vụ sẵn sàng (healthcheck)
         run: sh core/tests/wait-ready.sh 600
+
+      - name: Lõi trống chạy được, không có bảng, API nào của gói xã
+        run: |
+          make test-platform
+          test "$(curl -s http://localhost:9080/docs/modules.json)" = "[]"
+          curl -fsS http://localhost:3001/api/health
+
+      - name: Cài thêm gói doanh nghiệp vào lõi đang chạy
+        run: |
+          sed -i "s/^COMMUNEOS_MODULES=.*/COMMUNEOS_MODULES=doanh-nghiep/" .env
+          docker compose up -d \
+            db db-setup identity identity-setup rest-keys rest gateway api-docs workflow-engine orchestrator \
+            storage files accounts admin
+          sh core/tests/wait-ready.sh 600
 
       - name: Lõi dùng chung, và không có bảng, API nào của gói xã
         run: make test-platform

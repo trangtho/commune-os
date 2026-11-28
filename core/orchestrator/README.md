@@ -14,10 +14,10 @@ Dịch vụ không gắn với một nghiệp vụ cụ thể và không có s�
 sơ đồ BPMN, bảng ảo đọc trạng thái, hàm đổi trạng thái; cùng các việc định kỳ của gói.
 
 ```
-Cán bộ bấm nút → APISIX /workflow/* (kiểm tra token)
-  → orchestrator: đọc hồ sơ qua PostgREST bằng token của cán bộ (RLS lọc theo xã)
-  → hỏi Flowable: hồ sơ đang ở bước nào, sơ đồ cho đi tiếp tới đâu
-  → gọi set_dossier_status (kèm bí mật WORKFLOW_TOKEN); database kiểm tra vai trò, xã, lý do
+Cán bộ bấm nút → APISIX /workflow/<loại>/<mã>/actions (kiểm tra token)
+  → orchestrator: đọc đối tượng qua bảng ảo gói khai báo, bằng token của cán bộ (RLS lọc theo đơn vị)
+  → hỏi Flowable: đối tượng đang ở bước nào, sơ đồ cho đi tiếp tới đâu
+  → gọi hàm đổi trạng thái gói khai báo (kèm bí mật WORKFLOW_TOKEN); database kiểm tra vai trò, đơn vị, lý do
   → ghi xong mới cho quy trình trong Flowable đi tiếp
 ```
 
@@ -34,7 +34,7 @@ Cán bộ bấm nút → APISIX /workflow/* (kiểm tra token)
 | 400    | Thiếu lý do khi yêu cầu bổ sung hoặc từ chối; JSON sai |
 | 401    | Không có token hoặc token hết hạn                      |
 | 404    | Đối tượng không tồn tại, thuộc đơn vị khác, hoặc loại chưa khai báo |
-| 409    | Bước không có trong sơ đồ, hoặc hồ sơ đã kết thúc      |
+| 409    | Bước không có trong sơ đồ, hoặc đối tượng đã kết thúc  |
 
 ## Sơ đồ quy trình
 

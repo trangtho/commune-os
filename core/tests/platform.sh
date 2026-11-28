@@ -13,8 +13,11 @@ COMPOSE="${COMPOSE:-docker compose}"
 from_env() { sed -n "s/^$1=//p" .env 2>/dev/null | tail -1; }
 ADMIN_USER="${COMMUNEOS_ADMIN_USERNAME:-$(from_env COMMUNEOS_ADMIN_USERNAME)}"
 ADMIN_PASS="${COMMUNEOS_ADMIN_PASSWORD:-$(from_env COMMUNEOS_ADMIN_PASSWORD)}"
-MODULES="${COMMUNEOS_MODULES:-$(from_env COMMUNEOS_MODULES)}"
-MODULES=$(echo "${MODULES:-xa,doanh-nghiep}" | tr ', ' '\n\n' | sed '/^$/d' | sort | paste -sd, -)
+# Cùng quy ước với docker-compose.yml: chưa đặt biến thì là các gói mẫu; đặt rỗng thì chỉ có lõi, không gói nào.
+if [ "${COMMUNEOS_MODULES+x}" = x ]; then MODULES="$COMMUNEOS_MODULES"
+elif grep -q '^COMMUNEOS_MODULES=' .env 2>/dev/null; then MODULES=$(from_env COMMUNEOS_MODULES)
+else MODULES=xa,doanh-nghiep; fi
+MODULES=$(echo "$MODULES" | tr ', ' '\n\n' | sed '/^$/d' | sort | paste -sd, -)
 FAIL=0
 
 ok()   { echo "  ĐẠT  $1"; }
@@ -30,10 +33,13 @@ token() {
 code() { curl -s -o /dev/null -w '%{http_code}' "$@"; }
 sql() { $COMPOSE exec -T db sh -c 'psql -At -U "$POSTGRES_USER" -d "$POSTGRES_DB"' ; }
 
-echo "Kiểm thử lõi dùng chung ($GW), gói cần có: $MODULES"
+echo "Kiểm thử lõi dùng chung ($GW), gói cần có: ${MODULES:-(không gói nào)}"
 
 # 1. Gói đã cài: đúng danh sách COMMUNEOS_MODULES; xem được khi chưa đăng nhập (cổng dùng để kiểm tra sức khỏe).
-got=$(curl -s "$GW/public/rpc/public_platform" | jget '",".join(sorted(m["name"] for m in d["modules"]))')
+# Không kết nối được thì dừng ngay: các mục sau sẽ không có ý nghĩa (và danh sách rỗng không được coi là khớp).
+got=$(curl -fsS -X POST -H 'Content-Type: application/json' -d '{}' "$GW/public/rpc/public_platform" |
+  python3 -c 'import json,sys; print(",".join(sorted(m["name"] for m in json.load(sys.stdin)["modules"])))') ||
+  { echo "  LỖI  Không đọc được $GW/public/rpc/public_platform"; echo "KẾT QUẢ: CÓ LỖI"; exit 1; }
 [ "$got" = "$MODULES" ] && ok "Gói đã cài khớp COMMUNEOS_MODULES ($got), xem công khai qua /public/rpc/public_platform" ||
   fail "Gói đã cài '$got', cần '$MODULES'"
 
@@ -50,7 +56,8 @@ c3=$(code -H "Authorization: Bearer $QT" "$GW/rest/tenants")
 post() { curl -s -w '\t%{http_code}' -X POST -H "Authorization: Bearer $1" -H 'Content-Type: application/json' -d "$3" "$GW$2" |
   python3 -c 'import sys; b,_,c=sys.stdin.read().rpartition("\t"); print(c+"\t"+b)'; }
 T="dv-kt-$(date +%s)"; L="ld.$T"; M1=$(echo "$MODULES" | cut -d, -f1)
-r=$(post "$QT" /accounts/tenants "{\"code\":\"$T\",\"name\":\"Đơn vị kiểm thử\",\"modules\":[\"$M1\"],\"leaderUsername\":\"$L\",\"leaderFullName\":\"Kiểm Thử\"}")
+chosen="[]"; [ -z "$M1" ] || chosen="[\"$M1\"]"
+r=$(post "$QT" /accounts/tenants "{\"code\":\"$T\",\"name\":\"Đơn vị kiểm thử\",\"modules\":$chosen,\"leaderUsername\":\"$L\",\"leaderFullName\":\"Kiểm Thử\"}")
 tmp=$(echo "$r" | cut -f2- | jget 'd.get("leader",{}).get("temporaryPassword","")')
 curl -s -o /dev/null -X POST -H 'Content-Type: application/json' \
   -d "{\"username\":\"$L\",\"currentPassword\":\"$tmp\",\"newPassword\":\"KiemThu2026x\"}" "$GW/accounts/first-password"
@@ -65,16 +72,27 @@ seen=$(curl -s -H "Authorization: Bearer $LT" "$GW/rest/tenants?select=code" | j
 mods() { curl -s -X POST -H "Authorization: Bearer $1" -H 'Content-Type: application/json' -d '{}' "$GW/rest/rpc/my_modules" | jget '",".join(d)'; }
 setm() { curl -s -o /dev/null -w '%{http_code}' -X POST -H "Authorization: Bearer $1" -H 'Content-Type: application/json' \
   -d "{\"tenant_code\":\"$T\",\"module\":\"$2\",\"enabled\":$3}" "$GW/rest/rpc/set_tenant_module"; }
-m1=$(mods "$LT"); c1=$(setm "$QT" "$M1" false); m2=$(mods "$LT"); c2=$(setm "$QT" khong-co true); c3=$(setm "$LT" "$M1" true)
-[ "$m1" = "$M1" ] && [ "$c1" = "200" ] && [ "$m2" = "" ] && [ "$c2" = "400" ] && [ "$c3" = "403" ] &&
-  ok "Gói theo đơn vị: đơn vị mới dùng đúng gói chọn khi tạo ($M1); tắt được; gói chưa cài bị từ chối (400); lãnh đạo không tự bật gói (403)" ||
-  fail "Gói theo đơn vị: lúc tạo '$m1', tắt $c1 → '$m2', gói chưa cài $c2, lãnh đạo tự bật $c3"
+if [ -n "$M1" ]; then
+  m1=$(mods "$LT"); c1=$(setm "$QT" "$M1" false); m2=$(mods "$LT"); c2=$(setm "$QT" khong-co true); c3=$(setm "$LT" "$M1" true)
+  [ "$m1" = "$M1" ] && [ "$c1" = "200" ] && [ "$m2" = "" ] && [ "$c2" = "400" ] && [ "$c3" = "403" ] &&
+    ok "Gói theo đơn vị: đơn vị mới dùng đúng gói chọn khi tạo ($M1); tắt được; gói chưa cài bị từ chối (400); lãnh đạo không tự bật gói (403)" ||
+    fail "Gói theo đơn vị: lúc tạo '$m1', tắt $c1 → '$m2', gói chưa cài $c2, lãnh đạo tự bật $c3"
+else
+  # Chỉ có lõi: đơn vị vẫn tạo được, chưa dùng gói nào; không bật được gói chưa cài.
+  m1=$(mods "$LT"); c2=$(setm "$QT" khong-co true); c3=$(setm "$LT" khong-co true)
+  [ "$m1" = "" ] && [ "$c2" = "400" ] && [ "$c3" = "403" ] &&
+    ok "Chỉ có lõi: đơn vị mới chưa dùng gói nào; gói chưa cài bị từ chối (400); lãnh đạo không tự bật gói (403)" ||
+    fail "Chỉ có lõi: gói của đơn vị '$m1', quản trị bật gói lạ $c2, lãnh đạo $c3"
+fi
 
 # 4. Sổ ghi nhận: chuỗi của mọi đơn vị nguyên vẹn; không sửa được qua API.
 bad=$(curl -s -X POST -H "Authorization: Bearer $QT" -H 'Content-Type: application/json' -d '{}' "$GW/rest/rpc/verify_ledger" |
-  jget '",".join(r["tenant_code"] for r in d if not r["ok"]) if isinstance(d,list) else "LOI"')
+  python3 -c 'import json,sys
+try: d=json.load(sys.stdin)
+except Exception: d=None
+print(",".join(r["tenant_code"] for r in d if not r["ok"]) if isinstance(d,list) else "LOI")')
 c=$(code -X DELETE -H "Authorization: Bearer $QT" "$GW/rest/ledger?seq=eq.1")
-[ "$bad" = "" ] && [ "$c" != "200" ] && [ "$c" != "204" ] && ok "Sổ ghi nhận của mọi đơn vị nguyên vẹn; không xóa được qua API" ||
+[ "$bad" = "" ] && [ "$c" != "000" ] && [ "$c" != "200" ] && [ "$c" != "204" ] && ok "Sổ ghi nhận của mọi đơn vị nguyên vẹn; không xóa được qua API" ||
   fail "Sổ ghi nhận hỏng ở '$bad', xóa qua API trả $c"
 
 # 5. Quy trình: loại đối tượng chưa khai báo trong gói nào → 404; dịch vụ điều phối và Flowable chạy.
@@ -114,8 +132,12 @@ case ",$MODULES," in
   *)
     tables=$(echo "SELECT count(*) FROM pg_tables WHERE schemaname='public' AND tablename IN ('citizens','procedures','applications','application_events')" | sql)
     c=$(code -H "Authorization: Bearer $QT" "$GW/rest/dossiers")
-    [ "$tables" = "0" ] && [ "$c" = "404" ] && ok "Không cài gói xã: không có bảng công dân, thủ tục, hồ sơ; /rest/dossiers không tồn tại (404)" ||
-      fail "Không cài gói xã mà còn $tables bảng của gói xã, /rest/dossiers trả $c"
+    reg=$(code -X POST -H 'Content-Type: application/json' -d '{}' "$GW/public/accounts/register")
+    doc=$(code -H "Authorization: Bearer $QT" "$GW/files/documents/00000000-0000-0000-0000-000000000000")
+    pub=$(code -X POST -H 'Content-Type: application/json' -d '{}' "$GW/public/rpc/procedure_catalog")
+    [ "$tables" = "0" ] && [ "$c" = "404" ] && [ "$reg" = "404" ] && [ "$doc" = "404" ] && [ "$pub" = "404" ] &&
+      ok "Không cài gói xã: không có bảng công dân, thủ tục, hồ sơ; /rest/dossiers, đăng ký công dân, giấy tờ hồ sơ, danh mục thủ tục đều 404" ||
+      fail "Không cài gói xã mà còn $tables bảng của gói xã; /rest/dossiers $c, đăng ký $reg, giấy tờ $doc, danh mục thủ tục $pub"
     ;;
 esac
 

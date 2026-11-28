@@ -10,6 +10,24 @@
         "clientRole": false,
         "containerId": "0c451dc8-8c44-45e2-a627-8b2074c9338d",
         "attributes": {}
+      },
+      {
+        "id": "609661fc-1477-4982-b67d-6e47458db9b8",
+        "name": "receptionist",
+        "description": "Cán bộ tiếp nhận hồ sơ tại bộ phận một cửa của xã",
+        "composite": false,
+        "clientRole": false,
+        "containerId": "0c451dc8-8c44-45e2-a627-8b2074c9338d",
+        "attributes": {}
+      },
+      {
+        "id": "bc534f99-520a-4a72-978e-4ef45646f36a",
+        "name": "supervisor",
+        "description": "Cấp trên của xã, chỉ xem",
+        "composite": false,
+        "clientRole": false,
+        "containerId": "0c451dc8-8c44-45e2-a627-8b2074c9338d",
+        "attributes": {}
       }
     ]
   },

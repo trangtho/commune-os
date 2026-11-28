@@ -5,7 +5,7 @@ SPDX-License-Identifier: Apache-2.0
 
 # core/ai · Trí tuệ nhân tạo chạy cục bộ
 
-Dịch vụ AI của lõi. Mô hình chạy trên máy chủ của xã, trong mạng Docker **không có đường ra Internet**.
+Dịch vụ AI của lõi. Mô hình chạy trên máy chủ của đơn vị, trong mạng Docker **không có đường ra Internet**.
 CommuneOS không gọi bất kỳ API AI bên ngoài nào, vì hồ sơ hành chính và dữ liệu cá nhân là dữ liệu mật.
 
 ## Thành phần
@@ -32,7 +32,7 @@ chọn trích dẫn 3–15 giây với `qwen3:1.7b`.
 
 | Đường dẫn | Ai gọi | Việc |
 | --- | --- | --- |
-| `POST /ai/ask` | Công dân (`citizen-app`), cán bộ (`commune-app`), cần token | `{ question, procedureId?, select? }` → kết quả tìm kiếm và trích dẫn |
+| `POST /ai/ask` | Công dân (`citizen-app`), cán bộ (`commune-app`), cần token | `{ question, refId?, select? }` → kết quả tìm kiếm và trích dẫn |
 | `POST /public/ai/ask` | Khách chưa đăng nhập | Như trên, không token; APISIX giới hạn 20 lần/phút, dịch vụ giới hạn 10 lần/phút mỗi IP |
 | `GET /public/ai/ready` | Bất kỳ | `{ ready }`: đã có đủ mô hình chưa |
 | `GET /ai/status` | Chỉ `sys_admin` | Mô hình đã tải, đã nạp, số đoạn đã có vector, thời gian phản hồi trung bình, lỗi gần nhất |
@@ -59,8 +59,9 @@ Không lưu câu hỏi; nhật ký chỉ ghi mã băm, độ dài, số kết qu
 | Lõi (luôn có) | Kho tri thức dùng chung `core_knowledge`: tài liệu của các gói (mục `knowledge` của `module.json`, nạp khi cài gói) và tài liệu riêng do lãnh đạo đơn vị nạp (`POST /rest/rpc/knowledge_add`). Mỗi mục `## ...` của tài liệu Markdown là một đoạn | `api.core_knowledge_search`, `_pending`, `_store`, `_status` |
 | Gói có `knowledgeProvider` trong `module.json` | Gói xã: thủ tục đã công bố (`citizen_knowledge_chunks`), câu hỏi thường gặp, hướng dẫn nghiệp vụ (`staff_guide`) | Gói xã: `api.knowledge_search`, `ai_pending_chunks`, `ai_store_embeddings`, `ai_index_status` |
 
-Mọi hàm của nguồn tri thức có cùng chữ ký và cùng dạng kết quả, nên thêm nguồn chỉ cần khai báo, không sửa mã
-của `ai-gateway`. Ví dụ gói doanh nghiệp mang quy chế nghỉ phép (`modules/doanh-nghiep/kb/quy-che-nghi-phep.md`):
+Mọi hàm của nguồn tri thức có cùng chữ ký (`p_query`, `p_embedding`, `p_ref_id`: mã đối tượng người hỏi đang xem,
+`p_limit`, `p_min_similarity`, `p_tenant_code`, `p_audience`: `staff` hoặc `public`) và cùng dạng kết quả, nên thêm
+nguồn chỉ cần khai báo, không sửa mã của `ai-gateway`. Ví dụ gói doanh nghiệp mang quy chế nghỉ phép (`modules/doanh-nghiep/kb/quy-che-nghi-phep.md`):
 nhân viên Công ty A hỏi "nghỉ ốm cần giấy tờ gì" thì trợ lý trích đúng mục quy chế đó.
 
 Đơn vị xem tài liệu mình dùng được ở `GET /rest/knowledge_documents`; lãnh đạo nạp, gỡ tài liệu riêng bằng
@@ -69,18 +70,21 @@ nhân viên Công ty A hỏi "nghỉ ốm cần giấy tờ gì" thì trợ lý 
 
 ### Phạm vi theo người hỏi (đặt từ token đã ký, người hỏi không tự khai được)
 
-| Người hỏi | Thủ tục | Hướng dẫn nghiệp vụ cán bộ (`staff_guide`) |
+| Người hỏi | Đơn vị (truyền cho nguồn qua `p_tenant_code`) | Tài liệu nội bộ (`p_audience` = `staff`) |
 | --- | --- | --- |
-| Khách (`/public/ai/ask`) | Mọi thủ tục đã công bố | Không |
-| Công dân (`citizen-app`) | Chỉ thủ tục xã của công dân đang mở (claim `citizen_tenant`) | Không |
-| Cán bộ (`commune-app`) | Chỉ thủ tục xã của cán bộ đang mở (claim `tenant_id`) | Có |
+| Khách (`/public/ai/ask`) | Không có: chỉ tri thức chung đã công bố | Không |
+| Người dùng bên ngoài của gói (client, claim do mục `registration` khai báo; gói xã: công dân, `citizen-app`, `citizen_tenant`) | Đơn vị trong claim | Không |
+| Cán bộ (`commune-app`) | Đơn vị trong claim `tenant_id` | Có |
+
+Gói xã áp phạm vi này cho tri thức thủ tục: khách thấy mọi thủ tục đã công bố, công dân và cán bộ chỉ thấy thủ tục xã
+mình đang mở; hướng dẫn nghiệp vụ cán bộ (`staff_guide`) chỉ trả cho cán bộ.
 
 Kho tri thức của lõi: chỉ tài liệu của các gói đơn vị người hỏi đã bật, tài liệu chung của gói và tài liệu riêng
 của đơn vị đó; tài liệu `staff` chỉ cho người của đơn vị, khách và công dân chỉ thấy tài liệu `public`. Đơn vị không
 bật gói xã thì không nhận tri thức nào của gói xã.
 
 `api.knowledge_search` chỉ cấp cho vai trò `web_anon` mà `ai-gateway` dùng trong mạng nội bộ; gọi thẳng qua
-`/rest` bằng token người dùng bị từ chối, nên không ai tự đổi được xã hay đối tượng. Hàm của kho tri thức lõi còn
+`/rest` bằng token người dùng bị từ chối, nên không ai tự đổi được đơn vị hay đối tượng. Hàm của kho tri thức lõi còn
 đòi kèm `WORKFLOW_TOKEN`.
 
 Câu hỏi tra cứu thông tin của một người cụ thể ("số điện thoại của công dân...", "hồ sơ của ông...") hoặc một

@@ -56,7 +56,7 @@ class HttpError extends Error {
 const NAME_RE = /^[a-z][a-z0-9_-]{0,62}$/
 const ATTACHABLE = new Map()
 const MODULES_DIR = process.env.MODULES_DIR || '/modules'
-for (const m of (process.env.COMMUNEOS_MODULES || 'xa').split(/[\s,]+/).filter(Boolean)) {
+for (const m of (process.env.COMMUNEOS_MODULES || '').split(/[\s,]+/).filter(Boolean)) {
   const file = join(MODULES_DIR, m, 'module.json')
   if (!existsSync(file)) { console.log(`Không đọc được ${file}; bỏ qua tệp đính kèm của gói ${m}`); continue }
   for (const a of JSON.parse(readFileSync(file, 'utf8')).attachments || []) {
@@ -75,7 +75,7 @@ for (const m of (process.env.COMMUNEOS_MODULES || 'xa').split(/[\s,]+/).filter(B
 // Tải lên: hàm của gói nhận thêm mime_type, size_bytes, sha256, storage_key. Tải về: hàm trả một dòng có storage_key,
 // mime_type, original_name (hoặc title), sha256 (có thì kiểm tra lại mã băm). {tham số:uuid} phải là UUID.
 const FILE_ROUTES = []
-for (const m of (process.env.COMMUNEOS_MODULES || 'xa').split(/[\s,]+/).filter(Boolean)) {
+for (const m of (process.env.COMMUNEOS_MODULES || '').split(/[\s,]+/).filter(Boolean)) {
   const file = join(MODULES_DIR, m, 'module.json')
   if (!existsSync(file)) continue
   for (const r of JSON.parse(readFileSync(file, 'utf8')).files || []) {

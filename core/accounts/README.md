@@ -5,9 +5,9 @@ SPDX-License-Identifier: Apache-2.0
 
 # Dịch vụ tài khoản cán bộ
 
-Dịch vụ không giao diện của lõi. Quản trị hệ thống (`sys_admin`) tạo xã kèm tài khoản lãnh đạo xã và quản lý
-lãnh đạo xã; lãnh đạo xã (`leader`) quản lý tài khoản cán bộ xử lý (`officer`) của xã mình; người dân tự đăng ký
-tài khoản công dân. Tài khoản vẫn nằm ở Keycloak; dịch vụ gọi Keycloak Admin API bằng tài khoản dịch vụ của client
+Dịch vụ không giao diện của lõi. Quản trị hệ thống (`sys_admin`) tạo đơn vị kèm tài khoản lãnh đạo và quản lý
+lãnh đạo các đơn vị; lãnh đạo đơn vị (`leader`) quản lý tài khoản cán bộ xử lý (`officer`) của đơn vị mình; người dùng
+bên ngoài của gói (gói xã: công dân) tự đăng ký. Tài khoản vẫn nằm ở Keycloak; dịch vụ gọi Keycloak Admin API bằng tài khoản dịch vụ của client
 `accounts-service`.
 
 ## Quy tắc
@@ -23,12 +23,13 @@ tài khoản công dân. Tài khoản vẫn nằm ở Keycloak; dịch vụ gọ
   (`citizen-app`, vai trò `citizen`, `api.system_register_citizen`). Nhiều gói cùng cho đăng ký thì gửi `module`.
 - `/accounts/me/password`: người của đơn vị (client `commune-app`) và người dùng bên ngoài của các gói (client, vai trò gói
   khai báo) tự đổi mật khẩu.
-- Chỉ tác động lên cán bộ cùng xã. Khác xã trả 404.
-- Chỉ tạo được vai trò `officer`. Xã luôn là xã của người gọi, không nhận từ yêu cầu.
+- Chỉ tác động lên cán bộ cùng đơn vị. Khác đơn vị trả 404.
+- Chỉ tạo được vai trò `officer`. Đơn vị luôn là đơn vị của người gọi, không nhận từ yêu cầu.
 - Vai trò của gói (mục `roles` trong `modules/<gói>/module.json`, tên `<gói>:<vai trò>`, `identity-setup` tạo trong
   Keycloak): lãnh đạo gán cho cán bộ xử lý của đơn vị mình (`PUT /accounts/staff/{id}/roles`), chỉ vai trò của gói đơn vị
   đã bật (lõi trả ở `GET /rest/module_roles`); không gán, không gỡ được vai trò của lõi (`leader`, `officer`...).
-- Không tác động lên chính mình, lãnh đạo khác, `supervisor` hay `sys_admin` (403).
+- Chỉ tác động lên tài khoản có vai trò `officer`; không tác động lên chính mình, lãnh đạo khác, `sys_admin` hay
+  tài khoản không có `officer` (403).
 - Mỗi thao tác ghi vào nhật ký `staff_audit` (chỉ thêm, không sửa, không xóa; không ghi mật khẩu).
 
 Tài khoản dịch vụ có quyền `manage-users` và `view-realm` trên cả realm, nên mọi giới hạn trên
@@ -39,7 +40,7 @@ nằm trong `server.mjs` và được kiểm thử trong `modules/xa/tests/tenan
 | Phương thức | Đường dẫn | Việc |
 | --- | --- | --- |
 | GET | `/accounts/health` | Kiểm tra dịch vụ còn xin được token Keycloak Admin API (không được thì 503) |
-| GET | `/accounts/staff` | Danh sách cán bộ của xã |
+| GET | `/accounts/staff` | Danh sách cán bộ của đơn vị |
 | POST | `/accounts/staff` | Tạo cán bộ xử lý `{ username, firstName, lastName, email? }`, trả mật khẩu tạm |
 | PATCH | `/accounts/staff/{id}` | Sửa họ, tên, email `{ firstName, lastName, email }` |
 | PATCH | `/accounts/staff/{id}/status` | Khóa hoặc mở `{ enabled: true \| false }` |
@@ -48,16 +49,16 @@ nằm trong `server.mjs` và được kiểm thử trong `modules/xa/tests/tenan
 | POST | `/accounts/first-password` | Không cần token. Cán bộ đổi mật khẩu tạm lần đầu ngay trên trang đăng nhập `{ username, currentPassword, newPassword }`; mật khẩu tạm được Keycloak kiểm tra; tối đa 5 lần/15 phút mỗi tài khoản |
 | POST | `/accounts/staff/{id}/reset-password` | Cấp mật khẩu tạm mới |
 | POST | `/accounts/tenants` | `sys_admin`. Tạo đơn vị kèm lãnh đạo `{ code, name, modules?, leaderUsername, leaderFullName, leaderEmail? }` (`modules` ví dụ `["xa"]`), trả `{ tenant, modules, leader: { id, username, temporaryPassword } }` |
-| GET | `/accounts/tenants/{code}/leaders` | `sys_admin`. Lãnh đạo của xã |
+| GET | `/accounts/tenants/{code}/leaders` | `sys_admin`. Lãnh đạo của đơn vị |
 | POST | `/accounts/tenants/{code}/leaders` | `sys_admin`. Thêm lãnh đạo `{ username, fullName, email? }`, trả mật khẩu tạm |
 | POST | `/accounts/tenants/{code}/leaders/{id}/reset-password` | `sys_admin`. Cấp mật khẩu tạm mới cho lãnh đạo |
 | PATCH | `/accounts/tenants/{code}/leaders/{id}/status` | `sys_admin`. Khóa hoặc mở lãnh đạo `{ enabled }` |
 | POST | `/public/accounts/register` | Không cần token. Người dân tự đăng ký `{ fullName, username, email?, phone?, tenantCode, password, consent: true }`; mật khẩu tối thiểu 8 ký tự, có chữ và số |
 | POST | `/accounts/me/password` | Người đăng nhập tự đổi mật khẩu `{ currentPassword, newPassword }`. Nhận token của `citizen-app` (phải có vai trò `citizen`) hoặc `commune-app`; mật khẩu hiện tại được Keycloak kiểm tra qua đúng client đó; tối đa 5 lần/15 phút mỗi tài khoản |
 
-Nhật ký: `GET /rest/staff_audit` (lãnh đạo thấy xã mình, `sys_admin` thấy tất cả).
+Nhật ký: `GET /rest/staff_audit` (lãnh đạo thấy đơn vị mình, `sys_admin` thấy tất cả).
 
-Mật khẩu tạm (của cán bộ và lãnh đạo xã) có `temporary: true`: lần đầu đăng nhập màn hình cán bộ, người dùng phải
+Mật khẩu tạm (của cán bộ và lãnh đạo đơn vị) có `temporary: true`: lần đầu đăng nhập màn hình cán bộ, người dùng phải
 đặt mật khẩu mới ngay trên trang đăng nhập (`/accounts/first-password`).
 
 ## Biến môi trường

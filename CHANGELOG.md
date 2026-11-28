@@ -33,6 +33,26 @@ Mọi thay đổi đáng chú ý của dự án được ghi tại đây.
 - `make test-architecture` thêm bài: mã các dịch vụ lõi, cấu hình cổng, realm, đặc tả API của lõi không nhắc tới gói xã.
 - CI job "Chỉ lõi" dựng thêm bảng quản trị và kiểm tra: bảng quản trị chạy được, hàm công khai của gói xã trả 404, trang
   tài liệu không có đặc tả gói nào.
+- Sổ ghi nhận: cột mã đối tượng `dossier_id` đổi thành `ref_id` (bảng `ledger_entries`, `GET /rest/ledger`); bản cài cũ
+  tự đổi tên cột khi `make up`, công thức băm không đổi nên chuỗi cũ vẫn kiểm tra đúng.
+- Vai trò `receptionist`, `supervisor` chuyển từ realm của lõi sang `modules/xa/identity/realm.json`; vai trò của lõi chỉ
+  còn `sys_admin`, `leader`, `officer`. `require_staff()` nhận mọi người của đơn vị đang hoạt động (theo `tenant_id`), không
+  liệt kê vai trò của gói; dịch vụ tài khoản chỉ tác động lên tài khoản có vai trò `officer`.
+- Hợp đồng nguồn tri thức của AI: `procedureId` / `p_procedure_id` đổi thành `refId` / `p_ref_id` (mã đối tượng người
+  hỏi đang xem); kết quả của kho tri thức lõi bỏ cột `procedure_id`. Giá trị mặc định `p_audience` của lõi là `public`;
+  câu lệnh cho mô hình chọn trích dẫn không còn nói "thủ tục hành chính".
+- `core/rest/README.md` chỉ còn API của lõi; API dữ liệu của gói xã chuyển sang `modules/xa/README.md`. Tài liệu của
+  `core/` (tài khoản, định danh, AI, điều phối) gọi "đơn vị" thay cho "xã" khi nói về hành vi của lõi.
+- `make test-architecture`: SQL của lõi không có cột, tham số, vai trò mang khái niệm của gói xã (`dossier`, `citizen`,
+  `procedure`, `receptionist`, `supervisor`) và không nhắc "xã"; realm của lõi chỉ có ba vai trò của lõi.
+- Lõi không còn lấy gói xã làm mặc định: các dịch vụ lõi, `migrate.sh`, trang tài liệu API coi `COMMUNEOS_MODULES` chưa
+  đặt là không có gói nào. Đặt `COMMUNEOS_MODULES=` (rỗng) trong `.env` thì chỉ chạy lõi (docker compose dùng
+  `${COMMUNEOS_MODULES-...}`, không thay giá trị rỗng bằng gói mẫu); thêm gói sau rồi `make up`. `make test-platform` chạy
+  được khi không có gói nào. Keycloak của lõi không còn nhận `CITIZEN_KEYCLOAK_SECRET` (chỉ `identity-setup` cần, cho
+  phần định danh của gói xã).
+- CI job "Chỉ lõi": dựng lõi không có gói nào và kiểm thử, rồi cài thêm gói doanh nghiệp vào lõi đang chạy và kiểm thử lại.
+- Đặc tả API của lõi dùng ví dụ trung lập (Công ty A) thay cho ví dụ của gói xã; sửa `matched` (`text`, `vector`, `both`)
+  và `status` của quy trình (trạng thái do gói khai báo) cho đúng với mã.
 
 ### Sửa lỗi (2026-11-30)
 

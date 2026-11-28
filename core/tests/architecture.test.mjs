@@ -54,7 +54,9 @@ test('Admin uses HttpOnly BFF instead of browser bearer tokens', () => {
   assert.match(read('apps/admin/server/api/core/[...path].ts'),/adminSession.token/)
   assert.match(read('apps/admin/server/utils/portal-session.ts'),/httpOnly: true/)
   assert.match(read('apps/admin/server/utils/session.ts'),/sys_admin/)
+  // receptionist là vai trò của gói xã (modules/xa/identity/realm.json); màn hình cán bộ xã vẫn nhận vai trò này.
   assert.match(read('apps/commune/server/utils/session.ts'),/receptionist/)
+  assert.match(read('modules/xa/identity/realm.json'),/"receptionist"/)
 })
 
 test('HTTP cookies require explicit opt-in for loopback and RFC1918 IPv4', () => {
@@ -114,6 +116,13 @@ test('Core SQL knows nothing about the commune module (citizens, procedures, dos
   for (const f of readdirSync(dir).filter((f) => f.endsWith('.sql'))) {
     const code = readFileSync(resolve(dir, f), 'utf8').replace(/--.*$/gm, '')
     assert.doesNotMatch(code, /\b(citizens|procedures|applications|application_events|set_dossier_status|dossier_count)\b/, f)
+    // Không cột, tham số, vai trò, giá trị mặc định mang khái niệm của gói xã (sổ ghi nhận dùng ref_id, không dossier_id).
+    // Bỏ qua: kiểu regprocedure của PostgreSQL và dòng đổi tên cột dossier_id → ref_id cho bản cài cũ.
+    const own = code.replace(/\bto_regprocedure\b|::regprocedure\b/g, '')
+      .replace(/^.*(RENAME COLUMN dossier_id TO ref_id|column_name = 'dossier_id').*$/gm, '')
+    assert.doesNotMatch(own, /dossier|citizen|procedure|receptionist|supervisor/i, f)
+    // Thông báo lỗi, mô tả API của lõi nói "đơn vị", không nói "xã".
+    assert.doesNotMatch(own, /(^|[^\p{L}])xã([^\p{L}]|$)/iu, f)
   }
   assert.doesNotMatch(read('core/orchestrator/server.mjs').replace(/\/\/.*$/gm, ''), /xu-ly-ho-so|set_dossier_status|CITIZEN_/)
   for (const m of ['xa', 'doanh-nghiep']) {
@@ -124,8 +133,7 @@ test('Core SQL knows nothing about the commune module (citizens, procedures, dos
 })
 test('Core services, gateway and realm know nothing about the commune module', () => {
   // Mã chạy được của lõi (bỏ chú thích) không được nhắc tên bảng, hàm, đường dẫn, client của gói xã: mọi thứ riêng của gói
-  // nằm trong modules/<gói>/module.json. Ngoại lệ có chủ ý: tham số "đối tượng ưu tiên" trong hợp đồng nguồn tri thức của
-  // AI (procedureId, p_procedure_id, procedure_id), cùng tên với nguồn tri thức của gói xã.
+  // nằm trong modules/<gói>/module.json.
   const XA = /citizen|dossier|procedure|handoff|staff[-_]document|xu-ly-ho-so|set_dossier_status/i
   const strip = (code, comment) => code.split('\n').filter((l) => !comment.test(l)).join('\n')
   const files = [
@@ -135,12 +143,21 @@ test('Core services, gateway and realm know nothing about the commune module', (
   ]
   for (const [f, comment] of files) {
     let code = strip(read(f), comment)
-    if (f === 'core/ai/server.mjs') code = code.replace(/\b(procedureId|p_procedure_id|procedure_id)\b/g, '')
     const hit = code.split('\n').find((l) => XA.test(l))
     assert.equal(hit, undefined, `${f}: ${hit}`)
   }
+  // Lõi không lấy gói nào làm mặc định: không đặt COMMUNEOS_MODULES thì không có gói nào (chỉ lõi).
+  for (const f of ['core/orchestrator/server.mjs', 'core/files/server.mjs', 'core/accounts/server.mjs', 'core/ai/server.mjs',
+    'core/identity/setup.mjs', 'core/db/migrate.sh', 'core/api-docs/50-communeos.sh']) {
+    assert.doesNotMatch(read(f), /COMMUNEOS_MODULES\s*(\|\||\?\?)\s*['"][a-z]|COMMUNEOS_MODULES:-[a-z]/, f)
+  }
+  // Đặt COMMUNEOS_MODULES= (rỗng) trong .env thì docker compose không thay bằng gói mẫu (dùng "-", không dùng ":-").
+  assert.doesNotMatch(read('docker-compose.yml'), /COMMUNEOS_MODULES:-/)
   // Realm Keycloak của lõi không có client, vai trò, thuộc tính của gói (gói xã: modules/xa/identity/realm.json).
-  assert.doesNotMatch(read('core/identity/realm/communeos-realm.json'), /citizen/)
+  assert.doesNotMatch(read('core/identity/realm/communeos-realm.json'), /citizen|receptionist|supervisor/)
+  const coreRoles = JSON.parse(read('core/identity/realm/communeos-realm.json')).roles.realm.map((r) => r.name)
+    .filter((r) => !['offline_access', 'uma_authorization', 'default-roles-communeos'].includes(r)).sort()
+  assert.deepEqual(coreRoles, ['leader', 'officer', 'sys_admin'])
   // Đặc tả API của lõi không có đường dẫn riêng của gói (đặc tả của gói: modules/<gói>/api-docs.yaml).
   assert.doesNotMatch(read('core/api-docs/core-services.yaml'), /^  \/(workflow|files)\/(dossiers|documents|staff-documents|handoffs)|^  \/public\/rpc\/procedure/m)
 })

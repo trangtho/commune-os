@@ -32,7 +32,7 @@ Bảng, API, dữ liệu mẫu và kiểm thử SQL của từng nghiệp vụ n
 (`make repair-db` chạy lại riêng bước này). `db-setup` gọi [`migrate.sh`](migrate.sh):
 
 1. Các tệp `init/0*` đến `init/8*` theo thứ tự tên tệp.
-2. Từng gói trong `COMMUNEOS_MODULES` (mặc định `xa,doanh-nghiep`): các tệp trong mục `db` của
+2. Từng gói trong `COMMUNEOS_MODULES` (tệp mẫu: `xa,doanh-nghiep`; rỗng thì không có gói nào): các tệp trong mục `db` của
    `modules/<gói>/module.json`, đúng thứ tự khai báo; tài liệu trong mục `knowledge` vào kho tri thức; vai trò trong mục `roles`; hàm công khai trong mục `publicRpc`; xong thì ghi
    tên, phiên bản vào `core_modules`.
 3. Các tệp `init/9*`.

@@ -23,9 +23,11 @@ CREATE INDEX IF NOT EXISTS citizen_knowledge_chunks_embedding_idx
 -- Phạm vi do cổng AI đặt từ token đã ký, không do người hỏi tự khai:
 --   p_tenant_code: chỉ trả thủ tục xã đó đang mở (rỗng: khách, mọi thủ tục đã công bố);
 --   p_audience: 'citizen' không bao giờ thấy hướng dẫn nghiệp vụ nội bộ của cán bộ (staff_guide).
+-- p_ref_id: mã thủ tục người hỏi đang xem (hợp đồng nguồn tri thức của lõi), được ưu tiên; kết quả thêm cột procedure_id.
 DROP FUNCTION IF EXISTS api.knowledge_search(text, text, text, int, real);
-CREATE OR REPLACE FUNCTION api.knowledge_search(p_query text, p_embedding text DEFAULT NULL,
-  p_procedure_id text DEFAULT '', p_limit int DEFAULT 8, p_min_similarity real DEFAULT 0.5,
+DROP FUNCTION IF EXISTS api.knowledge_search(text, text, text, int, real, text, text);
+CREATE FUNCTION api.knowledge_search(p_query text, p_embedding text DEFAULT NULL,
+  p_ref_id text DEFAULT '', p_limit int DEFAULT 8, p_min_similarity real DEFAULT 0.5,
   p_tenant_code text DEFAULT '', p_audience text DEFAULT 'citizen') RETURNS json
 LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public AS $$
 DECLARE
@@ -66,14 +68,14 @@ BEGIN
     ranked AS (
       SELECT c.id, c.source_type, c.procedure_id, c.field, c.source_title, c.content,
         coalesce(1.0 / (60 + fts.r), 0) + coalesce(1.0 / (60 + vec.r), 0)
-          + CASE WHEN coalesce(p_procedure_id, '') <> '' AND c.procedure_id = p_procedure_id THEN 0.05 ELSE 0 END AS score,
+          + CASE WHEN coalesce(p_ref_id, '') <> '' AND c.procedure_id = p_ref_id THEN 0.05 ELSE 0 END AS score,
         round(vec.sim::numeric, 4) AS similarity,
         CASE WHEN fts.id IS NOT NULL AND vec.id IS NOT NULL THEN 'both' WHEN vec.id IS NOT NULL THEN 'vector' ELSE 'text' END AS matched
       FROM scope c
       LEFT JOIN fts ON fts.id = c.id
       LEFT JOIN vec ON vec.id = c.id
       WHERE fts.id IS NOT NULL OR vec.id IS NOT NULL
-        OR (coalesce(p_procedure_id, '') <> '' AND c.procedure_id = p_procedure_id))
+        OR (coalesce(p_ref_id, '') <> '' AND c.procedure_id = p_ref_id))
     SELECT coalesce(json_agg(x ORDER BY x.score DESC, x.id), '[]'::json)
     FROM (SELECT * FROM ranked ORDER BY score DESC, id LIMIT v_limit) x);
 END $$;

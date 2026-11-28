@@ -5,71 +5,39 @@ SPDX-License-Identifier: Apache-2.0
 
 # core/rest — API dữ liệu (PostgREST)
 
-Bảng quản trị, màn hình cán bộ xã và Kênh người dân đọc ghi dữ liệu qua API này (Kênh người dân bằng token của
-client `citizen-app`, vai trò PostgREST `citizen-app`; khách qua `/public`).
+Mọi ứng dụng (bảng quản trị, ứng dụng của các gói) đọc ghi dữ liệu qua API này. PostgREST sinh API từ schema `api`
+của PostgreSQL: phần của lõi (bảng `core/db/init/`) và phần của các gói đang cài (`modules/<gói>/db/`). Gói khai báo
+thêm vai trò PostgREST cho người dùng bên ngoài của mình (gói xã: `citizen-app` cho công dân); khách gọi các hàm gói khai
+báo ở mục `publicRpc` qua `/public/rpc/...`.
 
 ```
-Đăng nhập Keycloak → token (tenant_id = mã xã, realm_access.roles = vai trò)
+Đăng nhập Keycloak → token (tenant_id = mã đơn vị, realm_access.roles = vai trò)
   → APISIX /rest/* kiểm tra token
   → PostgREST kiểm tra lại chữ ký, chuyển sang vai trò "commune-app"
-  → PostgreSQL áp RLS: chỉ trả dữ liệu của đúng xã trong token
+  → PostgreSQL áp RLS: chỉ trả dữ liệu của đúng đơn vị trong token
 ```
 
 Mọi lời gọi cần header `Authorization: Bearer <token>`. Không có token → 401.
 
-## Danh sách API
-
-| Muốn                                 | Gọi                                                                                                                                                |
-| ------------------------------------ | -------------------------------------------------------------------------------------------------------------------------------------------------- |
-| Hồ sơ của xã (số điện thoại đã che)  | `GET /rest/dossiers`                                                                                                                               |
-| Hồ sơ đang xử lý, hạn gần nhất trước | `GET /rest/dossiers?status=eq.processing&order=due_at`                                                                                             |
-| Hồ sơ quá hạn                        | `GET /rest/dossiers?overdue=is.true`                                                                                                               |
-| Một hồ sơ                            | `GET /rest/dossiers?id=eq.HS-2026-001248`                                                                                                          |
-| Lịch sử xử lý một hồ sơ              | `GET /rest/dossier_events?dossier_id=eq.HS-2026-001248&order=created_at`                                                                           |
-| Giấy tờ đã nộp của một hồ sơ         | `GET /rest/dossier_documents?dossier_id=eq.HS-2026-001248`                                                                                         |
-| Giấy tờ cần nộp theo thủ tục         | `GET /rest/procedure_documents?procedure_id=eq.khai-sinh`                                                                                          |
-| Danh mục thủ tục đang công bố        | `GET /rest/procedures`                                                                                                                             |
-| Danh sách xã (sys_admin thấy tất cả) | `GET /rest/tenants`                                                                                                                                |
-| Thêm xã (chỉ sys_admin)              | `POST /rest/rpc/add_tenant` với `{"code":"xa-c","name":"Xã C"}`                                                                                    |
-| Khóa / mở xã (chỉ sys_admin)         | `POST /rest/rpc/set_tenant_status` với `{"code":"xa-a","status":"locked"}`                                                                         |
-| Đổi trạng thái hồ sơ (cán bộ xã)     | Không gọi ở đây: dùng `POST /workflow/dossiers/<mã>/actions` (xem `core/orchestrator`). `set_dossier_status` chỉ nhận lời gọi từ dịch vụ điều phối|
-| Xem sổ ghi nhận                      | `GET /rest/ledger?order=seq.desc&limit=30`                                                                                                         |
-| Kiểm tra sổ có bị sửa không          | `POST /rest/rpc/verify_ledger` với `{}` hoặc `{"only_tenant":"xa-a"}`                                                                              |
-| Mở / tắt thủ tục cho xã (sys_admin)  | `POST /rest/rpc/set_tenant_procedure`, `set_tenant_procedures`, `set_procedure_tenants`                                                            |
-| Nạp gói thủ tục (sys_admin)          | `POST /rest/rpc/import_procedure` với `{"pack": {...}}` (nội dung `pack.yaml` chuyển sang JSON)                                                          |
-| Phân công, trình duyệt hồ sơ         | `POST /rest/rpc/assign_dossier`, `request_dossier_approval`; xem `GET /rest/dossier_assignments`                                                   |
-| Thông báo cho cán bộ (theo xã, gửi cho mình hoặc vai trò của mình) | `GET /rest/staff_notifications`; đánh dấu đã đọc `POST /rest/rpc/read_staff_notification`, `read_all_staff_notifications` |
-| Lãnh đạo gửi thông báo tới công dân của xã | `POST /rest/rpc/broadcast_citizen_notice` với `{"title":"...","body":"..."}` |
-| Nhật ký quản lý cán bộ (lãnh đạo)    | `GET /rest/staff_audit`                                                                                                                            |
-| Nhân viên, việc giao, yêu cầu        | `staff_profiles`, `staff_tasks`, `staff_requests`, `staff_workload`, `my_profile`, `my_tasks`, `my_requests` (xem `docs/QUAN_LY_NHAN_VIEN.md`)      |
-
-### Công dân (token của client `citizen-app`)
-
-Token công dân có vai trò `citizen`, claim `citizen_id` và `citizen_tenant`. PostgREST chuyển sang
-vai trò `citizen-app`; hàm `public.rest_pre_request()` (biến `PGRST_DB_PRE_REQUEST`) đặt
-`app.citizen_id`, `app.tenant_id` để chính sách RLS của các bảng công dân áp dụng
-(`modules/xa/db/19-citizen-rest-api.sql`). Token công dân không đọc được các API của cán bộ ở trên (403).
-
-Luồng chính của Kênh người dân là các hàm trong `modules/xa/db/21-citizen-api-core-flow.sql`, gọi bằng
-`POST /rest/rpc/<tên hàm>` với tham số JSON (tên bắt đầu bằng `p_`). Hàm chạy bằng quyền người gọi nên RLS
-áp dụng; ràng buộc nghiệp vụ kiểm tra lại khi ghi. Lỗi nghiệp vụ trả mã HTTP tương ứng (mã `PTxyz`) kèm
-lời nhắn tiếng Việt.
+## API của lõi
 
 | Muốn | Gọi |
 | --- | --- |
-| Thông tin của công dân đang đăng nhập | `GET /rest/my_citizen_profile` |
-| Danh mục, chi tiết thủ tục (công dân thấy thủ tục xã mình mở) | `procedure_catalog`, `procedure_detail` |
-| Hồ sơ cá nhân: xem, sửa | `citizen_profile`, `citizen_profile_update` |
-| Hồ sơ của tôi, một hồ sơ, dữ liệu bản nháp | `citizen_applications`, `citizen_application`, `citizen_application_draft` |
-| Tạo, sửa, tự lưu bản nháp | `citizen_application_create`, `citizen_application_update`, `citizen_application_autosave` |
-| Nộp hồ sơ (chặn nếu thiếu giấy tờ bắt buộc) | `citizen_application_submit` |
-| Giấy tờ: ghi, xóa, lấy để tải | `citizen_document_add`, `citizen_document_remove`, `citizen_document_file` |
-| Thông báo: xem, đọc một, đọc tất cả | `citizen_notifications`, `citizen_notification_read`, `citizen_notifications_read_all` |
+| Danh sách đơn vị (sys_admin thấy tất cả) | `GET /rest/tenants` |
+| Thêm đơn vị (chỉ sys_admin) | `POST /rest/rpc/add_tenant` với `{"code":"cong-ty-a","name":"Công ty A"}`; tạo kèm lãnh đạo thì dùng `POST /accounts/tenants` |
+| Khóa / mở đơn vị (chỉ sys_admin) | `POST /rest/rpc/set_tenant_status` với `{"code":"cong-ty-a","status":"locked"}` |
+| Gói đang cài | `GET /rest/modules`; khách: `POST /public/rpc/public_platform` |
+| Gói của từng đơn vị; bật, tắt (sys_admin) | `GET /rest/tenant_modules`, `POST /rest/rpc/my_modules`, `POST /rest/rpc/set_tenant_module` |
+| Vai trò riêng của các gói đơn vị dùng | `GET /rest/module_roles` (gán qua `PUT /accounts/staff/{id}/roles`) |
+| Xem sổ ghi nhận | `GET /rest/ledger?order=seq.desc&limit=30` (`ref_id`: mã đối tượng, ví dụ mã hồ sơ, mã đơn) |
+| Kiểm tra sổ có bị sửa không | `POST /rest/rpc/verify_ledger` với `{}` hoặc `{"only_tenant":"cong-ty-a"}` |
+| Kho tri thức của đơn vị | `GET /rest/knowledge_documents`; lãnh đạo `POST /rest/rpc/knowledge_add`, `knowledge_remove` |
+| Nhật ký quản lý cán bộ (lãnh đạo) | `GET /rest/staff_audit` |
+| Đổi trạng thái đối tượng theo quy trình | Không gọi ở đây: dùng `POST /workflow/<loại>/<mã>/actions` (xem `core/orchestrator`) |
+| Tệp đính kèm | Không gọi ở đây: dùng `/files/<loại>/<mã>/attachments` (xem `core/files`); `attachment_*` chỉ nhận lời gọi từ dịch vụ tệp |
 
-Khách chưa đăng nhập gọi `procedure_catalog`, `procedure_detail` qua `POST /public/rpc/...` (không token,
-PostgREST dùng vai trò `web_anon` chỉ được gọi hai hàm này).
-
-Hồ sơ thuộc về xã tiếp nhận: `tenant_code` là xã xử lý hồ sơ, `home_tenant_code` là xã của người nộp.
+API của từng gói: gói xã ở [modules/xa/README.md](../../modules/xa/README.md#api-dữ-liệu), gói doanh nghiệp ở
+[modules/doanh-nghiep/README.md](../../modules/doanh-nghiep/README.md). Trang `/docs/` hiện đầy đủ đặc tả.
 
 Cú pháp lọc, sắp xếp, chọn cột theo tài liệu PostgREST:
 `?cot=eq.giatri`, `?order=cot.desc`, `?select=cot1,cot2`, `?limit=20`.
@@ -79,15 +47,15 @@ Cú pháp lọc, sắp xếp, chọn cột theo tài liệu PostgREST:
 | HTTP | Nghĩa                                                  |
 | ---- | ------------------------------------------------------ |
 | 401  | Không có token, token hết hạn hoặc bị sửa              |
-| 403  | Đúng token nhưng không đủ quyền (vd cán bộ xã thêm xã) |
-| 400  | Dữ liệu gửi lên sai (vd mã xã có chữ hoa)              |
-| 409  | Dữ liệu đã tồn tại (vd trùng mã xã)                    |
+| 403  | Đúng token nhưng không đủ quyền (vd cán bộ thêm đơn vị) |
+| 400  | Dữ liệu gửi lên sai (vd mã đơn vị có chữ hoa)          |
+| 409  | Dữ liệu đã tồn tại (vd trùng mã đơn vị)                |
 
 ## Tệp liên quan
 
 - `core/db/init/01-create-api-roles.sh`: vai trò `authenticator`, `commune-app`, `web_anon`.
 - `core/db/init/02-don-vi.sql`: schema `api`, bảng đơn vị, hàm đọc token, API đơn vị.
 - `core/db/init/07-goi-nghiep-vu.sql`: `rest_pre_request()` (PostgREST gọi đầu mỗi yêu cầu, chạy các móc của gói).
-- `modules/xa/db/03-api.sql`, `08-api-can-bo.sql`...: API, chính sách RLS của gói xã.
+- `modules/<gói>/db/`: API, chính sách RLS của từng gói.
 - `core/rest/fetch-jwks.mjs`: lấy khóa công khai của Keycloak khi khởi động (dịch vụ `rest-keys`).
   Nếu đổi khóa trong Keycloak: `docker compose up -d --force-recreate rest-keys rest`.

@@ -50,13 +50,14 @@ CREATE OR REPLACE FUNCTION public.has_role(p_role text) RETURNS boolean
 LANGUAGE sql STABLE AS $$
   SELECT coalesce(public.jwt_claims() -> 'realm_access' -> 'roles', '[]'::jsonb) ? p_role $$;
 
--- Người của một đơn vị đang hoạt động (bất kỳ vai trò nào trong đơn vị). Trả mã đơn vị.
+-- Người của một đơn vị đang hoạt động, vai trò nào cũng được (vai trò của lõi hay vai trò riêng của gói).
+-- Thuộc đơn vị nào do thuộc tính tenant_id trong token quyết định; chỉ quản trị và dịch vụ tài khoản của lõi đặt
+-- được thuộc tính này, người dùng không tự sửa. Trả mã đơn vị.
 CREATE OR REPLACE FUNCTION public.require_staff() RETURNS text
 LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public AS $$
 DECLARE v_code text := public.current_tenant_code();
 BEGIN
   IF v_code IS NULL OR public.current_staff_id() IS NULL
-     OR NOT (public.has_role('receptionist') OR public.has_role('officer') OR public.has_role('leader'))
      OR NOT EXISTS (SELECT 1 FROM tenants WHERE code = v_code AND status = 'active') THEN
     RAISE EXCEPTION 'Chỉ cán bộ của đơn vị đang hoạt động được dùng chức năng này' USING ERRCODE = '42501';
   END IF;

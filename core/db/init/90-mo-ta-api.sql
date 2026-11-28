@@ -10,8 +10,8 @@ COMMENT ON SCHEMA api IS $$CommuneOS – API dữ liệu của lõi và các gó
 
 API tự sinh bởi PostgREST trên schema `api` của PostgreSQL, gọi qua cổng APISIX tại `/rest/`.
 Mọi lời gọi cần token Keycloak (`Authorization: Bearer <token>`); token của client `commune-app` dùng cho người của
-đơn vị (cán bộ, lãnh đạo) và quản trị hệ thống; gói nghiệp vụ xã dùng thêm client `citizen-app` cho công dân.
-Row Level Security tự lọc theo đơn vị (xã, công ty...) trong token, nên cùng một đường dẫn mỗi người thấy dữ liệu khác nhau.
+đơn vị (cán bộ, lãnh đạo) và quản trị hệ thống; gói nghiệp vụ có thể khai báo thêm client riêng cho người dùng bên ngoài (mục `identity` của module.json).
+Row Level Security tự lọc theo đơn vị (công ty, cơ quan...) trong token, nên cùng một đường dẫn mỗi người thấy dữ liệu khác nhau.
 
 Bảng ảo: `GET /rest/<tên>` với bộ lọc PostgREST, ví dụ `?status=eq.processing&order=submitted_at.desc&limit=20`.
 Hàm: `POST /rest/rpc/<tên>` với thân JSON gồm các tham số.
@@ -32,7 +32,7 @@ BEGIN
     ('remove_new_tenant', 'Hủy đơn vị vừa tạo khi tạo tài khoản lãnh đạo lỗi', 'Chỉ sys_admin; chỉ đơn vị tạo trong vòng 1 giờ, chưa có dữ liệu.'),
     ('set_tenant_status', 'Khóa hoặc mở một đơn vị', 'status: active hoặc locked. Chỉ sys_admin.'),
     ('ledger', 'Sổ ghi nhận chống sửa',
-     'Mỗi thao tác (trên hồ sơ, đơn...) nối với thao tác trước của cùng đơn vị bằng mã băm. Cột dossier_id là mã đối tượng. Kiểm tra toàn chuỗi bằng rpc/verify_ledger.'),
+     'Mỗi thao tác (trên hồ sơ, đơn...) nối với thao tác trước của cùng đơn vị bằng mã băm. Cột ref_id là mã đối tượng. Kiểm tra toàn chuỗi bằng rpc/verify_ledger.'),
     ('verify_ledger', 'Kiểm tra toàn vẹn sổ ghi nhận',
      'Tính lại từng mã băm và so với sổ. Thân {} kiểm tra mọi đơn vị, hoặc {"only_tenant":"xa-a"}. broken_seq: vị trí đầu tiên bị sửa.'),
     ('staff_audit', 'Nhật ký quản lý tài khoản cán bộ', 'Tạo, khóa, mở, cấp lại mật khẩu, sửa, xóa; không chứa mật khẩu.'),
