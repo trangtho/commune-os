@@ -7,7 +7,7 @@ SPDX-License-Identifier: Apache-2.0
 
 Trang tài liệu API của lõi (Swagger UI), mở qua cổng: http://localhost:9080/docs/ (cổng theo `GATEWAY_PORT`).
 Trang chỉ hiển thị đặc tả, không chứa dữ liệu. Lời gọi thử đi qua cổng APISIX như mọi ứng dụng khác, cần token
-và bị RLS lọc theo xã như bình thường.
+và bị RLS lọc theo đơn vị như bình thường.
 
 Hai đặc tả, chọn ở ô "Select a definition":
 

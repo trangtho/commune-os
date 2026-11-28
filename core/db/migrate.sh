@@ -14,7 +14,7 @@ set -eu
 
 CORE_DIR="${CORE_DIR:-/setup/core/init}"
 MODULES_DIR="${MODULES_DIR:-/setup/modules}"
-MODULES=$(echo "${COMMUNEOS_MODULES:-xa}" | tr ',' ' ')
+MODULES=$(echo "${COMMUNEOS_MODULES:-}" | tr ',' ' ')
 # Bỏ các NOTICE "đã có, bỏ qua" khi chạy lại; cảnh báo và lỗi vẫn hiện.
 export PGOPTIONS="${PGOPTIONS:--c client_min_messages=warning}"
 

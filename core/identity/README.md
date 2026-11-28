@@ -11,19 +11,21 @@ Dịch vụ định danh của lõi, dùng Keycloak. Realm xuất ra JSON để 
   khi khởi động (`start-dev --import-realm`). Tệp realm không có tài khoản người dùng, chỉ có tài khoản dịch vụ;
   chính sách mật khẩu: tối thiểu 8 ký tự, có chữ và số.
 - Tài khoản quản trị hệ thống duy nhất do `identity-setup` tạo từ `COMMUNEOS_ADMIN_USERNAME`,
-  `COMMUNEOS_ADMIN_PASSWORD` trong `.env` (mỗi lần `make up` đặt lại mật khẩu theo `.env`). Lãnh đạo xã, cán bộ và
-  công dân được tạo qua dịch vụ `core/accounts`; tài khoản mẫu do `make demo` tạo.
-- Vai trò: `sys_admin` (quản trị hệ thống), `leader` (lãnh đạo xã), `officer` (cán bộ xử lý), `supervisor` (cấp trên), `citizen` (công dân). Mỗi xã chỉ dùng `leader` và `officer`; `receptionist` còn trong realm để tương thích, không gán cho ai.
-- Client `commune-app`: cán bộ và quản trị đăng nhập. Mapper đưa thuộc tính `tenant_id` (mã xã) vào access token.
-- Client `citizen-app` (client bí mật, secret lấy từ biến `CITIZEN_KEYCLOAK_SECRET`): máy chủ Kênh người
-  dân đổi tên đăng nhập, mật khẩu của công dân lấy token (chỉ bật đăng nhập bằng mật khẩu, không bật luồng
-  chuyển trang). Công dân không có secret nên không tự xin token để gọi thẳng API lõi. Mapper đưa `citizen_id` (mã công dân
-  trong bảng `citizens`) và `citizen_tenant` (mã xã) vào access token.
+  `COMMUNEOS_ADMIN_PASSWORD` trong `.env` (mỗi lần `make up` đặt lại mật khẩu theo `.env`). Lãnh đạo, cán bộ của
+  đơn vị và người dùng bên ngoài của gói được tạo qua dịch vụ `core/accounts`; tài khoản mẫu do `make demo` tạo.
+- Vai trò của lõi: `sys_admin` (quản trị hệ thống), `leader` (lãnh đạo đơn vị), `officer` (cán bộ xử lý).
+- Client `commune-app`: cán bộ và quản trị đăng nhập. Mapper đưa thuộc tính `tenant_id` (mã đơn vị) vào access token.
+- Gói khai báo phần định danh riêng ở mục `identity` của `module.json`; `identity-setup` nạp vào realm (vai trò, client,
+  thuộc tính). Gói xã (`modules/xa/identity/realm.json`): vai trò `citizen` (công dân), `receptionist` (tiếp nhận tại
+  quầy), `supervisor` (cấp trên); client `citizen-app` (client bí mật, secret lấy từ biến `CITIZEN_KEYCLOAK_SECRET`):
+  máy chủ Kênh người dân đổi tên đăng nhập, mật khẩu của công dân lấy token (chỉ bật đăng nhập bằng mật khẩu, không bật
+  luồng chuyển trang), công dân không có secret nên không tự xin token để gọi thẳng API lõi; mapper đưa `citizen_id` (mã
+  công dân trong bảng `citizens`) và `citizen_tenant` (mã xã) vào access token.
 - Client `accounts-service`: tài khoản dịch vụ cho `core/accounts`, bí mật lấy từ biến `KEYCLOAK_ACCOUNTS_SECRET` khi nạp realm.
-- Thuộc tính `tenant_id`: người dùng chỉ xem, chỉ quản trị sửa được. `citizen_id`, `citizen_tenant`:
+- Thuộc tính `tenant_id`: người dùng chỉ xem, chỉ quản trị sửa được. `citizen_id`, `citizen_tenant` (gói xã):
   chỉ quản trị xem và sửa.
-- Công dân **không** có thuộc tính `tenant_id`: RLS hồ sơ của cán bộ dựa vào claim này, nên công dân
-  lấy token qua `commune-app` cũng không đọc được hồ sơ của xã.
+- Người dùng bên ngoài của gói (gói xã: công dân) **không** có thuộc tính `tenant_id`: RLS dữ liệu của đơn vị dựa vào
+  claim này, nên công dân lấy token qua `commune-app` cũng không đọc được hồ sơ của xã.
 
 ## Máy đã cài từ bản trước: `identity-setup`
 

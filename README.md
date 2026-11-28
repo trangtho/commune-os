@@ -57,7 +57,7 @@ Giấy phép của các thành phần bên thứ ba được liệt kê trong
 | Gói nghiệp vụ         | `modules/doanh-nghiep/` | Gói doanh nghiệp: duyệt đơn nghỉ phép                                     |
 
 Ba ứng dụng trong `apps/` dùng gói xã. Mỗi gói khai báo trong `module.json` tệp SQL, quy trình BPMN, việc định kỳ;
-lõi nạp các gói trong `COMMUNEOS_MODULES` (mặc định `xa,doanh-nghiep`). Ranh giới lõi và gói:
+lõi nạp các gói trong `COMMUNEOS_MODULES` (tệp mẫu `.env.example`: `xa,doanh-nghiep`; để rỗng thì chỉ có lõi). Ranh giới lõi và gói:
 [docs/LOI_DUNG_CHUNG.md](docs/LOI_DUNG_CHUNG.md#ranh-giới-trong-mã-nguồn).
 
 Lõi hoàn toàn không có giao diện: chỉ có dịch vụ và API. Bảng quản trị (`apps/admin`) và

@@ -15,8 +15,8 @@
 CREATE TABLE IF NOT EXISTS ledger_entries (
   seq        bigint GENERATED ALWAYS AS IDENTITY PRIMARY KEY,
   tenant_id  uuid NOT NULL REFERENCES tenants(id),
-  event_id   bigint UNIQUE,              -- gói xã: application_events.id, mỗi sự kiện ghi sổ đúng 1 lần
-  dossier_id text NOT NULL,
+  event_id   bigint UNIQUE,              -- mã sự kiện của gói (nếu có): mỗi sự kiện ghi sổ đúng 1 lần
+  ref_id     text NOT NULL,              -- mã đối tượng (mã hồ sơ, mã đơn...)
   action     text NOT NULL,
   actor      text NOT NULL,
   note_hash  text NOT NULL,
@@ -24,22 +24,31 @@ CREATE TABLE IF NOT EXISTS ledger_entries (
   prev_hash  text NOT NULL,
   hash       text NOT NULL
 );
+-- Bản cài cũ: cột mã đối tượng từng tên dossier_id.
+DO $$ BEGIN
+  IF EXISTS (SELECT FROM information_schema.columns
+              WHERE table_schema = 'public' AND table_name = 'ledger_entries' AND column_name = 'dossier_id') THEN
+    DROP VIEW IF EXISTS api.ledger;
+    ALTER TABLE ledger_entries RENAME COLUMN dossier_id TO ref_id;
+  END IF;
+END $$;
 CREATE INDEX IF NOT EXISTS ledger_tenant_seq_idx ON ledger_entries (tenant_id, seq);
 
 -- Công thức băm, dùng chung cho lúc ghi và lúc kiểm tra.
-CREATE OR REPLACE FUNCTION public.ledger_hash(
-  prev_hash text, seq bigint, tenant_id uuid, dossier_id text,
+DROP FUNCTION IF EXISTS public.ledger_hash(text, bigint, uuid, text, text, text, text, timestamptz);
+CREATE FUNCTION public.ledger_hash(
+  prev_hash text, seq bigint, tenant_id uuid, ref_id text,
   action text, actor text, note_hash text, created_at timestamptz
 ) RETURNS text LANGUAGE sql IMMUTABLE AS $$
   SELECT encode(sha256(convert_to(concat_ws('|',
-    prev_hash, seq::text, tenant_id::text, dossier_id, action, actor, note_hash,
+    prev_hash, seq::text, tenant_id::text, ref_id, action, actor, note_hash,
     to_char(created_at AT TIME ZONE 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS.US"Z"')
   ), 'UTF8')), 'hex')
 $$;
 
 -- Ghi 1 dòng sổ cho một đơn vị (hàm dùng chung của lõi, mọi gói nghiệp vụ gọi được từ hàm SECURITY DEFINER của mình).
 -- p_ref: mã đối tượng (mã hồ sơ, mã đơn...), nên có tiền tố riêng cho từng gói để không trùng.
--- p_event_id: chỉ sự kiện hồ sơ dùng (mỗi sự kiện ghi sổ đúng 1 lần); gói khác để NULL.
+-- p_event_id: mã sự kiện của gói, nếu gói cần mỗi sự kiện ghi sổ đúng 1 lần; không cần thì để NULL.
 CREATE OR REPLACE FUNCTION public.ledger_record(
   p_tenant uuid, p_ref text, p_action text, p_actor text,
   p_note text, p_created_at timestamptz, p_event_id bigint DEFAULT NULL
@@ -58,7 +67,7 @@ BEGIN
    WHERE l.tenant_id = p_tenant ORDER BY l.seq DESC LIMIT 1;
   v_prev := coalesce(v_prev, repeat('0', 64));
   v_seq := nextval(pg_get_serial_sequence('ledger_entries', 'seq'));
-  INSERT INTO ledger_entries (seq, tenant_id, event_id, dossier_id, action, actor,
+  INSERT INTO ledger_entries (seq, tenant_id, event_id, ref_id, action, actor,
                               note_hash, created_at, prev_hash, hash)
   OVERRIDING SYSTEM VALUE
   VALUES (v_seq, p_tenant, p_event_id, p_ref, p_action, coalesce(p_actor, ''), v_note, p_created_at,
@@ -83,10 +92,9 @@ REVOKE ALL ON ledger_entries FROM PUBLIC;
 
 -- ===== API =====
 -- Xem sổ: quản trị hệ thống thấy mọi đơn vị, người của đơn vị chỉ thấy đơn vị mình.
--- Cột dossier_id là mã đối tượng (mã hồ sơ, mã đơn...), giữ tên cũ để không đổi API.
 DROP VIEW IF EXISTS api.ledger;
 CREATE VIEW api.ledger AS
-SELECT l.seq, t.code AS tenant_code, l.dossier_id, l.action, l.actor,
+SELECT l.seq, t.code AS tenant_code, l.ref_id, l.action, l.actor,
        l.created_at, l.prev_hash, l.hash
 FROM ledger_entries l JOIN tenants t ON t.id = l.tenant_id
 WHERE public.is_sys_admin() OR t.code = public.current_tenant_code();
@@ -110,7 +118,7 @@ BEGIN
       IF r.prev_hash <> v_prev THEN
         v_bad := r.seq; v_why := 'Thiếu hoặc sai dòng liền trước'; EXIT;
       END IF;
-      IF r.hash <> public.ledger_hash(r.prev_hash, r.seq, r.tenant_id, r.dossier_id,
+      IF r.hash <> public.ledger_hash(r.prev_hash, r.seq, r.tenant_id, r.ref_id,
                                       r.action, r.actor, r.note_hash, r.created_at) THEN
         v_bad := r.seq; v_why := 'Nội dung dòng đã bị sửa'; EXIT;
       END IF;

@@ -61,7 +61,7 @@ const PORT = Number(process.env.PORT || 3000)
 
 const ADMIN = `${KEYCLOAK_URL}/admin/realms/${REALM}`
 const MANAGED_ROLE = 'officer'
-const PROTECTED_ROLES = ['leader', 'sys_admin', 'supervisor']
+const PROTECTED_ROLES = ['leader', 'sys_admin']
 
 class HttpError extends Error {
   constructor(status, message) { super(message); this.status = status }
@@ -152,7 +152,11 @@ async function manageable(me, userId) {
   if (tenantOf(user) !== me.tenant) throw new HttpError(404, 'Không tìm thấy cán bộ')
   if (user.id === me.id) throw new HttpError(403, 'Không tự thao tác trên tài khoản của chính mình')
   const roles = await realmRoles(user.id)
-  if (roles.some((r) => PROTECTED_ROLES.includes(r))) throw new HttpError(403, 'Chỉ quản lý được cán bộ xử lý')
+  // Chỉ tác động lên tài khoản có vai trò officer và không có vai trò quản lý nào; tài khoản mang vai trò riêng
+  // khác (gói tự cấp) mà không có officer thì lãnh đạo đơn vị không động tới.
+  if (!roles.includes(MANAGED_ROLE) || roles.some((r) => PROTECTED_ROLES.includes(r))) {
+    throw new HttpError(403, 'Chỉ quản lý được cán bộ xử lý')
+  }
   return user
 }
 
@@ -247,7 +251,7 @@ async function firstPassword(req, res) {
 // người dùng của gói (gọi kèm khóa nội bộ, nhận p_tenant_code, p_login_name, p_display_name, p_email, p_phone, trả
 // idField và tenant_code), thuộc tính gắn vào tài khoản Keycloak. Gói xã: công dân (citizen-app, vai trò citizen).
 const REGISTRATIONS = []
-for (const m of String(process.env.COMMUNEOS_MODULES || 'xa').split(/[\s,]+/).filter(Boolean)) {
+for (const m of String(process.env.COMMUNEOS_MODULES || '').split(/[\s,]+/).filter(Boolean)) {
   const file = join(process.env.MODULES_DIR || '/modules', m, 'module.json')
   if (!existsSync(file)) continue
   const r = JSON.parse(readFileSync(file, 'utf8')).registration
@@ -401,10 +405,10 @@ async function tenantsRoute(req, res, parts) {
     const b = await readJson(req)
     const leader = leaderInput(b)
     const code = String(b.code || '').trim()
-    // Gói nghiệp vụ bật cho đơn vị, ví dụ ["xa"] hoặc ["doanh-nghiep"]; lõi chỉ nhận gói đang được cài.
+    // Gói nghiệp vụ bật cho đơn vị, ví dụ ["doanh-nghiep"]; lõi chỉ nhận gói đang được cài. Không gửi: không bật gói nào.
     const modules = b.modules === undefined ? [] : b.modules
     if (!Array.isArray(modules) || modules.length > 20 || !modules.every((m) => typeof m === 'string' && /^[a-z][a-z0-9-]{0,62}$/.test(m))) {
-      throw new HttpError(400, 'modules phải là danh sách tên gói, ví dụ ["xa"]')
+      throw new HttpError(400, 'modules phải là danh sách tên gói, ví dụ ["doanh-nghiep"]')
     }
     if ((await kcJson('GET', `/users?username=${encodeURIComponent(leader.username)}&exact=true`)).length) {
       throw new HttpError(409, 'Tên đăng nhập lãnh đạo đã được dùng')
@@ -535,7 +539,7 @@ async function handle(req, res) {
       list.push({
         id: u.id, username: u.username, firstName: u.firstName || '', lastName: u.lastName || '',
         email: u.email || null, role, enabled: u.enabled, createdAt: new Date(u.createdTimestamp).toISOString(),
-        isMe: u.id === me.id, manageable: role === 'officer' && u.id !== me.id,
+        isMe: u.id === me.id, manageable: role === 'officer' && roles.includes(MANAGED_ROLE) && u.id !== me.id,
         moduleRoles: roles.filter((r) => r.includes(':')),     // vai trò của gói, ví dụ doanh-nghiep:truong-phong
       })
     }

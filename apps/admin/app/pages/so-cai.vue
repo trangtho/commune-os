@@ -19,7 +19,7 @@ interface VerifyRow {
 interface LedgerRow {
   seq: number;
   tenant_code: string;
-  dossier_id: string;
+  ref_id: string;
   action: string;
   actor: string;
   created_at: string;
@@ -157,7 +157,7 @@ onMounted(() => {
           >
             <td class="px-4 py-3">{{ row.seq }}</td>
             <td class="px-4 py-3">{{ tenantName(row.tenant_code) }}</td>
-            <td class="px-4 py-3 font-mono">{{ row.dossier_id }}</td>
+            <td class="px-4 py-3 font-mono">{{ row.ref_id }}</td>
             <td class="px-4 py-3">{{ ACTIONS[row.action] ?? row.action }}</td>
             <td class="px-4 py-3">{{ row.actor }}</td>
             <td class="px-4 py-3 text-slate-600">

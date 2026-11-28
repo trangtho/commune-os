@@ -12,7 +12,7 @@ cp /communeos/core-services.yaml "$HTML/core-services.yaml"
 mkdir -p "$HTML/modules"
 rm -f "$HTML"/modules/*.yaml
 list=""
-for m in $(echo "${COMMUNEOS_MODULES:-xa}" | tr ',' ' '); do
+for m in $(echo "${COMMUNEOS_MODULES:-}" | tr ',' ' '); do
   case "$m" in *[!a-z0-9-]*|'') continue ;; esac
   spec="/modules/$m/api-docs.yaml"
   [ -f "$spec" ] || continue

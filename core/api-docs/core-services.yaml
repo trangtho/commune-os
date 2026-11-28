@@ -20,12 +20,12 @@ info:
     nằm ở đặc tả của gói đó, chọn ở góc trên bên phải.
 
     **Lấy token:** bấm **Authorize** → mục `keycloak` → nhập tài khoản (quản trị hệ thống trong `.env`, hoặc tài khoản
-    do `make demo` tạo như `canbo.xa-a`, `nhanvien.cong-ty-a` / `Demo@2026!`), `client_id` để `commune-app`, bỏ trống
+    do `make demo` tạo như `nhanvien.cong-ty-a`, `canbo.xa-a` / `Demo@2026!`), `client_id` để `commune-app`, bỏ trống
     `client_secret`. Token đã lấy cũng được dùng khi chuyển sang đặc tả khác.
 
     Lấy token bằng dòng lệnh:
     ```
-    curl -s -d grant_type=password -d client_id=commune-app -d username=canbo.xa-a --data-urlencode 'password=Demo@2026!' \
+    curl -s -d grant_type=password -d client_id=commune-app -d username=nhanvien.cong-ty-a --data-urlencode 'password=Demo@2026!' \
       http://localhost:8080/realms/communeos/protocol/openid-connect/token | jq -r .access_token
     ```
 
@@ -58,7 +58,7 @@ paths:
         in: path
         required: true
         description: |
-          Loại đối tượng do gói nghiệp vụ khai báo trong `workflow.json` (thư mục `examples/`), ví dụ `leave-requests`
+          Loại đối tượng do gói nghiệp vụ khai báo ở mục `workflows` của `modules/<gói>/module.json`, ví dụ `leave-requests`
           (đơn nghỉ phép của ví dụ doanh nghiệp). Loại chưa khai báo trả 404.
         schema: { type: string, pattern: '^[a-z][a-z0-9_-]*$', example: leave-requests }
       - name: id
@@ -68,8 +68,8 @@ paths:
         schema: { type: string, example: NP-20261127-1A2B3C }
     get:
       tags: [Quy trình]
-      summary: Bước hiện tại của đối tượng thuộc gói nghiệp vụ khác
-      description: Như với hồ sơ. Đối tượng của đơn vị khác trả 404 (RLS); đã kết thúc trả `actions` rỗng.
+      summary: Bước hiện tại của một đối tượng có quy trình
+      description: Đối tượng của đơn vị khác trả 404 (RLS); đã kết thúc trả `actions` rỗng.
       responses:
         '200':
           description: Bước hiện tại
@@ -81,7 +81,7 @@ paths:
         '404': { $ref: '#/components/responses/NotFound' }
     post:
       tags: [Quy trình]
-      summary: Thực hiện một bước với đối tượng thuộc gói nghiệp vụ khác
+      summary: Thực hiện một bước của quy trình
       description: |
         `action` phải nằm trong `actions` của GET. Hàm đổi trạng thái của gói kiểm tra vai trò, đơn vị, lý do.
         Với đơn nghỉ phép: bước 1 trưởng phòng (vai trò của gói `doanh-nghiep:truong-phong`) hoặc giám đốc
@@ -183,7 +183,7 @@ paths:
               type: object
               required: [username, firstName, lastName]
               properties:
-                username: { type: string, pattern: '^[a-z0-9][a-z0-9._-]{2,49}$', example: canbo4.xa-a }
+                username: { type: string, pattern: '^[a-z0-9][a-z0-9._-]{2,49}$', example: nhanvien4.cong-ty-a }
                 firstName: { type: string, maxLength: 60, example: Minh }
                 lastName: { type: string, maxLength: 60, example: Trần }
                 email: { type: string, format: email, nullable: true }
@@ -242,7 +242,7 @@ paths:
           description: Đã xóa
           content:
             application/json:
-              example: { id: d90c78d4-7a39-4d5f-b115-31a4015039a2, username: canbo3.xa-a, deleted: true }
+              example: { id: d90c78d4-7a39-4d5f-b115-31a4015039a2, username: nhanvien3.cong-ty-a, deleted: true }
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
         '409': { $ref: '#/components/responses/Conflict' }
@@ -293,7 +293,7 @@ paths:
           description: Đã cập nhật
           content:
             application/json:
-              example: { id: d90c78d4-7a39-4d5f-b115-31a4015039a2, username: canbo3.xa-a, enabled: false }
+              example: { id: d90c78d4-7a39-4d5f-b115-31a4015039a2, username: nhanvien3.cong-ty-a, enabled: false }
         '400': { $ref: '#/components/responses/BadRequest' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
@@ -308,7 +308,7 @@ paths:
           description: Mật khẩu tạm (chỉ trả một lần)
           content:
             application/json:
-              example: { id: d90c78d4-7a39-4d5f-b115-31a4015039a2, username: canbo3.xa-a, temporaryPassword: Hk7mPq2wXa9z }
+              example: { id: d90c78d4-7a39-4d5f-b115-31a4015039a2, username: nhanvien3.cong-ty-a, temporaryPassword: Hk7mPq2wXa9z }
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
   /accounts/me/password:
@@ -341,10 +341,10 @@ paths:
                 - type: object
                   required: [username]
                   properties:
-                    username: { type: string, example: canbo4.xa-a }
+                    username: { type: string, example: nhanvien4.cong-ty-a }
                 - $ref: '#/components/schemas/PasswordChange'
       responses:
-        '200': { description: Đã đổi, content: { application/json: { example: { username: canbo4.xa-a, changed: true } } } }
+        '200': { description: Đã đổi, content: { application/json: { example: { username: nhanvien4.cong-ty-a, changed: true } } } }
         '400': { $ref: '#/components/responses/BadRequest' }
         '401': { $ref: '#/components/responses/Unauthorized' }
         '409': { $ref: '#/components/responses/Conflict' }
@@ -365,8 +365,8 @@ paths:
               type: object
               required: [code, name, leaderUsername, leaderFullName]
               properties:
-                code: { type: string, example: xa-c }
-                name: { type: string, example: Xã Hòa Bình }
+                code: { type: string, example: cong-ty-b }
+                name: { type: string, example: Công ty B }
                 modules: { type: array, items: { type: string }, example: [xa], description: 'Gói nghiệp vụ bật cho đơn vị (GET /rest/modules)' }
                 leaderUsername: { type: string, example: lanhdao.xa-c }
                 leaderFullName: { type: string, example: Nguyễn Văn Bình }
@@ -377,7 +377,7 @@ paths:
           content:
             application/json:
               example:
-                tenant: { id: 6c1d1f0e-5a0a-4a8e-9a43-0f3e7f2b1a11, code: xa-c, name: Xã Hòa Bình, status: active, created_at: '2026-11-24T08:00:00+07:00' }
+                tenant: { id: 6c1d1f0e-5a0a-4a8e-9a43-0f3e7f2b1a11, code: cong-ty-b, name: Công ty B, status: active, created_at: '2026-11-24T08:00:00+07:00' }
                 modules: [xa]
                 leader: { id: 2f6b0b8e-0c55-4a39-9a2c-4c1f0c9e7d21, username: lanhdao.xa-c, temporaryPassword: Hk7mPq2wXa9z }
         '400': { $ref: '#/components/responses/BadRequest' }
@@ -385,7 +385,7 @@ paths:
         '409': { $ref: '#/components/responses/Conflict' }
   /accounts/tenants/{code}/leaders:
     parameters:
-      - { name: code, in: path, required: true, schema: { type: string, example: xa-a } }
+      - { name: code, in: path, required: true, schema: { type: string, example: cong-ty-a } }
     get:
       tags: [Tài khoản]
       summary: Lãnh đạo của một đơn vị (sys_admin)
@@ -395,7 +395,7 @@ paths:
           content:
             application/json:
               example:
-                - { id: 2f6b0b8e-0c55-4a39-9a2c-4c1f0c9e7d21, username: lanhdao.xa-a, firstName: A, lastName: Lãnh Đạo Xã, email: null, enabled: true, createdAt: '2026-11-24T01:00:00.000Z', mustChangePassword: false }
+                - { id: 2f6b0b8e-0c55-4a39-9a2c-4c1f0c9e7d21, username: giamdoc.cong-ty-a, firstName: A, lastName: Giám Đốc, email: null, enabled: true, createdAt: '2026-11-24T01:00:00.000Z', mustChangePassword: false }
         '403': { $ref: '#/components/responses/Forbidden' }
     post:
       tags: [Tài khoản]
@@ -408,11 +408,11 @@ paths:
               type: object
               required: [username, fullName]
               properties:
-                username: { type: string, example: lanhdao2.xa-a }
+                username: { type: string, example: giamdoc2.cong-ty-a }
                 fullName: { type: string, example: Trần Thị Hoa }
                 email: { type: string }
       responses:
-        '201': { description: Mật khẩu tạm (chỉ trả một lần), content: { application/json: { example: { id: 9a1e7c2d-3b4f-4e5a-8c6d-7e8f9a0b1c2d, username: lanhdao2.xa-a, temporaryPassword: Hk7mPq2wXa9z } } } }
+        '201': { description: Mật khẩu tạm (chỉ trả một lần), content: { application/json: { example: { id: 9a1e7c2d-3b4f-4e5a-8c6d-7e8f9a0b1c2d, username: giamdoc2.cong-ty-a, temporaryPassword: Hk7mPq2wXa9z } } } }
         '400': { $ref: '#/components/responses/BadRequest' }
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
@@ -422,10 +422,10 @@ paths:
       tags: [Tài khoản]
       summary: Cấp mật khẩu tạm mới cho lãnh đạo đơn vị (sys_admin)
       parameters:
-        - { name: code, in: path, required: true, schema: { type: string, example: xa-a } }
+        - { name: code, in: path, required: true, schema: { type: string, example: cong-ty-a } }
         - $ref: '#/components/parameters/Uuid'
       responses:
-        '200': { description: Mật khẩu tạm (chỉ trả một lần), content: { application/json: { example: { id: 2f6b0b8e-0c55-4a39-9a2c-4c1f0c9e7d21, username: lanhdao.xa-a, temporaryPassword: Hk7mPq2wXa9z } } } }
+        '200': { description: Mật khẩu tạm (chỉ trả một lần), content: { application/json: { example: { id: 2f6b0b8e-0c55-4a39-9a2c-4c1f0c9e7d21, username: giamdoc.cong-ty-a, temporaryPassword: Hk7mPq2wXa9z } } } }
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
   /accounts/tenants/{code}/leaders/{id}/status:
@@ -433,13 +433,13 @@ paths:
       tags: [Tài khoản]
       summary: Khóa hoặc mở tài khoản lãnh đạo đơn vị (sys_admin)
       parameters:
-        - { name: code, in: path, required: true, schema: { type: string, example: xa-a } }
+        - { name: code, in: path, required: true, schema: { type: string, example: cong-ty-a } }
         - $ref: '#/components/parameters/Uuid'
       requestBody:
         required: true
         content: { application/json: { schema: { type: object, required: [enabled], properties: { enabled: { type: boolean } } } } }
       responses:
-        '200': { description: Đã đổi trạng thái, content: { application/json: { example: { id: 2f6b0b8e-0c55-4a39-9a2c-4c1f0c9e7d21, username: lanhdao.xa-a, enabled: false } } } }
+        '200': { description: Đã đổi trạng thái, content: { application/json: { example: { id: 2f6b0b8e-0c55-4a39-9a2c-4c1f0c9e7d21, username: giamdoc.cong-ty-a, enabled: false } } } }
         '403': { $ref: '#/components/responses/Forbidden' }
         '404': { $ref: '#/components/responses/NotFound' }
   /public/accounts/register:
@@ -615,14 +615,14 @@ components:
       type: object
       properties:
         id: { type: string }
-        status: { type: string, enum: [submitted, processing, supplement, completed, rejected] }
-        step: { type: string, nullable: true, description: Tên bước trong sơ đồ BPMN; null khi hồ sơ đã kết thúc }
+        status: { type: string, description: 'Trạng thái do gói khai báo, ví dụ submitted, dept_approved, approved', example: submitted }
+        step: { type: string, nullable: true, description: Tên bước trong sơ đồ BPMN; null khi đối tượng đã kết thúc }
         actions: { type: array, items: { type: string } }
     Staff:
       type: object
       properties:
         id: { type: string, format: uuid }
-        username: { type: string, example: canbo.xa-a }
+        username: { type: string, example: nhanvien.cong-ty-a }
         firstName: { type: string }
         lastName: { type: string }
         email: { type: string, nullable: true }
@@ -641,8 +641,8 @@ components:
       type: object
       required: [question]
       properties:
-        question: { type: string, minLength: 2, maxLength: 500, example: Đăng ký khai sinh cần giấy tờ gì }
-        procedureId: { type: string, description: 'Ưu tiên một đối tượng của nguồn tri thức (gói xã: mã thủ tục)', example: khai-sinh }
+        question: { type: string, minLength: 2, maxLength: 500, example: Nghỉ ốm cần giấy tờ gì }
+        refId: { type: string, description: 'Mã đối tượng người hỏi đang xem, nguồn tri thức của gói có thể ưu tiên (gói xã: mã thủ tục)', example: khai-sinh }
         select: { type: boolean, default: true, description: false = chỉ tìm kiếm, không gọi mô hình chọn trích dẫn (nhanh hơn) }
     AskResponse:
       type: object
@@ -657,15 +657,14 @@ components:
           items:
             type: object
             properties:
-              id: { type: string, example: 'procedure:khai-sinh:instructions' }
+              id: { type: string, example: 3f6c2a9e-8b1d-4e57-9c0a-2d4b6e8f1a35 }
               source_type: { type: string, description: 'Loại nguồn, ví dụ module_doc, tenant_doc (kho của lõi); procedure, faq, staff_guide (gói xã)' }
-              procedure_id: { type: string, nullable: true }
               field: { type: string }
-              source_title: { type: string, example: Đăng ký khai sinh }
+              source_title: { type: string, example: Nghỉ ốm }
               content: { type: string }
               score: { type: number }
               similarity: { type: number, nullable: true }
-              matched: { type: string, enum: [text, semantic, both] }
+              matched: { type: string, enum: [text, vector, both] }
         selections:
           type: array
           description: Câu trích nguyên văn từ chunks (tối đa 3)

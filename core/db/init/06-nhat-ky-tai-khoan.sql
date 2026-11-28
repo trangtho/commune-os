@@ -40,7 +40,7 @@ BEGIN
   END IF;
   IF NOT coalesce(claims -> 'realm_access' -> 'roles', '[]'::jsonb) ? 'leader'
      OR coalesce(claims ->> 'tenant_id', '') = '' THEN
-    RAISE EXCEPTION 'Chỉ lãnh đạo xã được quản lý cán bộ' USING ERRCODE = '42501';
+    RAISE EXCEPTION 'Chỉ lãnh đạo đơn vị được quản lý cán bộ' USING ERRCODE = '42501';
   END IF;
   INSERT INTO staff_audit (tenant_code, actor, action, target_username)
   VALUES (claims ->> 'tenant_id',

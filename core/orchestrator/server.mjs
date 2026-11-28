@@ -29,7 +29,7 @@ const FLOWABLE_AUTH = 'Basic ' + Buffer.from(`${process.env.FLOWABLE_USER || 're
 const REST = (process.env.REST_URL || 'http://rest:3000').replace(/\/$/, '')
 const WORKFLOW_TOKEN = process.env.WORKFLOW_TOKEN || ''
 const MODULES_DIR = process.env.MODULES_DIR || '/modules'
-const MODULES = (process.env.COMMUNEOS_MODULES || 'xa').split(/[\s,]+/).filter(Boolean)
+const MODULES = (process.env.COMMUNEOS_MODULES || '').split(/[\s,]+/).filter(Boolean)
 const TENANT = 'communeos'           // không gian tên trong Flowable, không phải mã đơn vị
 
 class HttpError extends Error {

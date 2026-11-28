@@ -156,9 +156,12 @@ END $$;
 
 -- ===== Cho ai-gateway (kèm X-Workflow-Token) =====
 -- Cùng chữ ký, cùng dạng kết quả với nguồn tri thức của gói (knowledgeProvider), để ai-gateway gộp kết quả.
-CREATE OR REPLACE FUNCTION api.core_knowledge_search(p_query text, p_embedding text DEFAULT NULL,
-  p_procedure_id text DEFAULT '', p_limit int DEFAULT 8, p_min_similarity real DEFAULT 0.5,
-  p_tenant_code text DEFAULT '', p_audience text DEFAULT 'citizen') RETURNS json
+-- p_ref_id: mã đối tượng người hỏi đang xem (gói tự hiểu, ví dụ mã thủ tục), nguồn có thể ưu tiên; kho của lõi bỏ qua.
+-- Kết quả: id, source_type, field, source_title, content, score, similarity, matched; gói có thể thêm cột riêng.
+DROP FUNCTION IF EXISTS api.core_knowledge_search(text, text, text, int, real, text, text);
+CREATE FUNCTION api.core_knowledge_search(p_query text, p_embedding text DEFAULT NULL,
+  p_ref_id text DEFAULT '', p_limit int DEFAULT 8, p_min_similarity real DEFAULT 0.5,
+  p_tenant_code text DEFAULT '', p_audience text DEFAULT 'public') RETURNS json
 LANGUAGE plpgsql STABLE SECURITY DEFINER SET search_path = public AS $$
 DECLARE
   v_ts tsquery;
@@ -196,7 +199,7 @@ BEGIN
       WHERE sim >= coalesce(p_min_similarity, 0.5)),
     ranked AS (
       SELECT c.id::text AS id, CASE WHEN c.tenant_id IS NULL THEN 'module_doc' ELSE 'tenant_doc' END AS source_type,
-        NULL::text AS procedure_id, c.module AS field, c.title AS source_title, c.content,
+        c.module AS field, c.title AS source_title, c.content,
         coalesce(1.0 / (60 + fts.r), 0) + coalesce(1.0 / (60 + vec.r), 0) AS score,
         round(vec.sim::numeric, 4) AS similarity,
         CASE WHEN fts.id IS NOT NULL AND vec.id IS NOT NULL THEN 'both' WHEN vec.id IS NOT NULL THEN 'vector' ELSE 'text' END AS matched

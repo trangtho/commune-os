@@ -55,7 +55,6 @@ services:
       # Cổng quản lý 9000 (chỉ trong mạng Docker): /health/ready cho healthcheck bên dưới.
       KC_HEALTH_ENABLED: "true"
       KEYCLOAK_ACCOUNTS_SECRET: ${KEYCLOAK_ACCOUNTS_SECRET}
-      CITIZEN_KEYCLOAK_SECRET: ${CITIZEN_KEYCLOAK_SECRET}
     volumes:
       - ./core/identity/realm:/opt/keycloak/data/import:ro
     depends_on:
@@ -87,13 +86,14 @@ services:
       KEYCLOAK_URL: http://identity:8080
       KEYCLOAK_ADMIN: ${KEYCLOAK_ADMIN}
       KEYCLOAK_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD}
-      CITIZEN_KEYCLOAK_SECRET: ${CITIZEN_KEYCLOAK_SECRET}
       KEYCLOAK_ACCOUNTS_SECRET: ${KEYCLOAK_ACCOUNTS_SECRET}
+      # Secret client của gói, thay vào ${TÊN_BIẾN} trong modules/<gói>/identity (gói xã: client citizen-app).
+      CITIZEN_KEYCLOAK_SECRET: ${CITIZEN_KEYCLOAK_SECRET}
       # Tài khoản quản trị hệ thống duy nhất (make check-env kiểm tra độ mạnh mật khẩu).
       COMMUNEOS_ADMIN_USERNAME: ${COMMUNEOS_ADMIN_USERNAME}
       COMMUNEOS_ADMIN_PASSWORD: ${COMMUNEOS_ADMIN_PASSWORD}
-      # Vai trò của các gói đang bật (mục "roles" trong modules/<gói>/module.json).
-      COMMUNEOS_MODULES: ${COMMUNEOS_MODULES:-xa,doanh-nghiep}
+      # Định danh, vai trò của các gói đang bật (mục "identity", "roles" trong modules/<gói>/module.json).
+      COMMUNEOS_MODULES: ${COMMUNEOS_MODULES-xa,doanh-nghiep}
       MODULES_DIR: /modules
     volumes:
       - ./core/identity:/app:ro
@@ -152,7 +152,7 @@ services:
       POSTGRES_APP_PASSWORD: ${POSTGRES_APP_PASSWORD}
       POSTGRES_REST_PASSWORD: ${POSTGRES_REST_PASSWORD}
       WORKFLOW_TOKEN: ${WORKFLOW_TOKEN}
-      COMMUNEOS_MODULES: ${COMMUNEOS_MODULES:-xa,doanh-nghiep}
+      COMMUNEOS_MODULES: ${COMMUNEOS_MODULES-xa,doanh-nghiep}
     volumes:
       - ./core/db:/setup/core:ro
       - ./modules:/setup/modules:ro
@@ -243,11 +243,12 @@ services:
       FLOWABLE_PASSWORD: ${FLOWABLE_ADMIN_PASSWORD}
       REST_URL: http://rest:3000
       WORKFLOW_TOKEN: ${WORKFLOW_TOKEN}
-      # Việc định kỳ cho Kênh người dân (tắt mặc định): gửi nhắc việc mỗi giờ, quét dữ liệu đến hạn rà soát lưu trữ mỗi ngày.
+      # Bật việc định kỳ của gói (mục "jobs", "enabledBy" trong module.json; tắt mặc định). Gói xã: gửi nhắc việc mỗi giờ,
+      # quét dữ liệu đến hạn rà soát lưu trữ mỗi ngày.
       CITIZEN_REMINDERS_ENABLED: ${CITIZEN_REMINDERS_ENABLED:-false}
       CITIZEN_RETENTION_SCAN_ENABLED: ${CITIZEN_RETENTION_SCAN_ENABLED:-false}
       # Gói nghiệp vụ (cùng danh sách với db-setup): quy trình, sơ đồ BPMN, việc định kỳ khai báo trong module.json.
-      COMMUNEOS_MODULES: ${COMMUNEOS_MODULES:-xa,doanh-nghiep}
+      COMMUNEOS_MODULES: ${COMMUNEOS_MODULES-xa,doanh-nghiep}
       MODULES_DIR: /modules
     volumes:
       - ./core/orchestrator:/app:ro
@@ -264,7 +265,7 @@ services:
       retries: 30
       start_period: 30s
 
-  # Dịch vụ tài khoản cán bộ: lãnh đạo xã quản lý cán bộ xử lý của xã mình qua Keycloak Admin API.
+  # Dịch vụ tài khoản: quản trị tạo đơn vị, lãnh đạo đơn vị quản lý cán bộ của đơn vị mình qua Keycloak Admin API.
   accounts:
     image: node:22-alpine
     restart: unless-stopped
@@ -277,7 +278,7 @@ services:
       WORKFLOW_TOKEN: ${WORKFLOW_TOKEN}
       # Người dùng bên ngoài của các gói (mục "registration" trong module.json); secret client của gói đọc theo tên biến
       # gói khai báo (gói xã: CITIZEN_KEYCLOAK_SECRET).
-      COMMUNEOS_MODULES: ${COMMUNEOS_MODULES:-xa,doanh-nghiep}
+      COMMUNEOS_MODULES: ${COMMUNEOS_MODULES-xa,doanh-nghiep}
       MODULES_DIR: /modules
       CITIZEN_KEYCLOAK_SECRET: ${CITIZEN_KEYCLOAK_SECRET}
     volumes:
@@ -328,7 +329,7 @@ services:
       FILES_SERVICE_TOKEN: ${FILES_SERVICE_TOKEN}
       CLAMAV_HOST: ${CLAMAV_HOST:-}
       # Loại đối tượng được đính kèm tệp: mục "attachments" trong modules/<gói>/module.json của các gói đang bật.
-      COMMUNEOS_MODULES: ${COMMUNEOS_MODULES:-xa,doanh-nghiep}
+      COMMUNEOS_MODULES: ${COMMUNEOS_MODULES-xa,doanh-nghiep}
       MODULES_DIR: /modules
     volumes:
       - ./core/files:/app:ro
@@ -402,7 +403,7 @@ services:
     environment:
       BASE_URL: /docs
       # Đặc tả của các gói đang bật (modules/<gói>/api-docs.yaml) hiện thêm trên trang tài liệu.
-      COMMUNEOS_MODULES: ${COMMUNEOS_MODULES:-xa,doanh-nghiep}
+      COMMUNEOS_MODULES: ${COMMUNEOS_MODULES-xa,doanh-nghiep}
     volumes:
       - ./core/api-docs:/communeos:ro
       - ./core/api-docs/50-communeos.sh:/docker-entrypoint.d/50-communeos.sh:ro
@@ -427,7 +428,7 @@ services:
       AI_CHAT_MODEL: ${AI_CHAT_MODEL:-qwen3:1.7b}
       AI_EMBED_MODEL: ${AI_EMBED_MODEL:-bge-m3}
       # Nguồn tri thức riêng của gói: mục "knowledgeProvider" trong modules/<gói>/module.json của các gói đang bật.
-      COMMUNEOS_MODULES: ${COMMUNEOS_MODULES:-xa,doanh-nghiep}
+      COMMUNEOS_MODULES: ${COMMUNEOS_MODULES-xa,doanh-nghiep}
       MODULES_DIR: /modules
     volumes:
       - ./core/ai:/app:ro

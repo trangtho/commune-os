@@ -40,7 +40,7 @@ const SYS_ADMIN_PASSWORD = String(process.env.COMMUNEOS_ADMIN_PASSWORD || '')
 const CONFIDENTIAL = {
   'accounts-service': 'KEYCLOAK_ACCOUNTS_SECRET',
 }
-const MODULES = String(process.env.COMMUNEOS_MODULES || 'xa').split(/[\s,]+/).filter(Boolean)
+const MODULES = String(process.env.COMMUNEOS_MODULES || '').split(/[\s,]+/).filter(Boolean)
 const MODULES_DIR = process.env.MODULES_DIR || '/modules'
 // Biến ${TÊN} trong tệp realm được thay bằng biến môi trường cùng tên.
 const substitute = (raw) => raw.replace(/\$\{([A-Z0-9_]+)\}/g, (all, name) => (process.env[name] ? JSON.stringify(process.env[name]).slice(1, -1) : all))
@@ -173,7 +173,7 @@ async function main() {
   // 6. Vai trò của các gói đang bật: gói khai báo, lõi tạo trong Keycloak; lãnh đạo đơn vị gán cho nhân viên qua
   //    dịch vụ tài khoản (PUT /accounts/staff/:id/roles), chỉ vai trò của gói đơn vị đã bật.
   const existing = new Map((await api('GET', '/roles?briefRepresentation=false&max=1000')).map((r) => [r.name, r]))
-  for (const m of String(process.env.COMMUNEOS_MODULES || 'xa').split(/[\s,]+/).filter(Boolean)) {
+  for (const m of String(process.env.COMMUNEOS_MODULES || '').split(/[\s,]+/).filter(Boolean)) {
     const file = join(process.env.MODULES_DIR || '/modules', m, 'module.json')
     if (!existsSync(file)) continue
     for (const r of JSON.parse(await readFile(file, 'utf8')).roles || []) {

@@ -18,7 +18,7 @@ export type CoreAiResult = {
 }
 
 export async function askCoreAi(event: H3Event, question: string, procedureId = ''): Promise<CoreAiResult | null> {
-  const body = { question, procedureId: procedureId || undefined }
+  const body = { question, refId: procedureId || undefined }
   try {
     if (readSession(event)?.authMethod === 'keycloak') {
       return await citizenGateway<CoreAiResult>(event, '/ai/ask', { method: 'POST', body })

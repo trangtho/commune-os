@@ -341,7 +341,7 @@ if [ "$(curl -s "$GW/public/ai/ready" | python3 -c 'import json,sys; print(json.
   scope() { # scope <token> <câu hỏi> → các nguồn trả về (mã thủ tục hoặc loại nguồn)
     curl -s -m 120 -X POST -H "Authorization: Bearer $1" -H 'Content-Type: application/json' \
       -d "{\"question\":\"$2\",\"select\":false}" "$GW/ai/ask" |
-      python3 -c 'import json,sys; d=json.load(sys.stdin); print(d.get("mode")+":"+",".join(sorted(set(c["procedure_id"] or c["source_type"] for c in d.get("chunks",[])))))'
+      python3 -c 'import json,sys; d=json.load(sys.stdin); print(d.get("mode")+":"+",".join(sorted(set(c.get("procedure_id") or c["source_type"] for c in d.get("chunks",[])))))'
   }
   # Tự tắt thủ tục kết hôn ở xã A trong lúc kiểm tra (bản cài mới bật sẵn mọi thủ tục), xong trả lại trạng thái cũ.
   hon_was=$(curl -s -H "Authorization: Bearer $QT" "$GW/rest/procedures?id=eq.ket-hon&select=enabled_tenants" |

@@ -14,7 +14,8 @@ dữ liệu cách ly theo đơn vị, quy trình BPMN, lưu trữ tệp, sổ gh
 - **Gói doanh nghiệp** ([modules/doanh-nghiep](../modules/doanh-nghiep/README.md)): "Công ty A" duyệt đơn nghỉ
   phép trên cùng lõi, không sửa mã của lõi. Chạy `make example-enterprise`.
 
-Lõi cài và chạy được khi không có gói xã; gói nào được nạp do biến `COMMUNEOS_MODULES` quyết định. Mỗi đơn vị chỉ dùng
+Lõi cài và chạy được khi không có gói nghiệp vụ nào (`COMMUNEOS_MODULES=` rỗng); gói nào được nạp do biến
+`COMMUNEOS_MODULES` quyết định, thêm gói vào lõi đang chạy chỉ cần sửa biến rồi `make up`. Mỗi đơn vị chỉ dùng
 các gói được bật cho mình: xã A bật gói `xa`, Công ty A bật gói `doanh-nghiep`; quản trị hệ thống chọn gói khi tạo đơn
 vị và bật, tắt ở bảng quản trị (Đơn vị → chi tiết đơn vị).
 
@@ -55,8 +56,9 @@ Lõi không biết gói nào tồn tại; mọi thứ riêng của gói nằm tr
 - Realm Keycloak của lõi (`core/identity/realm/communeos-realm.json`) không có client, vai trò, thuộc tính của gói.
 - `make test-architecture` kiểm tra SQL của lõi, mã của các dịch vụ lõi, cấu hình cổng, realm và đặc tả API của lõi không
   nhắc tới bảng, hàm, đường dẫn, client của gói xã.
-- CI có job "Chỉ lõi, không có gói xã" (`COMMUNEOS_MODULES=doanh-nghiep`): dựng lõi, chạy `make test-platform` (kiểm tra
-  thêm rằng không có bảng, API nào của gói xã) và `make example-enterprise`.
+- CI có job "Chỉ lõi, không có gói xã": dựng lõi không có gói nào (`COMMUNEOS_MODULES=`), chạy `make test-platform`;
+  rồi cài thêm gói doanh nghiệp vào lõi đang chạy (`COMMUNEOS_MODULES=doanh-nghiep`), chạy lại `make test-platform` (kiểm
+  tra thêm rằng không có bảng, API nào của gói xã) và `make example-enterprise`.
 
 Gói nghiệp vụ chỉ được dựa vào phần lõi: bảng `tenants`, các hàm đọc token, `is_workflow_call`, `ledger_record`,
 `register_request_hook`, `tenant_has_module`, `require_module`, `has_role`, dịch vụ tài khoản. Không đọc ghi bảng của gói
@@ -102,9 +104,8 @@ Làm theo [modules/doanh-nghiep](../modules/doanh-nghiep/README.md):
 
 ## Giới hạn hiện tại
 
-- Vai trò của lõi cố định (`leader`, `officer`, `receptionist`, `sys_admin`); gói thêm vai trò riêng qua mục `roles`.
-- Hợp đồng nguồn tri thức của AI giữ tên tham số "đối tượng ưu tiên" `procedureId` / `p_procedure_id` (gói xã dùng cho
-  mã thủ tục); gói khác dùng cho mã đối tượng của mình.
+- Vai trò của lõi cố định (`leader`, `officer`, `sys_admin`); gói thêm vai trò riêng qua mục `roles` (tên `<gói>:<vai trò>`)
+  hoặc qua phần định danh `identity` (gói xã: `citizen`, `receptionist`, `supervisor`).
 - Hồ sơ cán bộ, giao việc, hai cấp duyệt (`modules/xa/db/17-nhan-vien.sql`) còn thuộc gói xã vì gắn với hồ sơ (khóa
   ngoại tới hồ sơ, duyệt kết quả hồ sơ) và màn hình cán bộ xã gọi trực tiếp; gói khác tự làm phần tương ứng của mình.
 

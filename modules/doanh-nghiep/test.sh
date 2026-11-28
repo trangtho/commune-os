@@ -186,7 +186,7 @@ late=$(code_of "$(upload "$NV" "$TMP/giay.pdf" application/pdf)")
 [ "$late" = "409" ] && ok "Đơn đã duyệt không nhận thêm tệp (409, uploadStatuses của gói)" || fail "Đính kèm sau khi duyệt phải 409, nhận $late"
 
 # 6. Sổ ghi nhận của lõi: chuỗi riêng của Công ty A, nguyên vẹn, có đủ các bước của đơn (cả tệp đính kèm).
-steps=$(call GET "$LG" "/rest/ledger?dossier_id=eq.$ID&select=action&order=seq" | cut -f2- | python3 -c 'import json,sys
+steps=$(call GET "$LG" "/rest/ledger?ref_id=eq.$ID&select=action&order=seq" | cut -f2- | python3 -c 'import json,sys
 try: print(",".join(r["action"] for r in json.load(sys.stdin)))
 except Exception: print("")')
 chain=$(call POST "$LG" /rest/rpc/verify_ledger "{\"only_tenant\":\"$CODE\"}" | cut -f2- | python3 -c 'import json,sys
