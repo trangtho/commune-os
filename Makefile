@@ -63,6 +63,23 @@ workflow-expected-status-test: demo ## Kiểm thử điều kiện trạng thái
 test-commune: ## Kiểm thử đơn vị Kênh cán bộ
 	docker run --rm -v "$(CURDIR)":/w -w /w/apps/commune node:22-alpine npm test
 
+# Bộ công cụ viết gói (core/sdk/module-sdk.mjs) chạy trong Node 22 của Docker; tệp sinh ra thuộc người dùng hiện tại.
+SDK = docker run --rm --user "$$(id -u):$$(id -g)" -v "$(CURDIR)":/w -w /w node:22-alpine node core/sdk/module-sdk.mjs
+# Chỉ nhận NAME, TITLE ghi trên dòng lệnh (máy có thể sẵn biến môi trường NAME).
+SDK_NAME = $(if $(filter command line,$(origin NAME)),$(NAME))
+SDK_TITLE = $(if $(filter command line,$(origin TITLE)),$(TITLE))
+
+.PHONY: module-create module-validate test-sdk
+module-create: ## Sinh khung gói nghiệp vụ mới chạy được ngay: make module-create NAME=ten-goi [TITLE="Tên hiển thị"]
+	@[ -n "$(SDK_NAME)" ] || { echo 'Dùng: make module-create NAME=ten-goi [TITLE="Tên hiển thị"]'; exit 1; }
+	$(SDK) create "$(SDK_NAME)" --title "$(SDK_TITLE)"
+
+module-validate: ## Kiểm tra module.json của mọi gói (hoặc NAME=ten-goi) theo hợp đồng lõi đọc khi nạp gói
+	$(SDK) validate $(SDK_NAME)
+
+test-sdk: ## Kiểm thử bộ công cụ viết gói (Node 22, không cần dựng hệ thống)
+	docker run --rm -v "$(CURDIR)":/w -w /w node:22-alpine node --test core/tests/module-sdk.test.mjs
+
 portal-smoke: ## Kiểm thử đăng nhập demo ba kênh (Node 22 trên máy chủ, make demo trước)
 	node modules/xa/tests/portal-smoke.mjs
 

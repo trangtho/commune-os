@@ -11,6 +11,20 @@ Mọi thay đổi đáng chú ý của dự án được ghi tại đây.
 
 ## [Chưa phát hành]
 
+### Thêm (bộ công cụ viết gói nghiệp vụ, 2026-11-28)
+
+- `make module-create NAME=<tên-gói> [TITLE="..."]` (`core/sdk/module-sdk.mjs`): sinh khung gói chạy được ngay trên lõi:
+  bảng trong schema riêng có RLS theo đơn vị, API tạo và xem, quy trình duyệt BPMN qua `/workflow/<gói>`, tệp đính kèm
+  qua `/files/<gói>`, tài liệu tri thức cho trợ lý AI, sổ ghi nhận, `test.sh` kiểm thử qua cổng API. Không ghi đè gói
+  đã có, từ chối tên không hợp lệ hoặc dành cho lõi.
+- `make module-validate [NAME=<tên-gói>]`: kiểm tra `module.json` theo đúng quy tắc các dịch vụ lõi áp dụng khi nạp gói
+  (db-setup, identity-setup, orchestrator, files, accounts, ai-gateway): mục không có trong hợp đồng, tệp khai báo không
+  có, hàm hoặc bảng ảo khai báo mà SQL của gói không tạo, sơ đồ BPMN thiếu quy trình hoặc trạng thái kết thúc, tệp SQL
+  thiếu SPDX, tên trùng giữa các gói (loại đối tượng, loại đính kèm, hàm công khai, đường dẫn tệp, client đăng ký).
+- `make test-sdk`: kiểm thử bộ công cụ (gói có sẵn qua kiểm tra, khung mới qua kiểm tra, 21 kiểu khai báo sai bị bắt).
+  CI chạy `make test-sdk`, `module-validate`; job "Chỉ lõi" sinh một gói mới, cài vào lõi đang chạy và chạy `test.sh`
+  của gói đó.
+
 ### Thay đổi (cài trên máy chủ: HTTPS, Keycloak chạy thật, bí mật, 2026-11-28)
 
 - Keycloak chạy chế độ chạy thật (`start` thay `start-dev`), nhận địa chỉ công khai qua proxy (`KC_PROXY_HEADERS`).
