@@ -70,6 +70,18 @@ jobs:
       - name: Gói doanh nghiệp chạy trên lõi không có gói xã
         run: make example-enterprise
 
+      - name: Gói mới sinh bằng bộ công cụ viết gói (make module-create) cài vào lõi đang chạy và chạy được
+        run: |
+          make module-create NAME=thu-nghiem TITLE="Gói thử nghiệm"
+          make module-validate
+          sed -i "s/^COMMUNEOS_MODULES=.*/COMMUNEOS_MODULES=doanh-nghiep,thu-nghiem/" .env
+          docker compose up -d \
+            db db-setup identity identity-setup rest-keys rest gateway api-docs workflow-engine orchestrator \
+            storage files accounts admin https
+          sh core/tests/wait-ready.sh 600
+          sh modules/thu-nghiem/test.sh
+          make test-platform
+
       - name: Bảng quản trị, cổng công khai, trang tài liệu không phụ thuộc gói xã
         run: |
           curl -fsS http://localhost:3001/api/health
@@ -121,7 +133,7 @@ jobs:
                    core/db/migrate.sh core/db/init/*.sh modules/doanh-nghiep/test.sh apps/citizen/e2e/run.sh; do
             sh -n "$f"
           done
-          for f in modules/xa/demo/demo.mjs core/accounts/server.mjs core/orchestrator/server.mjs core/files/server.mjs core/ai/server.mjs; do
+          for f in modules/xa/demo/demo.mjs core/sdk/module-sdk.mjs core/accounts/server.mjs core/orchestrator/server.mjs core/files/server.mjs core/ai/server.mjs; do
             node --check "$f"
           done
 
@@ -146,6 +158,8 @@ jobs:
       - name: Kiểm thử kiến trúc và phiên đăng nhập ba kênh
         run: |
           node --experimental-strip-types --test core/tests/architecture.test.mjs
+          node --test core/tests/module-sdk.test.mjs
+          node core/sdk/module-sdk.mjs validate
           node modules/xa/tests/portal-smoke.mjs
           npm --prefix apps/commune test
 

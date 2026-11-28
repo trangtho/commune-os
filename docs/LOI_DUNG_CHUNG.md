@@ -58,7 +58,8 @@ Lõi không biết gói nào tồn tại; mọi thứ riêng của gói nằm tr
   nhắc tới bảng, hàm, đường dẫn, client của gói xã.
 - CI có job "Chỉ lõi, không có gói xã": dựng lõi không có gói nào (`COMMUNEOS_MODULES=`), chạy `make test-platform`;
   rồi cài thêm gói doanh nghiệp vào lõi đang chạy (`COMMUNEOS_MODULES=doanh-nghiep`), chạy lại `make test-platform` (kiểm
-  tra thêm rằng không có bảng, API nào của gói xã) và `make example-enterprise`.
+  tra thêm rằng không có bảng, API nào của gói xã) và `make example-enterprise`; cuối cùng sinh một gói mới bằng
+  `make module-create`, cài vào lõi đang chạy và chạy bài kiểm thử của gói đó.
 
 Gói nghiệp vụ chỉ được dựa vào phần lõi: bảng `tenants`, các hàm đọc token, `is_workflow_call`, `ledger_record`,
 `register_request_hook`, `tenant_has_module`, `require_module`, `has_role`, dịch vụ tài khoản. Không đọc ghi bảng của gói
@@ -77,7 +78,15 @@ không hiện trong danh sách đăng ký công dân, người của đơn vị 
 
 ## Thêm nghiệp vụ mới
 
-Làm theo [modules/doanh-nghiep](../modules/doanh-nghiep/README.md):
+Nhanh nhất: `make module-create NAME=<tên-gói> TITLE="Tên hiển thị"` sinh khung gói chạy được ngay (bảng có RLS theo
+đơn vị, API tạo và xem, quy trình duyệt BPMN, tệp đính kèm, tài liệu tri thức cho trợ lý AI, sổ ghi nhận, `test.sh`
+kiểm thử qua cổng API); thêm tên gói vào `COMMUNEOS_MODULES`, `make up`, `sh modules/<tên-gói>/test.sh`. Sửa khung
+theo nghiệp vụ, rồi `make module-validate NAME=<tên-gói>` kiểm tra `module.json` theo đúng quy tắc các dịch vụ lõi
+áp dụng khi nạp gói: mục không có trong hợp đồng (gõ nhầm), tệp khai báo không có, hàm hoặc bảng ảo khai báo mà SQL
+của gói không tạo, sơ đồ BPMN thiếu quy trình hoặc trạng thái kết thúc, tên trùng với gói khác. Công cụ:
+`core/sdk/module-sdk.mjs` (`make test-sdk` kiểm thử chính công cụ này).
+
+Các bước khi tự viết, theo mẫu [modules/doanh-nghiep](../modules/doanh-nghiep/README.md):
 
 1. **Thư mục gói:** `modules/<tên-gói>/` gồm `module.json`, `db/`, `bpmn/`, bài kiểm thử.
 2. **Dữ liệu (`db/*.sql`, chạy lại được):** bảng trong schema riêng, có cột đơn vị (`tenant_id` tham chiếu `tenants`);
@@ -96,7 +105,7 @@ Làm theo [modules/doanh-nghiep](../modules/doanh-nghiep/README.md):
    `identity` nếu gói có người dùng bên ngoài tự đăng ký (như công dân của gói xã); `api-docs.yaml` cạnh `module.json`
    để trang tài liệu API hiện đường dẫn riêng của gói.
    Hàm đổi trạng thái phải kiểm tra `public.is_workflow_call()` để mọi bước đi qua sơ đồ.
-5. **Cài gói:** thêm tên gói vào `COMMUNEOS_MODULES` trong `.env`, chạy `make up`.
+5. **Cài gói:** `make module-validate NAME=<tên-gói>`, thêm tên gói vào `COMMUNEOS_MODULES` trong `.env`, chạy `make up`.
 6. **Đơn vị, tài khoản:** quản trị hệ thống tạo đơn vị kèm lãnh đạo và chọn gói (`POST /accounts/tenants` với
    `"modules": ["<gói>"]`, hoặc bảng quản trị → Đơn vị → Thêm đơn vị); lãnh đạo tạo nhân viên (`POST /accounts/staff`).
 7. **Gọi qua cổng:** `/rest/...` cho dữ liệu, `/workflow/<loại>/<mã>/actions` cho từng bước. Giao diện (nếu cần) là ứng
