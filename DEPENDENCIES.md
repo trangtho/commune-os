@@ -28,6 +28,7 @@ thuộc danh sách OSI (https://opensource.org/licenses).
 | Ollama        | 0.12.6    | MIT                | Ảnh chính thức `ollama/ollama`             | Chạy mô hình AI cục bộ (CPU hoặc GPU)       |
 | ClamAV        | 1.5.2     | GPL-2.0-only       | Ảnh chính thức clamav/clamav (tùy chọn)    | Quét mã độc tệp tải lên, chạy dịch vụ riêng |
 | Swagger UI    | 5.17.14   | Apache-2.0         | Ảnh chính thức `swaggerapi/swagger-ui`     | Trang tài liệu API của lõi (`/docs/`)       |
+| Caddy         | 2.10.2    | Apache-2.0         | Ảnh chính thức `caddy` (tùy chọn)          | Proxy HTTPS, tự cấp chứng chỉ (`COMPOSE_PROFILES=https`) |
 
 ## Thư viện (trình quản lý gói)
 

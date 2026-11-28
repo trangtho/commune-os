@@ -11,6 +11,29 @@ Mọi thay đổi đáng chú ý của dự án được ghi tại đây.
 
 ## [Chưa phát hành]
 
+### Thay đổi (cài trên máy chủ: HTTPS, Keycloak chạy thật, bí mật, 2026-11-28)
+
+- Keycloak chạy chế độ chạy thật (`start` thay `start-dev`), nhận địa chỉ công khai qua proxy (`KC_PROXY_HEADERS`).
+  `KEYCLOAK_PUBLIC_URL` để trống thì suy ra từ `COMMUNEOS_DOMAIN` (mới; localhost, IP mạng nội bộ hoặc tên miền).
+- Proxy HTTPS tùy chọn (Caddy, `COMPOSE_PROFILES=https`, `core/ops/Caddyfile`): mỗi thành phần một cổng HTTPS trên cùng
+  địa chỉ (443 Kênh người dân, 8443 cán bộ, 8444 quản trị, 8445 API, 8446 Keycloak); tên miền công khai tự xin chứng chỉ
+  Let's Encrypt, địa chỉ IP hay tên nội bộ dùng CA nội bộ (`make https-ca` lấy chứng chỉ gốc cài vào máy cán bộ).
+- `make secrets`: tạo `.env` và sinh ngẫu nhiên mọi mật khẩu, khóa bí mật còn để giá trị mẫu; máy đã cài thì giữ các
+  bí mật chỉ dùng lúc khởi tạo; bật HTTPS thì tự đặt `KEYCLOAK_PUBLIC_URL` và `*_PORTAL_PUBLIC_ORIGIN` theo cổng của
+  proxy. `make check-env` (`core/ops/check-env.sh`) từ chối bí mật mẫu khi máy chủ mở cho máy khác, kiểm tra địa chỉ
+  công khai khi bật HTTPS.
+- `PORTAL_BIND_ADDRESS` áp cho cả cổng API (9080) và Keycloak (8080); trước đây hai cổng này mở trên mọi địa chỉ.
+  Bỏ biến `PUBLIC_URL` không dùng.
+- Trang tài liệu API gửi lời gọi `/rest` về đúng địa chỉ đang mở; bảng quản trị suy ra địa chỉ màn hình cán bộ, Keycloak
+  theo cấu hình. Hướng dẫn cài, chứng chỉ, đổi bí mật, cập nhật: `core/ops/README.md`.
+- CI: tạo `.env` bằng `make secrets`; job "Chỉ lõi" cài như máy chủ (bật HTTPS) và kiểm tra truy cập, đăng nhập bảng
+  quản trị qua HTTPS (cookie `Secure`, chặn Origin lạ).
+
+### Sửa lỗi (2026-11-28)
+
+- Kênh người dân, Hồ sơ cá nhân: lựa chọn "Gợi ý thủ tục dành cho bạn" đang sửa dở bị mất khi cập nhật trực tiếp tải lại
+  dữ liệu ở nền, hoặc khi bấm trước lúc trang tải xong; nay giữ lựa chọn chưa lưu và chỉ bật ô nhập khi trang sẵn sàng.
+
 ### Thay đổi (lõi không còn mã, cấu hình nào của gói xã, 2026-11-30)
 
 - Dịch vụ tệp: đường dẫn giấy tờ hồ sơ, giấy tờ cán bộ, giấy tờ trong mã chuyển hồ sơ chuyển thành khai báo `files`

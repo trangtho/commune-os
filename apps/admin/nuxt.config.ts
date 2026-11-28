@@ -20,7 +20,9 @@ export default defineNuxtConfig({
     sessionSecret: process.env.SESSION_SECRET || "",
     public: {
       // Địa chỉ trình duyệt mở được: màn hình cán bộ xã và trang quản trị Keycloak.
-      communeUrl: "http://localhost:3002",
+      // Ghi đè lúc chạy bằng NUXT_PUBLIC_COMMUNE_URL, NUXT_PUBLIC_KEYCLOAK_PUBLIC_URL (docker-compose.yml). communeUrl để
+      // trống thì trang tự suy ra từ địa chỉ đang mở (useCommuneUrl).
+      communeUrl: "",
       keycloakPublicUrl: "http://localhost:8080",
     },
   },

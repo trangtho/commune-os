@@ -27,6 +27,7 @@ const usesXa = computed(() => has(code, "xa"));
 const { procedures, load: loadProcedures, setForTenant, loadError } = useProcedures();
 const { api } = useApi();
 const config = useRuntimeConfig().public;
+const communeUrl = useCommuneUrl();
 
 const tab = ref<"tong-quan" | "thu-tuc" | "tai-khoan">("tong-quan");
 const ledger = ref<LedgerCheck | null>(null);
@@ -249,7 +250,7 @@ async function toggleTenant() {
           <div class="mt-4 flex flex-wrap gap-2">
             <a
               v-if="usesXa"
-              :href="config.communeUrl"
+              :href="communeUrl"
               target="_blank"
               rel="noopener"
               class="inline-flex h-10 items-center gap-2 rounded-md bg-brand-700 px-4 text-sm font-semibold text-white hover:bg-brand-800"

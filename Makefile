@@ -2,7 +2,7 @@
 # SPDX-License-Identifier: Apache-2.0
 COMPOSE ?= docker compose
 .DEFAULT_GOAL := help
-.PHONY: check-env demo ready e2e-citizen test-sql backup restore citizen-api-test procedure-privacy-test help up down logs ps seed test test-citizen citizen-dev reset-demo rls-test rag-test chat-history-test personalization-test representation-test citizen-experience-test handoff-support-test guidance-batches-test preflight-counter-test repair-db doctor
+.PHONY: check-env secrets https-ca demo ready e2e-citizen test-sql backup restore citizen-api-test procedure-privacy-test help up down logs ps seed test test-citizen citizen-dev reset-demo rls-test rag-test chat-history-test personalization-test representation-test citizen-experience-test handoff-support-test guidance-batches-test preflight-counter-test repair-db doctor
 help: ## Liệt kê lệnh
 	@grep -E '^[a-z0-9-]+:.*## ' $(MAKEFILE_LIST) | awk 'BEGIN {FS = ":.*## "}; {printf "  make %-14s %s\n", $$1, $$2}'
 .env:
@@ -14,13 +14,20 @@ check-env: .env ## Kiểm tra .env có đủ biến bắt buộc (biến docker-
 	if [ -n "$$missing" ]; then \
 	  echo "Tệp .env thiếu hoặc để trống các biến bắt buộc:$$missing"; \
 	  echo "Chép các dòng tương ứng từ .env.example sang .env (đổi giá trị bí mật), rồi chạy lại."; exit 1; fi
-	@sh core/identity/check-admin-env.sh .env
+	@sh core/ops/check-env.sh .env
 up: check-env ## Dựng và khởi động toàn bộ dịch vụ, tự nạp schema, danh mục thủ tục và mô hình AI (lần đầu); dữ liệu mẫu: make demo
 	$(COMPOSE) up -d --build
 	@# Cổng API và các dịch vụ Node của lõi chạy thẳng mã nguồn gắn từ core/ vào container: sau git pull, compose
 	@# thấy cấu hình không đổi nên không khởi động lại, container vẫn chạy mã cũ (thiếu API mới, đăng nhập, nộp hồ sơ lỗi).
 	$(COMPOSE) up -d --force-recreate --no-deps gateway orchestrator accounts files ai-gateway
 	@sh core/tests/wait-ready.sh 900
+
+secrets: ## Sinh ngẫu nhiên mọi bí mật còn để giá trị mẫu trong .env (chưa có .env thì tạo từ .env.example); chạy trước make up
+	@sh core/ops/secrets.sh .env
+
+https-ca: ## Chép chứng chỉ gốc của proxy HTTPS (CA nội bộ, khi dùng địa chỉ IP hay tên nội bộ) ra communeos-https-ca.crt để cài vào máy cán bộ
+	$(COMPOSE) cp https:/data/caddy/pki/authorities/local/root.crt communeos-https-ca.crt
+	@echo "Đã chép communeos-https-ca.crt. Cài vào mục 'Trusted Root Certification Authorities' trên máy cán bộ (xem core/ops/README.md)."
 
 ready: ## Chờ mọi dịch vụ sẵn sàng (healthcheck đạt, các bước khởi tạo đã xong); báo dịch vụ lỗi nếu có
 	@sh core/tests/wait-ready.sh 900

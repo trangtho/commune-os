@@ -44,6 +44,13 @@ window.onload = async function () {
     plugins: [SwaggerUIBundle.plugins.DownloadUrl],
     layout: 'StandaloneLayout',
     requestInterceptor: function (req) {
+      // Đặc tả PostgREST ghi địa chỉ máy phát triển (PGRST_OPENAPI_SERVER_PROXY_URI); trang tài liệu luôn được mở qua
+      // cổng API, nên gửi lời gọi /rest về đúng địa chỉ đang mở (IP máy chủ, tên miền, HTTPS qua proxy).
+      var target = new URL(req.url, window.location.href)
+      if (target.origin !== window.location.origin && target.pathname.indexOf('/rest/') === 0 &&
+          (target.hostname === 'localhost' || target.hostname === '127.0.0.1')) {
+        req.url = window.location.origin + target.pathname + target.search
+      }
       // Không gắn token vào lời gọi tải đặc tả và lấy token (đường dẫn /docs/).
       var path = new URL(req.url, window.location.href).pathname
       if (path.indexOf('/docs/') !== 0 && !req.headers.Authorization) {
