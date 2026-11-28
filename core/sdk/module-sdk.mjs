@@ -24,6 +24,8 @@ const FN_RE = /^[a-z_][a-z0-9_]{0,62}$/                     // hàm api.* (Postg
 const ROLE_RE = /^[a-z][a-z0-9-]{0,40}$/                    // vai trò của gói (core_module_roles, identity-setup)
 const ENV_RE = /^[A-Z][A-Z0-9_]*$/
 const SEMVER_RE = /^\d+\.\d+\.\d+(-[0-9A-Za-z.-]+)?$/
+// Ghép chuỗi để công cụ REUSE không đọc dòng mã này như một khai báo giấy phép.
+const SPDX_TAG = 'SPDX-' + 'License-Identifier:'
 const RESERVED = new Set(['core', 'api', 'public', 'lo-i', 'loi'])
 const KEYS = new Set(['name', 'title', 'version', 'description', 'db', 'identity', 'registration', 'publicRpc', 'files',
   'attachments', 'knowledge', 'knowledgeProvider', 'roles', 'workflows', 'jobs'])
@@ -68,7 +70,7 @@ export function validateModule(dir, name) {
     if (!/\.(sql|sh)$/.test(String(f))) err(`"db": ${f} phải là tệp .sql hoặc .sh`)
     if (!exists(f, '"db"')) continue
     const text = readFileSync(join(root, f), 'utf8')
-    if (!/SPDX-License-Identifier:/.test(text.slice(0, 400))) err(`"db": ${f} thiếu dòng SPDX-License-Identifier ở đầu tệp`)
+    if (!text.slice(0, 400).includes(SPDX_TAG)) err(`"db": ${f} thiếu dòng ${SPDX_TAG} (giấy phép) ở đầu tệp`)
     if (/\.sql$/.test(f)) sql += '\n' + text
   }
   if (!(m.db || []).length) warnings.push('"db" trống: gói không tạo bảng, hàm nào')
