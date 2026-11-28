@@ -10,8 +10,12 @@ const {data:procedures}=await useFetch<Procedure[]>('/api/procedures',{key:'citi
 const state=reactive<ServicePreferences>({...emptyPreferences,interest_categories:[]})
 const categories=computed(()=>[...new Set((procedures.value||[]).map(p=>p.category))].sort((a,b)=>a.localeCompare(b,'vi')))
 const saving=ref(false);const message=ref('');const messageError=ref(false)
+// Ô nhập chỉ bật sau khi trang gắn xong (hydration): thao tác trước đó bị Vue ghi đè bằng dữ liệu đã tải, mất lựa chọn.
+const ready=ref(false);onMounted(()=>{ready.value=true})
+// Cập nhật trực tiếp (plugins/live-updates) tải lại dữ liệu ở nền: đang sửa dở thì không ghi đè lựa chọn chưa lưu.
+const dirty=ref(false)
 watch(preferences,value=>{
-  if(value)Object.assign(state,{...value,interest_categories:[...(value.interest_categories||[])]})
+  if(value&&!dirty.value)Object.assign(state,{...value,interest_categories:[...(value.interest_categories||[])]})
 },{immediate:true})
 function toggleInterest(category:string,checked:boolean){
   if(checked&&!state.interest_categories.includes(category))state.interest_categories.push(category)
@@ -25,6 +29,7 @@ async function save(){
       interest_categories:[...state.interest_categories],residence_tenant_id:state.residence_tenant_id,
       temporary_tenant_id:state.temporary_tenant_id,preferred_tenant_id:state.preferred_tenant_id
     }})
+    dirty.value=false
     await reload();await refreshNuxtData('citizen-procedure-recommendations')
     message.value=state.personalization_enabled?'Đã lưu tùy chọn. Danh sách thủ tục sẽ được xếp hạng theo thông tin bạn cho phép.':'Đã lưu. Cá nhân hóa đang tắt.'
   }catch(e){message.value=readableError(e);messageError.value=true}
@@ -36,6 +41,7 @@ async function remove(){
   try{
     await $fetch('/api/citizen/preferences',{method:'DELETE'})
     Object.assign(state,{...emptyPreferences,interest_categories:[]})
+    dirty.value=false
     await reload();await refreshNuxtData('citizen-procedure-recommendations')
     message.value='Đã xóa tùy chọn cá nhân hóa.'
   }catch(e){message.value=readableError(e);messageError.value=true}
@@ -51,15 +57,15 @@ async function remove(){
     <NuxtLink to="/thu-tuc" class="btn-outline !text-xs">Xem danh mục</NuxtLink>
   </div>
   <div v-if="loadError" class="rounded-xl border border-rose-200 bg-rose-50 p-4 text-sm text-rose-800" role="alert">Không tải được tùy chọn. <button type="button" class="font-bold underline" @click="reload()"><RefreshCw :size="14" class="inline"/> Thử lại</button></div>
-  <form v-else class="space-y-4" @submit.prevent="save">
+  <form v-else class="space-y-4" @submit.prevent="save" @change="dirty=true">
     <label for="personalization-enabled" class="flex cursor-pointer items-start gap-3 rounded-xl border border-blue-200 bg-blue-50 p-3 text-sm">
-      <input id="personalization-enabled" v-model="state.personalization_enabled" type="checkbox" class="mt-1 h-4 w-4 accent-blue-700"/>
+      <input id="personalization-enabled" v-model="state.personalization_enabled" :disabled="!ready" type="checkbox" class="mt-1 h-4 w-4 accent-blue-700"/>
       <span><b class="block text-brand-800">Bật cá nhân hóa danh sách thủ tục</b><span class="mt-1 block text-xs leading-5 text-slate-600">Khi bật, hệ thống sử dụng lịch sử hồ sơ của chính bạn và các thông tin bạn chọn bên dưới. Tắt bất cứ lúc nào.</span></span>
     </label>
     <p v-if="preferences?.locality_source==='oidc_verified'" class="rounded-lg bg-green-50 px-3 py-2 text-xs text-green-800" role="status">Địa phương được đối chiếu từ thông tin định danh đã xác thực theo cấu hình của hệ thống. Nếu bạn sửa bằng tay, nguồn này sẽ trở thành “tự khai”.</p>
     <div class="grid gap-4 sm:grid-cols-2">
       <div class="sm:col-span-2"><label class="field-label" for="audience-group">Nhóm đối tượng (tự khai)</label>
-        <select id="audience-group" v-model="state.audience_group" class="field">
+        <select id="audience-group" v-model="state.audience_group" :disabled="!ready" class="field">
           <option v-for="option in audienceOptions" :key="option.value" :value="option.value">{{option.label}}</option>
         </select>
         <p class="mt-1 text-xs text-muted">Nhóm đối tượng chỉ được sử dụng để gợi ý khi thủ tục có thông tin phân loại đã kiểm chứng.</p>
@@ -79,7 +85,7 @@ async function remove(){
       </label></div>
     </fieldset>
     <p v-if="message" :class="['rounded-lg p-3 text-sm',messageError?'bg-rose-50 text-rose-800':'bg-green-50 text-green-800']" role="status">{{message}}</p>
-    <div class="flex flex-wrap gap-2 border-t pt-4"><button type="submit" class="btn-primary" :disabled="saving"><Save :size="16"/>{{saving?'Đang lưu...':'Lưu tùy chọn'}}</button>
+    <div class="flex flex-wrap gap-2 border-t pt-4"><button type="submit" class="btn-primary" :disabled="saving||!ready"><Save :size="16"/>{{saving?'Đang lưu...':'Lưu tùy chọn'}}</button>
       <button type="button" class="btn-outline" :disabled="saving" @click="remove"><Trash2 :size="16"/>Xóa dữ liệu tự khai</button></div>
   </form>
 </section>

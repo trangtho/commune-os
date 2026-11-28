@@ -22,5 +22,8 @@ Nhóm sẽ phản hồi trong vòng 7 ngày.
 
 - Tài khoản mẫu do `make demo` tạo (`canbo.xa-a`, `congdan.demo`...) dùng chung một mật khẩu công khai, chỉ dành
   cho máy phát triển; không chạy `make demo` trên máy chủ thật. Tài khoản quản trị hệ thống đặt trong `.env`.
-- Mọi mật khẩu trong `.env` phải được thay bằng giá trị ngẫu nhiên.
+- Mọi mật khẩu trong `.env` phải được thay bằng giá trị ngẫu nhiên: `make secrets`. Khi máy chủ mở cho máy khác
+  (`COMMUNEOS_DOMAIN` khác localhost, `PORTAL_BIND_ADDRESS` khác 127.0.0.1 hoặc bật HTTPS), `make up` từ chối giá trị mẫu.
+- Đưa ra Internet thì luôn bật HTTPS (`COMPOSE_PROFILES=https`) và giữ `PORTAL_BIND_ADDRESS=127.0.0.1`; PostgreSQL không
+  bao giờ mở ra ngoài máy chủ. Hướng dẫn: [core/ops/README.md](core/ops/README.md).
 - Không đưa dữ liệu cá nhân thật vào dữ liệu mẫu, issue hay ảnh chụp màn hình.

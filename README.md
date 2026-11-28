@@ -101,7 +101,7 @@ Chi tiết: [docs/](docs/).
 ```bash
 git clone https://github.com/trangtho/commune-os.git
 cd commune-os
-cp .env.example .env      # sửa mật khẩu trong .env, đặt COMMUNEOS_ADMIN_PASSWORD (tài khoản quản trị hệ thống)
+make secrets              # tạo .env từ .env.example, sinh ngẫu nhiên mọi mật khẩu; in mật khẩu quản trị hệ thống
 make up                   # dựng, khởi động toàn bộ dịch vụ, nạp schema và danh mục thủ tục; chờ tới khi mọi dịch vụ sẵn sàng
 make demo                 # (tùy chọn) 2 xã mẫu, lãnh đạo, cán bộ, công dân, hồ sơ mẫu, tạo qua API của lõi
 make test                 # chạy make demo rồi 54 kiểm tra qua gateway: cách ly xã, quy trình, tệp, tài khoản, công dân, AI (xem core/tests)
@@ -124,7 +124,8 @@ dùng cổng 5432 thì đổi `POSTGRES_PORT` trong `.env`. Vừa khởi động
 `make ready` chờ mọi dịch vụ sẵn sàng (healthcheck đạt) và báo dịch vụ nào lỗi; `make up` tự chạy bước này ở cuối.
 CI dựng lại toàn bộ từ mã nguồn (trừ mô hình AI) và chạy đủ các lệnh kiểm thử trên ở mỗi pull request.
 
-Mọi cấu hình nằm trong tệp `.env`; không cần sửa tệp mã nguồn nào.
+Mọi cấu hình nằm trong tệp `.env`; không cần sửa tệp mã nguồn nào. Cài trên máy chủ cho máy khác truy cập (mạng nội
+bộ hoặc HTTPS, chứng chỉ, đổi bí mật, cập nhật phiên bản): [core/ops](core/ops/README.md).
 
 Sau khi `make up` chạy xong, mở trình duyệt:
 
@@ -138,16 +139,16 @@ Sau khi `make up` chạy xong, mở trình duyệt:
 
 ## Cấu hình
 
-Xem chú thích từng biến trong [.env.example](.env.example).
-Với kho lưu trữ tệp, cần đặt `S3_SECRET_KEY` và `FILES_SERVICE_TOKEN` bằng giá trị ngẫu nhiên
-(`openssl rand -hex 24`); tương tự với `CITIZEN_KEYCLOAK_SECRET`, bí mật của client `citizen-app`
-mà chỉ máy chủ Kênh người dân giữ. Giá trị trong `.env.example` chỉ dùng trên máy phát triển.
+Xem chú thích từng biến trong [.env.example](.env.example). `make secrets` thay mọi mật khẩu, khóa bí mật mẫu
+(`S3_SECRET_KEY`, `FILES_SERVICE_TOKEN`, `CITIZEN_KEYCLOAK_SECRET`...) bằng giá trị ngẫu nhiên; khi máy chủ mở cho máy
+khác, `make check-env` (chạy trước `make up`) từ chối giá trị mẫu. Keycloak chạy ở chế độ chạy thật (`start`).
+Giá trị trong `.env.example` chỉ dùng trên máy phát triển.
 Bật quét mã độc: `docker compose --profile antivirus up -d antivirus`
 rồi đặt `CLAMAV_HOST=antivirus`.
 
 ### Cookie đăng nhập, demo LAN và reverse proxy HTTPS
 
-Mặc định cookie đăng nhập có `Secure`, `HttpOnly`; các cổng portal chỉ bind `127.0.0.1`.
+Mặc định cookie đăng nhập có `Secure`, `HttpOnly`; các cổng http (ba portal, cổng API, Keycloak) chỉ bind `127.0.0.1`.
 Để demo trên máy cá nhân bằng HTTP, đặt `PORTAL_ALLOW_LOCAL_HTTP=true` trong `.env`.
 Nếu giám khảo truy cập từ máy khác trong cùng LAN, ví dụ máy chủ có IP `192.168.1.20`:
 
@@ -161,11 +162,13 @@ trên mạng tin cậy; giới hạn firewall tới máy/mạng giám khảo. Kh
 Cookie chỉ được nới cho localhost, IPv4 loopback, IPv6 loopback và IP IPv4 riêng RFC1918
 (`10/8`, `172.16/12`, `192.168/16`); không áp dụng cho tên miền hoặc IP công cộng.
 Mở `http://192.168.1.20:3000` (người dân), `:3001` (quản trị), `:3002` (cán bộ).
-Các biến `*_PORTAL_PUBLIC_ORIGIN` có thể để trống khi truy cập trực tiếp. Không đổi `PUBLIC_URL`
-hoặc `KEYCLOAK_PUBLIC_URL` chỉ để sửa cookie; cấu hình issuer, OIDC và các URL công khai của lõi
+Các biến `*_PORTAL_PUBLIC_ORIGIN` có thể để trống khi truy cập trực tiếp. Không đổi
+`KEYCLOAK_PUBLIC_URL` chỉ để sửa cookie; cấu hình issuer, OIDC và các URL công khai của lõi
 riêng nếu triển khai các dịch vụ đó từ xa. `CITIZEN_PUBLIC_ORIGIN` vẫn dành riêng cho QR kết quả.
 
-Khi dùng nginx hoặc reverse proxy HTTPS, giữ `PORTAL_ALLOW_LOCAL_HTTP=false`,
+CommuneOS có sẵn proxy HTTPS (Caddy): đặt `COMMUNEOS_DOMAIN`, bỏ dấu # ở dòng `COMPOSE_PROFILES=https` trong `.env`,
+chạy `make secrets` (tự đặt các origin dưới đây theo cổng của proxy) rồi `make up`; xem [core/ops](core/ops/README.md).
+Khi dùng nginx hoặc reverse proxy HTTPS khác, giữ `PORTAL_ALLOW_LOCAL_HTTP=false`,
 `PORTAL_BIND_ADDRESS=127.0.0.1` nếu proxy chạy trên cùng máy chủ, và cấu hình từng origin:
 
 ```dotenv

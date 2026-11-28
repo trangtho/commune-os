@@ -168,3 +168,6 @@ apps/citizen/test-results/
 
 # macOS system files
 .DS_Store
+
+# Chứng chỉ gốc của proxy HTTPS do make https-ca chép ra
+communeos-https-ca.crt

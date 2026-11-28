@@ -8,7 +8,8 @@ SPDX-License-Identifier: Apache-2.0
 Dịch vụ định danh của lõi, dùng Keycloak. Realm xuất ra JSON để nạp tự động.
 
 - Realm `communeos` nằm trong `realm/communeos-realm.json` và được nạp tự động
-  khi khởi động (`start-dev --import-realm`). Tệp realm không có tài khoản người dùng, chỉ có tài khoản dịch vụ;
+  khi khởi động (`start --import-realm`, chế độ chạy thật; HTTP trong mạng Docker, HTTPS do proxy `https` đảm
+  nhận). Địa chỉ công khai ghi trong token: `KEYCLOAK_PUBLIC_URL`, mặc định `http://<COMMUNEOS_DOMAIN>:8080`. Tệp realm không có tài khoản người dùng, chỉ có tài khoản dịch vụ;
   chính sách mật khẩu: tối thiểu 8 ký tự, có chữ và số.
 - Tài khoản quản trị hệ thống duy nhất do `identity-setup` tạo từ `COMMUNEOS_ADMIN_USERNAME`,
   `COMMUNEOS_ADMIN_PASSWORD` trong `.env` (mỗi lần `make up` đặt lại mật khẩu theo `.env`). Lãnh đạo, cán bộ của
@@ -21,7 +22,7 @@ Dịch vụ định danh của lõi, dùng Keycloak. Realm xuất ra JSON để 
   máy chủ Kênh người dân đổi tên đăng nhập, mật khẩu của công dân lấy token (chỉ bật đăng nhập bằng mật khẩu, không bật
   luồng chuyển trang), công dân không có secret nên không tự xin token để gọi thẳng API lõi; mapper đưa `citizen_id` (mã
   công dân trong bảng `citizens`) và `citizen_tenant` (mã xã) vào access token.
-- Client `accounts-service`: tài khoản dịch vụ cho `core/accounts`, bí mật lấy từ biến `KEYCLOAK_ACCOUNTS_SECRET` khi nạp realm.
+- Client `accounts-service`: tài khoản dịch vụ cho `core/accounts`, bí mật lấy từ biến `KEYCLOAK_ACCOUNTS_SECRET` (khi nạp realm và mỗi lần `identity-setup` chạy).
 - Thuộc tính `tenant_id`: người dùng chỉ xem, chỉ quản trị sửa được. `citizen_id`, `citizen_tenant` (gói xã):
   chỉ quản trị xem và sửa.
 - Người dùng bên ngoài của gói (gói xã: công dân) **không** có thuộc tính `tenant_id`: RLS dữ liệu của đơn vị dựa vào

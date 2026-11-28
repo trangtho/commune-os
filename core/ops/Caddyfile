@@ -1,0 +1,60 @@
+# SPDX-FileCopyrightText: 2026 CommuneOS Contributors
+# SPDX-License-Identifier: Apache-2.0
+#
+# Proxy HTTPS của CommuneOS (dịch vụ https, bật bằng COMPOSE_PROFILES=https). Mỗi thành phần một cổng HTTPS trên cùng
+# địa chỉ máy chủ COMMUNEOS_DOMAIN, nên không cần khai báo thêm tên miền phụ:
+#   https://<địa chỉ>         Kênh người dân
+#   https://<địa chỉ>:8443    Màn hình cán bộ xã
+#   https://<địa chỉ>:8444    Bảng quản trị hệ thống
+#   https://<địa chỉ>:8445    Cổng API của lõi, tài liệu API (/docs/)
+#   https://<địa chỉ>:8446    Keycloak (trang tài khoản, trang quản trị định danh)
+# Chứng chỉ: tên miền công khai trỏ về máy chủ (mở cổng 80, 443) thì Caddy tự xin Let's Encrypt và tự gia hạn;
+# địa chỉ IP, localhost hay tên nội bộ thì Caddy tự cấp bằng CA nội bộ (cài chứng chỉ gốc vào máy cán bộ:
+# make https-ca). Ứng dụng phía sau không tin header X-Forwarded-*: địa chỉ công khai của từng ứng dụng đặt trong .env
+# (*_PORTAL_PUBLIC_ORIGIN, make secrets tự đặt) để đặt cookie Secure và chặn gọi chéo trang.
+{
+	# Trình duyệt không gửi SNI khi vào bằng địa chỉ IP: chọn sẵn chứng chỉ của địa chỉ máy chủ.
+	default_sni {$COMMUNEOS_DOMAIN}
+	# Caddy tự chuyển http sang https cho từng cổng và chọn nhầm đích khi nhiều cổng cùng địa chỉ: tự khai báo bên dưới.
+	auto_https disable_redirects
+}
+
+# http://<địa chỉ> (cổng 80) chuyển sang Kênh người dân qua https.
+http://{$COMMUNEOS_DOMAIN} {
+	redir https://{host}{uri} permanent
+}
+
+(chung) {
+	encode zstd gzip
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		X-Content-Type-Options nosniff
+		Referrer-Policy strict-origin-when-cross-origin
+		-Server
+	}
+}
+
+{$COMMUNEOS_DOMAIN} {
+	import chung
+	reverse_proxy citizen:3000
+}
+
+{$COMMUNEOS_DOMAIN}:8443 {
+	import chung
+	reverse_proxy commune:3000
+}
+
+{$COMMUNEOS_DOMAIN}:8444 {
+	import chung
+	reverse_proxy admin:3000
+}
+
+{$COMMUNEOS_DOMAIN}:8445 {
+	import chung
+	reverse_proxy gateway:9080
+}
+
+{$COMMUNEOS_DOMAIN}:8446 {
+	import chung
+	reverse_proxy identity:8080
+}

@@ -3,9 +3,9 @@
 #
 # Toàn bộ CommuneOS: các dịch vụ lõi (db, db-setup, identity, identity-setup, gateway, rest,
 # workflow-engine, orchestrator, accounts, storage, files, antivirus tùy chọn, ai-models, ai, ai-gateway,
-# api-docs)
-# và ba ứng dụng Tầng 2
-# (citizen, commune, admin). Cổng ứng dụng và PostgreSQL chỉ mở trên 127.0.0.1.
+# api-docs), ba ứng dụng Tầng 2 (citizen, commune, admin) và proxy HTTPS tùy chọn (https).
+# Cổng ứng dụng, cổng API, Keycloak mở trên PORTAL_BIND_ADDRESS (mặc định 127.0.0.1: chỉ máy này); PostgreSQL luôn
+# chỉ mở trên 127.0.0.1. Bật HTTPS cho máy chủ: COMPOSE_PROFILES=https trong .env (xem core/ops/README.md).
 
 services:
   db:
@@ -42,7 +42,10 @@ services:
   identity:
     image: quay.io/keycloak/keycloak:26.8.2
     restart: unless-stopped
-    command: start-dev --import-realm
+    # Chế độ chạy thật (start, không phải start-dev). Keycloak nói HTTP trong mạng Docker; HTTPS do proxy https
+    # đảm nhận (KC_PROXY_HEADERS). Địa chỉ công khai (ghi trong token, trang tài khoản) theo KEYCLOAK_PUBLIC_URL,
+    # mặc định http://<COMMUNEOS_DOMAIN>:8080; dịch vụ nội bộ vẫn gọi http://identity:8080 (BACKCHANNEL_DYNAMIC).
+    command: start --import-realm
     environment:
       KC_BOOTSTRAP_ADMIN_USERNAME: ${KEYCLOAK_ADMIN}
       KC_BOOTSTRAP_ADMIN_PASSWORD: ${KEYCLOAK_ADMIN_PASSWORD}
@@ -50,8 +53,10 @@ services:
       KC_DB_URL: jdbc:postgresql://db:5432/keycloak
       KC_DB_USERNAME: ${POSTGRES_USER}
       KC_DB_PASSWORD: ${POSTGRES_PASSWORD}
-      KC_HOSTNAME: ${KEYCLOAK_PUBLIC_URL}
+      KC_HOSTNAME: ${KEYCLOAK_PUBLIC_URL:-http://${COMMUNEOS_DOMAIN:-localhost}:8080}
       KC_HOSTNAME_BACKCHANNEL_DYNAMIC: "true"
+      KC_HTTP_ENABLED: "true"
+      KC_PROXY_HEADERS: xforwarded
       # Cổng quản lý 9000 (chỉ trong mạng Docker): /health/ready cho healthcheck bên dưới.
       KC_HEALTH_ENABLED: "true"
       KEYCLOAK_ACCOUNTS_SECRET: ${KEYCLOAK_ACCOUNTS_SECRET}
@@ -74,7 +79,7 @@ services:
       retries: 30
       start_period: 120s
     ports:
-      - "8080:8080"
+      - "${PORTAL_BIND_ADDRESS:-127.0.0.1}:8080:8080"
 
   # Bổ sung vai trò, client, người dùng mới của tệp realm vào realm đã có (chạy một lần rồi dừng).
   # Keycloak chỉ nạp tệp realm khi tạo mới; dịch vụ này không ghi đè mục đã có.
@@ -129,7 +134,7 @@ services:
       retries: 30
       start_period: 30s
     ports:
-      - "${GATEWAY_PORT}:9080"
+      - "${PORTAL_BIND_ADDRESS:-127.0.0.1}:${GATEWAY_PORT}:9080"
 
   # Bổ sung lược đồ Citizen Portal trên cả PostgreSQL mới và volume hiện có.
   # Không xóa db-data; seed chỉ được nạp bởi db-setup, tránh mount chồng lên init read-only.
@@ -593,8 +598,44 @@ services:
       NUXT_SESSION_SECRET: ${SESSION_SECRET}
       PORTAL_ALLOW_LOCAL_HTTP: ${PORTAL_ALLOW_LOCAL_HTTP:-false}
       PORTAL_PUBLIC_ORIGIN: ${ADMIN_PORTAL_PUBLIC_ORIGIN:-}
+      # Liên kết trên trang chi tiết đơn vị. COMMUNE_PUBLIC_URL để trống thì trang tự suy ra từ địa chỉ đang mở.
+      NUXT_PUBLIC_KEYCLOAK_PUBLIC_URL: ${KEYCLOAK_PUBLIC_URL:-http://${COMMUNEOS_DOMAIN:-localhost}:8080}
+      NUXT_PUBLIC_COMMUNE_URL: ${COMMUNE_PUBLIC_URL:-}
     ports:
       - "${PORTAL_BIND_ADDRESS:-127.0.0.1}:${ADMIN_PORT:-3001}:3000"
+
+  # Proxy HTTPS (Caddy) cho máy chủ: chỉ chạy khi COMPOSE_PROFILES có https. Tên miền công khai thì tự xin chứng chỉ
+  # Let's Encrypt; địa chỉ IP, localhost hay tên nội bộ thì dùng CA nội bộ của Caddy (make https-ca lấy chứng chỉ gốc
+  # để cài vào máy cán bộ). Cấu hình: core/ops/Caddyfile. Không chờ ba ứng dụng (chỉ dựng lõi vẫn chạy được): ứng dụng
+  # nào chưa chạy hoặc không dựng thì cổng đó trả 502.
+  https:
+    image: caddy:2.10.2-alpine
+    profiles: ["https"]
+    restart: unless-stopped
+    environment:
+      COMMUNEOS_DOMAIN: ${COMMUNEOS_DOMAIN:-localhost}
+    volumes:
+      - ./core/ops/Caddyfile:/etc/caddy/Caddyfile:ro
+      - https-data:/data
+      - https-config:/config
+    depends_on:
+      gateway:
+        condition: service_healthy
+      identity:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -q -O /dev/null http://127.0.0.1:2019/config/ || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 30
+      start_period: 10s
+    ports:
+      - "80:80"
+      - "443:443"
+      - "8443:8443"
+      - "8444:8444"
+      - "8445:8445"
+      - "8446:8446"
 
 networks:
   # Mạng riêng của AI, không có đường ra Internet.
@@ -607,3 +648,5 @@ volumes:
   rest-keys:
   citizen-uploads:
   storage-data:
+  https-data:
+  https-config:

@@ -39,8 +39,8 @@ Mở **http://localhost:3000**. Người dân tự tạo tài khoản ở `/dang
 - Tên đăng nhập: `congdan.demo`
 - Mật khẩu: `Demo@2026!`
 
-Cấu hình Docker mặc định chỉ mở cổng trên `127.0.0.1`; dùng cho máy local,
-**không public bản demo trực tiếp ra Internet**. Tên tài khoản, mật khẩu và
+Cấu hình Docker mặc định chỉ mở cổng trên `127.0.0.1` (`PORTAL_BIND_ADDRESS`); dùng cho máy local,
+**không public bản demo trực tiếp ra Internet** (máy chủ thật: HTTPS theo `core/ops/README.md`). Tên tài khoản, mật khẩu và
 ảnh giấy tờ seed không có giá trị thật. Nếu thay đổi mật khẩu demo tại giao
 diện, lần nạp lại seed **không reset** mật khẩu; chỉ reset volume thử nghiệm
 khi đã sao lưu hoặc không còn cần dữ liệu.
